@@ -1908,6 +1908,8 @@
       
         
       
+        
+      
     
     
     
@@ -1960,6 +1962,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../simulation/prep_stage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    prep_stage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2695,21 +2725,21 @@ subtraction and <code>max</code>).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/system/prep.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-54">54</a></span>
-<span class="normal"><a href="#__codelineno-0-55">55</a></span>
-<span class="normal"><a href="#__codelineno-0-56">56</a></span>
-<span class="normal"><a href="#__codelineno-0-57">57</a></span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-57">57</a></span>
 <span class="normal"><a href="#__codelineno-0-58">58</a></span>
 <span class="normal"><a href="#__codelineno-0-59">59</a></span>
 <span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="k">def</span><span class="w"> </span><span class="nf">box_length</span><span class="p">(</span><span class="n">box_min</span><span class="p">,</span> <span class="n">box_max</span><span class="p">,</span> <span class="n">padding</span><span class="p">):</span>
-</span><span id="__span-0-55"><a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Cubic box edge = largest molecule dimension + 2 * padding.</span>
-</span><span id="__span-0-56"><a id="__codelineno-0-56" name="__codelineno-0-56"></a>
-</span><span id="__span-0-57"><a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    Works with plain floats or BSS length Quantities (any type supporting</span>
-</span><span id="__span-0-58"><a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">    subtraction and ``max``).</span>
-</span><span id="__span-0-59"><a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="__span-0-60"><a id="__codelineno-0-60" name="__codelineno-0-60"></a>    <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span> <span class="k">for</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">box_min</span><span class="p">,</span> <span class="n">box_max</span><span class="p">)]</span>
-</span><span id="__span-0-61"><a id="__codelineno-0-61" name="__codelineno-0-61"></a>    <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">padding</span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#__codelineno-0-64">64</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-57"><a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="k">def</span><span class="w"> </span><span class="nf">box_length</span><span class="p">(</span><span class="n">box_min</span><span class="p">,</span> <span class="n">box_max</span><span class="p">,</span> <span class="n">padding</span><span class="p">):</span>
+</span><span id="__span-0-58"><a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Cubic box edge = largest molecule dimension + 2 * padding.</span>
+</span><span id="__span-0-59"><a id="__codelineno-0-59" name="__codelineno-0-59"></a>
+</span><span id="__span-0-60"><a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    Works with plain floats or BSS length Quantities (any type supporting</span>
+</span><span id="__span-0-61"><a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    subtraction and ``max``).</span>
+</span><span id="__span-0-62"><a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-63"><a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span> <span class="k">for</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">box_min</span><span class="p">,</span> <span class="n">box_max</span><span class="p">)]</span>
+</span><span id="__span-0-64"><a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">padding</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2734,11 +2764,11 @@ subtraction and <code>max</code>).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/system/prep.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-39">39</a></span>
-<span class="normal"><a href="#__codelineno-0-40">40</a></span>
-<span class="normal"><a href="#__codelineno-0-41">41</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="k">def</span><span class="w"> </span><span class="nf">normalise_ff_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalise a force-field name to a BSS.Parameters attribute form.&quot;&quot;&quot;</span>
-</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="k">return</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="k">def</span><span class="w"> </span><span class="nf">normalise_ff_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalise a force-field name to a BSS.Parameters attribute form.&quot;&quot;&quot;</span>
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="k">return</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2756,155 +2786,193 @@ subtraction and <code>max</code>).</p>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare</span><span class="p">(</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;CalculationConfig&lt;/span&gt; (&lt;code&gt;gluebind.config.calculation.CalculationConfig&lt;/code&gt;)" href="../config/calculation/#gluebind.config.calculation.CalculationConfig">CalculationConfig</a></span><span class="p">,</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">work_dir</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="n"><span title="pathlib.Path">Path</span></span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">&quot;CPU&quot;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;PreparedSystem&lt;/span&gt; (&lt;code&gt;gluebind.system.prep.PreparedSystem&lt;/code&gt;)" href="prep/#gluebind.system.prep.PreparedSystem">PreparedSystem</a></span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">backend</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">&quot;CUDA&quot;</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">poll_interval</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">30.0</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;PreparedSystem&lt;/span&gt; (&lt;code&gt;gluebind.system.prep.PreparedSystem&lt;/code&gt;)" href="prep/#gluebind.system.prep.PreparedSystem">PreparedSystem</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Full preparation: parameterise, assemble, solvate, equilibrate, extract bulk.</p>
-<p>Writes <code>complex_equil.*</code>, <code>target_bulk.*</code>, <code>receptor_bulk.*</code> and the
-<code>prepared.json</code> manifest into <code>work_dir</code>, and returns the manifest.</p>
+<p>The cheap, CPU-bound setup (glue parameterisation, assembly, solvation) runs
+here on the driver; the expensive complex equilibration is dispatched to
+<code>backend</code> as one job per stage (see :func:<code>run_equilibration_stages</code>), so it
+runs on compute nodes with per-stage logs and intermediate snapshots rather
+than blocking the driver. A single equilibration run is used (no ensemble).</p>
+<p>Writes <code>solvated.*</code>, <code>equilibration/NN_&lt;stage&gt;/output.*</code>, <code>target_bulk.*</code>,
+<code>receptor_bulk.*</code> and the <code>prepared.json</code> manifest into <code>work_dir</code>, and
+returns the manifest.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/system/prep.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-239">239</a></span>
-<span class="normal"><a href="#__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#__codelineno-0-246">246</a></span>
-<span class="normal"><a href="#__codelineno-0-247">247</a></span>
-<span class="normal"><a href="#__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#__codelineno-0-249">249</a></span>
-<span class="normal"><a href="#__codelineno-0-250">250</a></span>
-<span class="normal"><a href="#__codelineno-0-251">251</a></span>
-<span class="normal"><a href="#__codelineno-0-252">252</a></span>
-<span class="normal"><a href="#__codelineno-0-253">253</a></span>
-<span class="normal"><a href="#__codelineno-0-254">254</a></span>
-<span class="normal"><a href="#__codelineno-0-255">255</a></span>
-<span class="normal"><a href="#__codelineno-0-256">256</a></span>
-<span class="normal"><a href="#__codelineno-0-257">257</a></span>
-<span class="normal"><a href="#__codelineno-0-258">258</a></span>
-<span class="normal"><a href="#__codelineno-0-259">259</a></span>
-<span class="normal"><a href="#__codelineno-0-260">260</a></span>
-<span class="normal"><a href="#__codelineno-0-261">261</a></span>
-<span class="normal"><a href="#__codelineno-0-262">262</a></span>
-<span class="normal"><a href="#__codelineno-0-263">263</a></span>
-<span class="normal"><a href="#__codelineno-0-264">264</a></span>
-<span class="normal"><a href="#__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#__codelineno-0-266">266</a></span>
-<span class="normal"><a href="#__codelineno-0-267">267</a></span>
-<span class="normal"><a href="#__codelineno-0-268">268</a></span>
-<span class="normal"><a href="#__codelineno-0-269">269</a></span>
-<span class="normal"><a href="#__codelineno-0-270">270</a></span>
-<span class="normal"><a href="#__codelineno-0-271">271</a></span>
-<span class="normal"><a href="#__codelineno-0-272">272</a></span>
-<span class="normal"><a href="#__codelineno-0-273">273</a></span>
-<span class="normal"><a href="#__codelineno-0-274">274</a></span>
-<span class="normal"><a href="#__codelineno-0-275">275</a></span>
-<span class="normal"><a href="#__codelineno-0-276">276</a></span>
-<span class="normal"><a href="#__codelineno-0-277">277</a></span>
-<span class="normal"><a href="#__codelineno-0-278">278</a></span>
-<span class="normal"><a href="#__codelineno-0-279">279</a></span>
-<span class="normal"><a href="#__codelineno-0-280">280</a></span>
-<span class="normal"><a href="#__codelineno-0-281">281</a></span>
-<span class="normal"><a href="#__codelineno-0-282">282</a></span>
-<span class="normal"><a href="#__codelineno-0-283">283</a></span>
-<span class="normal"><a href="#__codelineno-0-284">284</a></span>
-<span class="normal"><a href="#__codelineno-0-285">285</a></span>
-<span class="normal"><a href="#__codelineno-0-286">286</a></span>
-<span class="normal"><a href="#__codelineno-0-287">287</a></span>
-<span class="normal"><a href="#__codelineno-0-288">288</a></span>
-<span class="normal"><a href="#__codelineno-0-289">289</a></span>
-<span class="normal"><a href="#__codelineno-0-290">290</a></span>
-<span class="normal"><a href="#__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#__codelineno-0-292">292</a></span>
-<span class="normal"><a href="#__codelineno-0-293">293</a></span>
-<span class="normal"><a href="#__codelineno-0-294">294</a></span>
-<span class="normal"><a href="#__codelineno-0-295">295</a></span>
-<span class="normal"><a href="#__codelineno-0-296">296</a></span>
-<span class="normal"><a href="#__codelineno-0-297">297</a></span>
-<span class="normal"><a href="#__codelineno-0-298">298</a></span>
-<span class="normal"><a href="#__codelineno-0-299">299</a></span>
-<span class="normal"><a href="#__codelineno-0-300">300</a></span>
-<span class="normal"><a href="#__codelineno-0-301">301</a></span>
-<span class="normal"><a href="#__codelineno-0-302">302</a></span>
-<span class="normal"><a href="#__codelineno-0-303">303</a></span>
-<span class="normal"><a href="#__codelineno-0-304">304</a></span>
-<span class="normal"><a href="#__codelineno-0-305">305</a></span>
-<span class="normal"><a href="#__codelineno-0-306">306</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-239"><a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span>
-</span><span id="__span-0-240"><a id="__codelineno-0-240" name="__codelineno-0-240"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">CalculationConfig</span><span class="p">,</span> <span class="n">work_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">platform</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CPU&quot;</span>
-</span><span id="__span-0-241"><a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedSystem</span><span class="p">:</span>
-</span><span id="__span-0-242"><a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Full preparation: parameterise, assemble, solvate, equilibrate, extract bulk.</span>
-</span><span id="__span-0-243"><a id="__codelineno-0-243" name="__codelineno-0-243"></a>
-</span><span id="__span-0-244"><a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="sd">    Writes ``complex_equil.*``, ``target_bulk.*``, ``receptor_bulk.*`` and the</span>
-</span><span id="__span-0-245"><a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="sd">    ``prepared.json`` manifest into ``work_dir``, and returns the manifest.</span>
-</span><span id="__span-0-246"><a id="__codelineno-0-246" name="__codelineno-0-246"></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="__span-0-247"><a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">BioSimSpace</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">BSS</span>
-</span><span id="__span-0-248"><a id="__codelineno-0-248" name="__codelineno-0-248"></a>
-</span><span id="__span-0-249"><a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="n">work_dir</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
-</span><span id="__span-0-250"><a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="n">work_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-251"><a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="n">inputs</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">inputs</span>
-</span><span id="__span-0-252"><a id="__codelineno-0-252" name="__codelineno-0-252"></a>
-</span><span id="__span-0-253"><a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">load_system</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
-</span><span id="__span-0-254"><a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="n">receptor</span> <span class="o">=</span> <span class="n">load_system</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">receptor</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">receptor</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
-</span><span id="__span-0-255"><a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="n">glue</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-0-256"><a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="n">assign_to</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-0-257"><a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="k">if</span> <span class="n">inputs</span><span class="o">.</span><span class="n">glue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-258"><a id="__codelineno-0-258" name="__codelineno-0-258"></a>        <span class="n">glue</span> <span class="o">=</span> <span class="n">parameterise_glue</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">glue</span><span class="o">.</span><span class="n">sdf</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="o">.</span><span class="n">glue_forcefield</span><span class="p">)</span>
-</span><span id="__span-0-259"><a id="__codelineno-0-259" name="__codelineno-0-259"></a>        <span class="n">assign_to</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">glue</span><span class="o">.</span><span class="n">assign_to</span>
-</span><span id="__span-0-260"><a id="__codelineno-0-260" name="__codelineno-0-260"></a>
-</span><span id="__span-0-261"><a id="__codelineno-0-261" name="__codelineno-0-261"></a>    <span class="n">layout</span> <span class="o">=</span> <span class="n">compute_layout</span><span class="p">(</span><span class="n">count_molecules</span><span class="p">(</span><span class="n">target</span><span class="p">),</span> <span class="n">count_molecules</span><span class="p">(</span><span class="n">receptor</span><span class="p">),</span> <span class="n">glue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
-</span><span id="__span-0-262"><a id="__codelineno-0-262" name="__codelineno-0-262"></a>
-</span><span id="__span-0-263"><a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="n">solvated</span> <span class="o">=</span> <span class="n">assemble_and_solvate</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">receptor</span><span class="p">,</span> <span class="n">glue</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">)</span>
-</span><span id="__span-0-264"><a id="__codelineno-0-264" name="__codelineno-0-264"></a>    <span class="n">equilibrated</span><span class="p">,</span> <span class="n">last_process</span> <span class="o">=</span> <span class="n">run_equilibration</span><span class="p">(</span>
-</span><span id="__span-0-265"><a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="n">solvated</span><span class="p">,</span> <span class="n">build_equilibration_protocols</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">),</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span>
-</span><span id="__span-0-266"><a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="p">)</span>
-</span><span id="__span-0-267"><a id="__codelineno-0-267" name="__codelineno-0-267"></a>
-</span><span id="__span-0-268"><a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="n">complex_prm7</span><span class="p">,</span> <span class="n">complex_rst7</span> <span class="o">=</span> <span class="n">_save</span><span class="p">(</span><span class="n">equilibrated</span><span class="p">,</span> <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;complex_equil&quot;</span><span class="p">)</span>
-</span><span id="__span-0-269"><a id="__codelineno-0-269" name="__codelineno-0-269"></a>    <span class="n">trajectory</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-0-270"><a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-0-271"><a id="__codelineno-0-271" name="__codelineno-0-271"></a>        <span class="n">traj_path</span> <span class="o">=</span> <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;complex_equil.dcd&quot;</span>
-</span><span id="__span-0-272"><a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="n">last_process</span><span class="o">.</span><span class="n">getTrajectory</span><span class="p">()</span><span class="o">.</span><span class="n">getTrajectory</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">&quot;mdtraj&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">traj_path</span><span class="p">))</span>
-</span><span id="__span-0-273"><a id="__codelineno-0-273" name="__codelineno-0-273"></a>        <span class="n">trajectory</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">traj_path</span><span class="p">)</span>
-</span><span id="__span-0-274"><a id="__codelineno-0-274" name="__codelineno-0-274"></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># noqa: BLE001 - trajectory is best-effort; prep still succeeds</span>
-</span><span id="__span-0-275"><a id="__codelineno-0-275" name="__codelineno-0-275"></a>        <span class="n">trajectory</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-0-276"><a id="__codelineno-0-276" name="__codelineno-0-276"></a>
-</span><span id="__span-0-277"><a id="__codelineno-0-277" name="__codelineno-0-277"></a>    <span class="n">target_bulk</span> <span class="o">=</span> <span class="n">_extract_bulk</span><span class="p">(</span>
-</span><span id="__span-0-278"><a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="n">equilibrated</span><span class="p">,</span>
-</span><span id="__span-0-279"><a id="__codelineno-0-279" name="__codelineno-0-279"></a>        <span class="n">_bulk_indices</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">,</span> <span class="n">assign_to</span><span class="p">),</span>
-</span><span id="__span-0-280"><a id="__codelineno-0-280" name="__codelineno-0-280"></a>        <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">,</span>
-</span><span id="__span-0-281"><a id="__codelineno-0-281" name="__codelineno-0-281"></a>        <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;target_bulk&quot;</span><span class="p">,</span>
-</span><span id="__span-0-282"><a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="n">platform</span><span class="p">,</span>
-</span><span id="__span-0-283"><a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="p">)</span>
-</span><span id="__span-0-284"><a id="__codelineno-0-284" name="__codelineno-0-284"></a>    <span class="n">receptor_bulk</span> <span class="o">=</span> <span class="n">_extract_bulk</span><span class="p">(</span>
-</span><span id="__span-0-285"><a id="__codelineno-0-285" name="__codelineno-0-285"></a>        <span class="n">equilibrated</span><span class="p">,</span>
-</span><span id="__span-0-286"><a id="__codelineno-0-286" name="__codelineno-0-286"></a>        <span class="n">_bulk_indices</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="s2">&quot;receptor&quot;</span><span class="p">,</span> <span class="n">assign_to</span><span class="p">),</span>
-</span><span id="__span-0-287"><a id="__codelineno-0-287" name="__codelineno-0-287"></a>        <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">,</span>
-</span><span id="__span-0-288"><a id="__codelineno-0-288" name="__codelineno-0-288"></a>        <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;receptor_bulk&quot;</span><span class="p">,</span>
-</span><span id="__span-0-289"><a id="__codelineno-0-289" name="__codelineno-0-289"></a>        <span class="n">platform</span><span class="p">,</span>
-</span><span id="__span-0-290"><a id="__codelineno-0-290" name="__codelineno-0-290"></a>    <span class="p">)</span>
-</span><span id="__span-0-291"><a id="__codelineno-0-291" name="__codelineno-0-291"></a>
-</span><span id="__span-0-292"><a id="__codelineno-0-292" name="__codelineno-0-292"></a>    <span class="n">prepared</span> <span class="o">=</span> <span class="n">PreparedSystem</span><span class="p">(</span>
-</span><span id="__span-0-293"><a id="__codelineno-0-293" name="__codelineno-0-293"></a>        <span class="n">complex_prm7</span><span class="o">=</span><span class="n">complex_prm7</span><span class="p">,</span>
-</span><span id="__span-0-294"><a id="__codelineno-0-294" name="__codelineno-0-294"></a>        <span class="n">complex_rst7</span><span class="o">=</span><span class="n">complex_rst7</span><span class="p">,</span>
-</span><span id="__span-0-295"><a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="n">complex_trajectory</span><span class="o">=</span><span class="n">trajectory</span><span class="p">,</span>
-</span><span id="__span-0-296"><a id="__codelineno-0-296" name="__codelineno-0-296"></a>        <span class="n">target_bulk_prm7</span><span class="o">=</span><span class="n">target_bulk</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-</span><span id="__span-0-297"><a id="__codelineno-0-297" name="__codelineno-0-297"></a>        <span class="n">target_bulk_rst7</span><span class="o">=</span><span class="n">target_bulk</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-</span><span id="__span-0-298"><a id="__codelineno-0-298" name="__codelineno-0-298"></a>        <span class="n">receptor_bulk_prm7</span><span class="o">=</span><span class="n">receptor_bulk</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-</span><span id="__span-0-299"><a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="n">receptor_bulk_rst7</span><span class="o">=</span><span class="n">receptor_bulk</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-</span><span id="__span-0-300"><a id="__codelineno-0-300" name="__codelineno-0-300"></a>        <span class="n">glue_assign_to</span><span class="o">=</span><span class="n">assign_to</span><span class="p">,</span>
-</span><span id="__span-0-301"><a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="n">target_molecules</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">target</span><span class="p">,</span>
-</span><span id="__span-0-302"><a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="n">receptor_molecules</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">receptor</span><span class="p">,</span>
-</span><span id="__span-0-303"><a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="n">glue_molecule</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">glue</span><span class="p">,</span>
-</span><span id="__span-0-304"><a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="p">)</span>
-</span><span id="__span-0-305"><a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="n">prepared</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
-</span><span id="__span-0-306"><a id="__codelineno-0-306" name="__codelineno-0-306"></a>    <span class="k">return</span> <span class="n">prepared</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span>
+<span class="normal"><a href="#__codelineno-0-340">340</a></span>
+<span class="normal"><a href="#__codelineno-0-341">341</a></span>
+<span class="normal"><a href="#__codelineno-0-342">342</a></span>
+<span class="normal"><a href="#__codelineno-0-343">343</a></span>
+<span class="normal"><a href="#__codelineno-0-344">344</a></span>
+<span class="normal"><a href="#__codelineno-0-345">345</a></span>
+<span class="normal"><a href="#__codelineno-0-346">346</a></span>
+<span class="normal"><a href="#__codelineno-0-347">347</a></span>
+<span class="normal"><a href="#__codelineno-0-348">348</a></span>
+<span class="normal"><a href="#__codelineno-0-349">349</a></span>
+<span class="normal"><a href="#__codelineno-0-350">350</a></span>
+<span class="normal"><a href="#__codelineno-0-351">351</a></span>
+<span class="normal"><a href="#__codelineno-0-352">352</a></span>
+<span class="normal"><a href="#__codelineno-0-353">353</a></span>
+<span class="normal"><a href="#__codelineno-0-354">354</a></span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span>
+<span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#__codelineno-0-359">359</a></span>
+<span class="normal"><a href="#__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#__codelineno-0-367">367</a></span>
+<span class="normal"><a href="#__codelineno-0-368">368</a></span>
+<span class="normal"><a href="#__codelineno-0-369">369</a></span>
+<span class="normal"><a href="#__codelineno-0-370">370</a></span>
+<span class="normal"><a href="#__codelineno-0-371">371</a></span>
+<span class="normal"><a href="#__codelineno-0-372">372</a></span>
+<span class="normal"><a href="#__codelineno-0-373">373</a></span>
+<span class="normal"><a href="#__codelineno-0-374">374</a></span>
+<span class="normal"><a href="#__codelineno-0-375">375</a></span>
+<span class="normal"><a href="#__codelineno-0-376">376</a></span>
+<span class="normal"><a href="#__codelineno-0-377">377</a></span>
+<span class="normal"><a href="#__codelineno-0-378">378</a></span>
+<span class="normal"><a href="#__codelineno-0-379">379</a></span>
+<span class="normal"><a href="#__codelineno-0-380">380</a></span>
+<span class="normal"><a href="#__codelineno-0-381">381</a></span>
+<span class="normal"><a href="#__codelineno-0-382">382</a></span>
+<span class="normal"><a href="#__codelineno-0-383">383</a></span>
+<span class="normal"><a href="#__codelineno-0-384">384</a></span>
+<span class="normal"><a href="#__codelineno-0-385">385</a></span>
+<span class="normal"><a href="#__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#__codelineno-0-405">405</a></span>
+<span class="normal"><a href="#__codelineno-0-406">406</a></span>
+<span class="normal"><a href="#__codelineno-0-407">407</a></span>
+<span class="normal"><a href="#__codelineno-0-408">408</a></span>
+<span class="normal"><a href="#__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#__codelineno-0-411">411</a></span>
+<span class="normal"><a href="#__codelineno-0-412">412</a></span>
+<span class="normal"><a href="#__codelineno-0-413">413</a></span>
+<span class="normal"><a href="#__codelineno-0-414">414</a></span>
+<span class="normal"><a href="#__codelineno-0-415">415</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-333"><a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span>
+</span><span id="__span-0-334"><a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">CalculationConfig</span><span class="p">,</span>
+</span><span id="__span-0-335"><a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="n">work_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span>
+</span><span id="__span-0-336"><a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="n">backend</span><span class="p">,</span>
+</span><span id="__span-0-337"><a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-338"><a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="n">platform</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CUDA&quot;</span><span class="p">,</span>
+</span><span id="__span-0-339"><a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="n">poll_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+</span><span id="__span-0-340"><a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedSystem</span><span class="p">:</span>
+</span><span id="__span-0-341"><a id="__codelineno-0-341" name="__codelineno-0-341"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Full preparation: parameterise, assemble, solvate, equilibrate, extract bulk.</span>
+</span><span id="__span-0-342"><a id="__codelineno-0-342" name="__codelineno-0-342"></a>
+</span><span id="__span-0-343"><a id="__codelineno-0-343" name="__codelineno-0-343"></a><span class="sd">    The cheap, CPU-bound setup (glue parameterisation, assembly, solvation) runs</span>
+</span><span id="__span-0-344"><a id="__codelineno-0-344" name="__codelineno-0-344"></a><span class="sd">    here on the driver; the expensive complex equilibration is dispatched to</span>
+</span><span id="__span-0-345"><a id="__codelineno-0-345" name="__codelineno-0-345"></a><span class="sd">    ``backend`` as one job per stage (see :func:`run_equilibration_stages`), so it</span>
+</span><span id="__span-0-346"><a id="__codelineno-0-346" name="__codelineno-0-346"></a><span class="sd">    runs on compute nodes with per-stage logs and intermediate snapshots rather</span>
+</span><span id="__span-0-347"><a id="__codelineno-0-347" name="__codelineno-0-347"></a><span class="sd">    than blocking the driver. A single equilibration run is used (no ensemble).</span>
+</span><span id="__span-0-348"><a id="__codelineno-0-348" name="__codelineno-0-348"></a>
+</span><span id="__span-0-349"><a id="__codelineno-0-349" name="__codelineno-0-349"></a><span class="sd">    Writes ``solvated.*``, ``equilibration/NN_&lt;stage&gt;/output.*``, ``target_bulk.*``,</span>
+</span><span id="__span-0-350"><a id="__codelineno-0-350" name="__codelineno-0-350"></a><span class="sd">    ``receptor_bulk.*`` and the ``prepared.json`` manifest into ``work_dir``, and</span>
+</span><span id="__span-0-351"><a id="__codelineno-0-351" name="__codelineno-0-351"></a><span class="sd">    returns the manifest.</span>
+</span><span id="__span-0-352"><a id="__codelineno-0-352" name="__codelineno-0-352"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-353"><a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">BioSimSpace</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">BSS</span>
+</span><span id="__span-0-354"><a id="__codelineno-0-354" name="__codelineno-0-354"></a>
+</span><span id="__span-0-355"><a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="n">work_dir</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
+</span><span id="__span-0-356"><a id="__codelineno-0-356" name="__codelineno-0-356"></a>    <span class="n">work_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-357"><a id="__codelineno-0-357" name="__codelineno-0-357"></a>    <span class="n">inputs</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">inputs</span>
+</span><span id="__span-0-358"><a id="__codelineno-0-358" name="__codelineno-0-358"></a>
+</span><span id="__span-0-359"><a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">load_system</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
+</span><span id="__span-0-360"><a id="__codelineno-0-360" name="__codelineno-0-360"></a>    <span class="n">receptor</span> <span class="o">=</span> <span class="n">load_system</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">receptor</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">receptor</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
+</span><span id="__span-0-361"><a id="__codelineno-0-361" name="__codelineno-0-361"></a>    <span class="n">glue</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-362"><a id="__codelineno-0-362" name="__codelineno-0-362"></a>    <span class="n">assign_to</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-363"><a id="__codelineno-0-363" name="__codelineno-0-363"></a>    <span class="k">if</span> <span class="n">inputs</span><span class="o">.</span><span class="n">glue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-364"><a id="__codelineno-0-364" name="__codelineno-0-364"></a>        <span class="n">glue</span> <span class="o">=</span> <span class="n">parameterise_glue</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">glue</span><span class="o">.</span><span class="n">sdf</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="o">.</span><span class="n">glue_forcefield</span><span class="p">)</span>
+</span><span id="__span-0-365"><a id="__codelineno-0-365" name="__codelineno-0-365"></a>        <span class="n">assign_to</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">glue</span><span class="o">.</span><span class="n">assign_to</span>
+</span><span id="__span-0-366"><a id="__codelineno-0-366" name="__codelineno-0-366"></a>
+</span><span id="__span-0-367"><a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="n">layout</span> <span class="o">=</span> <span class="n">compute_layout</span><span class="p">(</span><span class="n">count_molecules</span><span class="p">(</span><span class="n">target</span><span class="p">),</span> <span class="n">count_molecules</span><span class="p">(</span><span class="n">receptor</span><span class="p">),</span> <span class="n">glue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+</span><span id="__span-0-368"><a id="__codelineno-0-368" name="__codelineno-0-368"></a>
+</span><span id="__span-0-369"><a id="__codelineno-0-369" name="__codelineno-0-369"></a>    <span class="c1"># Driver (fast, CPU): assemble + solvate, then hand the MD stages to the backend.</span>
+</span><span id="__span-0-370"><a id="__codelineno-0-370" name="__codelineno-0-370"></a>    <span class="n">solvated</span> <span class="o">=</span> <span class="n">assemble_and_solvate</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">receptor</span><span class="p">,</span> <span class="n">glue</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">)</span>
+</span><span id="__span-0-371"><a id="__codelineno-0-371" name="__codelineno-0-371"></a>    <span class="n">solvated_prm7</span><span class="p">,</span> <span class="n">solvated_rst7</span> <span class="o">=</span> <span class="n">_save</span><span class="p">(</span><span class="n">solvated</span><span class="p">,</span> <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;solvated&quot;</span><span class="p">)</span>
+</span><span id="__span-0-372"><a id="__codelineno-0-372" name="__codelineno-0-372"></a>
+</span><span id="__span-0-373"><a id="__codelineno-0-373" name="__codelineno-0-373"></a>    <span class="n">complex_prm7</span><span class="p">,</span> <span class="n">complex_rst7</span><span class="p">,</span> <span class="n">trajectory</span> <span class="o">=</span> <span class="n">run_equilibration_stages</span><span class="p">(</span>
+</span><span id="__span-0-374"><a id="__codelineno-0-374" name="__codelineno-0-374"></a>        <span class="n">solvated_prm7</span><span class="p">,</span>
+</span><span id="__span-0-375"><a id="__codelineno-0-375" name="__codelineno-0-375"></a>        <span class="n">solvated_rst7</span><span class="p">,</span>
+</span><span id="__span-0-376"><a id="__codelineno-0-376" name="__codelineno-0-376"></a>        <span class="n">equilibration_stage_plan</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">),</span>
+</span><span id="__span-0-377"><a id="__codelineno-0-377" name="__codelineno-0-377"></a>        <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;equilibration&quot;</span><span class="p">,</span>
+</span><span id="__span-0-378"><a id="__codelineno-0-378" name="__codelineno-0-378"></a>        <span class="n">backend</span><span class="p">,</span>
+</span><span id="__span-0-379"><a id="__codelineno-0-379" name="__codelineno-0-379"></a>        <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-0-380"><a id="__codelineno-0-380" name="__codelineno-0-380"></a>        <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
+</span><span id="__span-0-381"><a id="__codelineno-0-381" name="__codelineno-0-381"></a>    <span class="p">)</span>
+</span><span id="__span-0-382"><a id="__codelineno-0-382" name="__codelineno-0-382"></a>
+</span><span id="__span-0-383"><a id="__codelineno-0-383" name="__codelineno-0-383"></a>    <span class="c1"># Bulk reference species (small, fast): isolate, re-solvate and briefly</span>
+</span><span id="__span-0-384"><a id="__codelineno-0-384" name="__codelineno-0-384"></a>    <span class="c1"># equilibrate in-process from the equilibrated complex.</span>
+</span><span id="__span-0-385"><a id="__codelineno-0-385" name="__codelineno-0-385"></a>    <span class="n">equilibrated</span> <span class="o">=</span> <span class="n">BSS</span><span class="o">.</span><span class="n">IO</span><span class="o">.</span><span class="n">readMolecules</span><span class="p">([</span><span class="n">complex_prm7</span><span class="p">,</span> <span class="n">complex_rst7</span><span class="p">])</span>
+</span><span id="__span-0-386"><a id="__codelineno-0-386" name="__codelineno-0-386"></a>    <span class="n">target_bulk</span> <span class="o">=</span> <span class="n">_extract_bulk</span><span class="p">(</span>
+</span><span id="__span-0-387"><a id="__codelineno-0-387" name="__codelineno-0-387"></a>        <span class="n">equilibrated</span><span class="p">,</span>
+</span><span id="__span-0-388"><a id="__codelineno-0-388" name="__codelineno-0-388"></a>        <span class="n">_bulk_indices</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">,</span> <span class="n">assign_to</span><span class="p">),</span>
+</span><span id="__span-0-389"><a id="__codelineno-0-389" name="__codelineno-0-389"></a>        <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">,</span>
+</span><span id="__span-0-390"><a id="__codelineno-0-390" name="__codelineno-0-390"></a>        <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;target_bulk&quot;</span><span class="p">,</span>
+</span><span id="__span-0-391"><a id="__codelineno-0-391" name="__codelineno-0-391"></a>        <span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-0-392"><a id="__codelineno-0-392" name="__codelineno-0-392"></a>    <span class="p">)</span>
+</span><span id="__span-0-393"><a id="__codelineno-0-393" name="__codelineno-0-393"></a>    <span class="n">receptor_bulk</span> <span class="o">=</span> <span class="n">_extract_bulk</span><span class="p">(</span>
+</span><span id="__span-0-394"><a id="__codelineno-0-394" name="__codelineno-0-394"></a>        <span class="n">equilibrated</span><span class="p">,</span>
+</span><span id="__span-0-395"><a id="__codelineno-0-395" name="__codelineno-0-395"></a>        <span class="n">_bulk_indices</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="s2">&quot;receptor&quot;</span><span class="p">,</span> <span class="n">assign_to</span><span class="p">),</span>
+</span><span id="__span-0-396"><a id="__codelineno-0-396" name="__codelineno-0-396"></a>        <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">,</span>
+</span><span id="__span-0-397"><a id="__codelineno-0-397" name="__codelineno-0-397"></a>        <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;receptor_bulk&quot;</span><span class="p">,</span>
+</span><span id="__span-0-398"><a id="__codelineno-0-398" name="__codelineno-0-398"></a>        <span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-0-399"><a id="__codelineno-0-399" name="__codelineno-0-399"></a>    <span class="p">)</span>
+</span><span id="__span-0-400"><a id="__codelineno-0-400" name="__codelineno-0-400"></a>
+</span><span id="__span-0-401"><a id="__codelineno-0-401" name="__codelineno-0-401"></a>    <span class="n">prepared</span> <span class="o">=</span> <span class="n">PreparedSystem</span><span class="p">(</span>
+</span><span id="__span-0-402"><a id="__codelineno-0-402" name="__codelineno-0-402"></a>        <span class="n">complex_prm7</span><span class="o">=</span><span class="n">complex_prm7</span><span class="p">,</span>
+</span><span id="__span-0-403"><a id="__codelineno-0-403" name="__codelineno-0-403"></a>        <span class="n">complex_rst7</span><span class="o">=</span><span class="n">complex_rst7</span><span class="p">,</span>
+</span><span id="__span-0-404"><a id="__codelineno-0-404" name="__codelineno-0-404"></a>        <span class="n">complex_trajectory</span><span class="o">=</span><span class="n">trajectory</span><span class="p">,</span>
+</span><span id="__span-0-405"><a id="__codelineno-0-405" name="__codelineno-0-405"></a>        <span class="n">target_bulk_prm7</span><span class="o">=</span><span class="n">target_bulk</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span><span id="__span-0-406"><a id="__codelineno-0-406" name="__codelineno-0-406"></a>        <span class="n">target_bulk_rst7</span><span class="o">=</span><span class="n">target_bulk</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+</span><span id="__span-0-407"><a id="__codelineno-0-407" name="__codelineno-0-407"></a>        <span class="n">receptor_bulk_prm7</span><span class="o">=</span><span class="n">receptor_bulk</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span><span id="__span-0-408"><a id="__codelineno-0-408" name="__codelineno-0-408"></a>        <span class="n">receptor_bulk_rst7</span><span class="o">=</span><span class="n">receptor_bulk</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+</span><span id="__span-0-409"><a id="__codelineno-0-409" name="__codelineno-0-409"></a>        <span class="n">glue_assign_to</span><span class="o">=</span><span class="n">assign_to</span><span class="p">,</span>
+</span><span id="__span-0-410"><a id="__codelineno-0-410" name="__codelineno-0-410"></a>        <span class="n">target_molecules</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">target</span><span class="p">,</span>
+</span><span id="__span-0-411"><a id="__codelineno-0-411" name="__codelineno-0-411"></a>        <span class="n">receptor_molecules</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">receptor</span><span class="p">,</span>
+</span><span id="__span-0-412"><a id="__codelineno-0-412" name="__codelineno-0-412"></a>        <span class="n">glue_molecule</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">glue</span><span class="p">,</span>
+</span><span id="__span-0-413"><a id="__codelineno-0-413" name="__codelineno-0-413"></a>    <span class="p">)</span>
+</span><span id="__span-0-414"><a id="__codelineno-0-414" name="__codelineno-0-414"></a>    <span class="n">prepared</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
+</span><span id="__span-0-415"><a id="__codelineno-0-415" name="__codelineno-0-415"></a>    <span class="k">return</span> <span class="n">prepared</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2931,21 +2999,21 @@ subtraction and <code>max</code>).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/system/prep.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-44">44</a></span>
-<span class="normal"><a href="#__codelineno-0-45">45</a></span>
-<span class="normal"><a href="#__codelineno-0-46">46</a></span>
-<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-47">47</a></span>
 <span class="normal"><a href="#__codelineno-0-48">48</a></span>
 <span class="normal"><a href="#__codelineno-0-49">49</a></span>
 <span class="normal"><a href="#__codelineno-0-50">50</a></span>
-<span class="normal"><a href="#__codelineno-0-51">51</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="k">def</span><span class="w"> </span><span class="nf">validate_forcefield</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">available</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the normalised name if available, else raise with the options.&quot;&quot;&quot;</span>
-</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="n">norm</span> <span class="o">=</span> <span class="n">normalise_ff_name</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="k">if</span> <span class="n">norm</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="n">normalise_ff_name</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">available</span><span class="p">}:</span>
-</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49"></a>            <span class="sa">f</span><span class="s2">&quot;force field </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not available; choose from </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">available</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50"></a>        <span class="p">)</span>
-</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="k">return</span> <span class="n">norm</span>
+<span class="normal"><a href="#__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#__codelineno-0-54">54</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="k">def</span><span class="w"> </span><span class="nf">validate_forcefield</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">available</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the normalised name if available, else raise with the options.&quot;&quot;&quot;</span>
+</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="n">norm</span> <span class="o">=</span> <span class="n">normalise_ff_name</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="k">if</span> <span class="n">norm</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="n">normalise_ff_name</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">available</span><span class="p">}:</span>
+</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52"></a>            <span class="sa">f</span><span class="s2">&quot;force field </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not available; choose from </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">available</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53"></a>        <span class="p">)</span>
+</span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="k">return</span> <span class="n">norm</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>

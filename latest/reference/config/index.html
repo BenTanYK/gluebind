@@ -1910,6 +1910,8 @@
       
         
       
+        
+      
     
     
     
@@ -1962,6 +1964,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../simulation/prep_stage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    prep_stage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2409,17 +2439,6 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;nvt_heat_ns
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gluebind.config.PrepConfig.nvt_ns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;nvt_ns
       
     </span>
   </a>
@@ -3495,20 +3514,6 @@ template convention), so any other name will silently miss the glue.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;nvt_ns&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-class-attribute&quot;&gt;&lt;code&gt;class-attribute&lt;/code&gt;&lt;/small&gt;
-      &lt;small class=&quot;doc doc-label doc-label-instance-attribute&quot;&gt;&lt;code&gt;instance-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;gluebind.config.PrepConfig.nvt_ns&lt;/code&gt;)" href="#gluebind.config.PrepConfig.nvt_ns">nvt_ns</a></code></b>
-              (<code><span title="float">float</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>Short NVT equilibration at the production temperature.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
           <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;npt_ns&lt;/span&gt;
 
 
@@ -3533,7 +3538,7 @@ template convention), so any other name will silently miss the glue.</p>
               (<code><span title="float">float</span></code>)
           –
           <div class="doc-md-description">
-            <p>Longer NVT equilibration used for RMSF / anchor selection and as the</p>
+            <p>Long NVT production equilibration at the production temperature. Single run</p>
           </div>
         </li>
     </ul>
@@ -3606,31 +3611,6 @@ reproduce the paper (GAFF2 + AM1-BCC).</p>
 
 
 
-<h3 id="gluebind.config.PrepConfig.nvt_ns" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">nvt_ns</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
-  </span>
-
-<a href="#gluebind.config.PrepConfig.nvt_ns" class="headerlink" title="Permanent link">#</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">nvt_ns</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.2</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Short NVT equilibration at the production temperature.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
 <h3 id="gluebind.config.PrepConfig.npt_ns" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">npt_ns</span>
 
@@ -3671,8 +3651,11 @@ reproduce the paper (GAFF2 + AM1-BCC).</p>
 
     <div class="doc doc-contents ">
 
-        <p>Longer NVT equilibration used for RMSF / anchor selection and as the
-source of the bound-state starting structure.</p>
+        <p>Long NVT production equilibration at the production temperature. Single run
+(no ensemble): the paper found triplicate equilibration trajectories to be
+essentially identical. Source of the RMSF/anchor-selection trajectory, the
+Boresch angle distributions and the bound-state starting structure. (The
+paper uses 100 ns.)</p>
 
     </div>
 
