@@ -17,14 +17,14 @@ dependencies:
   - pydantic >=2
   - numpy
   - pyyaml
-  - mdanalysis >=2.8      # DSSP lives in MDAnalysis.analysis.dssp (added in 2.8)
-  - parmed                # write rst7 frames from steered MD
-  - openmm >=8            # the MD engine + restraint forces
-  - red-molsim            # equilibration detection (import name: red)
+  - mdanalysis >=2.8      
+  - parmed                
+  - openmm >=8            
+  - red-molsim           
 
-  - biosimspace           # parameterise / solvate / equilibrate
-  - ambertools            # antechamber + tleap: glue parameterisation
-  - gromacs               # gmx solvate/genion: BioSimSpace solvation backend
+  - biosimspace       
+  - ambertools
+  - gromacs
 
   - c-compiler            # gcc/clang for building the wham binary
   - make

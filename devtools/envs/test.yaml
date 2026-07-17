@@ -21,7 +21,6 @@ dependencies:
   - openmm >=8
   - red-molsim
 
-  # Prep front-end (system.prep) — conda-only
   - biosimspace
   - ambertools
   - gromacs
