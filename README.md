@@ -1,6 +1,6 @@
 <h1 align="center">gluebind</h1>
 
-<p align="center">'Automated Umbrella Sampling protocol for calculating the binding free energy of ternary complexes</p>
+<p align="center">Automated Umbrella Sampling protocol for calculating the binding free energy of ternary complexes</p>
 
 <p align="center">
   <a href="https://github.com/BenTanYK/gluebind/actions?query=workflow%3Aci">

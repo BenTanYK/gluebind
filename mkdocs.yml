@@ -1,5 +1,5 @@
 site_name: "gluebind"
-site_description: "'Automated Umbrella Sampling protocol for calculating the binding free energy of ternary complexes"
+site_description: "Automated Umbrella Sampling protocol for calculating the binding free energy of ternary complexes"
 site_url: "https://github.com/BenTanYK/gluebind"
 repo_url: "https://github.com/BenTanYK/gluebind"
 package_name: "BenTanYK/gluebind"
