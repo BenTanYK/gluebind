@@ -1,0 +1,50 @@
+name: gluebind
+
+# Development / CI environment — the runtime deps from base.yaml plus the
+# testing and docs tooling. This is what `make env` builds (mirroring red's
+# base/test split). Keep the runtime block in sync with base.yaml.
+channels:
+  - conda-forge
+  - openbiosim
+
+dependencies:
+
+  - python >=3.10
+  - pip
+
+  # Core (mirror of base.yaml)
+  - pydantic >=2
+  - numpy
+  - pyyaml
+  - mdanalysis >=2.8
+  - parmed
+  - openmm >=8
+  - red-molsim
+
+  # Prep front-end (system.prep) — conda-only
+  - biosimspace
+  - ambertools
+  - gromacs
+
+  # WHAM build toolchain (make wham)
+  - c-compiler
+  - make
+
+  # Dev / Testing
+  - setuptools_scm >=8
+  - pre-commit
+  - ruff
+  - pytest
+  - pytest-mock
+  - pytest-cov
+  - codecov
+
+  # Docs
+  - mkdocs
+  - mkdocs-material
+  - mkdocs-gen-files
+  - mkdocs-literate-nav
+  - mkdocstrings
+  - mkdocstrings-python >=1.10.8
+  - black
+  - mike

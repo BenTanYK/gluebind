@@ -1,30 +1,30 @@
 name: gluebind
 
+# Runtime environment — the dependencies gluebind needs to *run*. This is the
+# source of truth for the package's dependencies (a future conda recipe mirrors
+# it); `make env` uses test.yaml, which layers dev/docs tooling on top of these.
+#
 channels:
   - conda-forge
+  - openbiosim
 
 dependencies:
 
   - python >=3.10
   - pip
 
-  # Dev / Testing
-  - setuptools_scm >=8
+  # Core
+  - pydantic >=2
+  - numpy
+  - pyyaml
+  - mdanalysis >=2.8      # DSSP lives in MDAnalysis.analysis.dssp (added in 2.8)
+  - parmed                # write rst7 frames from steered MD
+  - openmm >=8            # the MD engine + restraint forces
+  - red-molsim            # equilibration detection (import name: red)
 
-  - pre-commit
-  - ruff
+  - biosimspace           # parameterise / solvate / equilibrate
+  - ambertools            # antechamber + tleap: glue parameterisation
+  - gromacs               # gmx solvate/genion: BioSimSpace solvation backend
 
-  - pytest
-  - pytest-mock
-  - pytest-cov
-  - codecov
-
-  # Docs
-  - mkdocs
-  - mkdocs-material
-  - mkdocs-gen-files
-  - mkdocs-literate-nav
-  - mkdocstrings
-  - mkdocstrings-python >=1.10.8
-  - black
-  - mike
+  - c-compiler            # gcc/clang for building the wham binary
+  - make
