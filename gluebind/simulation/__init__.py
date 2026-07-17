@@ -10,6 +10,11 @@ lazily inside the functions, so importing this subpackage does not require it.
 
 from __future__ import annotations
 
+from gluebind.simulation.prep_stage import (
+    PrepStageSpec,
+    prep_stage_launch_command,
+    run_prep_stage,
+)
 from gluebind.simulation.steered_md import (
     make_frame_generator,
     run_steered_md,
@@ -21,6 +26,9 @@ __all__ = [
     "WindowSpec",
     "run_window",
     "window_launch_command",
+    "PrepStageSpec",
+    "run_prep_stage",
+    "prep_stage_launch_command",
     "run_steered_md",
     "separation_window_targets",
     "make_frame_generator",

@@ -31,18 +31,18 @@ class PrepConfig(pydantic.BaseModel):
     minimisation_steps: int = 10000
     nvt_heat_ns: float = 0.2
     """Short NVT temperature ramp (0 K -> production temperature)."""
-    nvt_ns: float = 0.2
-    """Short NVT equilibration at the production temperature."""
     npt_ns: float = 0.4
     """Short NPT equilibration to relax the box volume."""
     equilibration_ns: float = 5.0
-    """Longer NVT equilibration used for RMSF / anchor selection and as the
-    source of the bound-state starting structure."""
+    """Long NVT production equilibration at the production temperature. Single run
+    (no ensemble): the paper found triplicate equilibration trajectories to be
+    essentially identical. Source of the RMSF/anchor-selection trajectory, the
+    Boresch angle distributions and the bound-state starting structure. (The
+    paper uses 100 ns.)"""
 
     @pydantic.field_validator(
         "box_padding_angstrom",
         "nvt_heat_ns",
-        "nvt_ns",
         "npt_ns",
         "equilibration_ns",
     )

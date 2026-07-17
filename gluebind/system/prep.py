@@ -1,9 +1,12 @@
 """BioSimSpace preparation front-end.
 
-Parameterises the glue, assembles + solvates the complex, runs the
-pre-equilibration/equilibration chain, extracts the isolated bulk species, and
+Parameterises the glue and assembles + solvates the complex on the driver, then
+dispatches the equilibration to a backend as one job per stage (minimisation ->
+NVT heat -> NPT -> long NVT production; see :func:`run_equilibration_stages` and
+:mod:`gluebind.simulation.prep_stage`), extracts the isolated bulk species, and
 writes a :class:`PreparedSystem` manifest — the hand-off to Phase 4 (selection)
-and the runner's ``spec_builder``.
+and the runner's ``spec_builder``. A single equilibration run is used; the paper
+found triplicate equilibration trajectories to be essentially identical.
 
 The MD-running functions require BioSimSpace + a working MD engine, so they are
 verified in integration (Phase 7), not the unit suite; BSS is imported lazily.
@@ -129,58 +132,82 @@ def assemble_and_solvate(target, receptor, glue, prep_config: PrepConfig):
     )
 
 
-def build_equilibration_protocols(prep_config: PrepConfig):
-    """The staged pre-equilibration + equilibration protocols (named)."""
-    import BioSimSpace as BSS
+def equilibration_stage_plan(prep_config: PrepConfig) -> list[dict]:
+    """The ordered equilibration stages as plain dicts — no BioSimSpace.
 
-    ns = BSS.Units.Time.nanosecond
-    kelvin = BSS.Units.Temperature.kelvin
-    atm = BSS.Units.Pressure.atm
+    Four stages, each dispatched as its own backend job by
+    :func:`run_equilibration_stages`:
+
+    1. **minimisation**
+    2. **nvt_heat** — NVT ramp 0 K -> production T, backbone-restrained
+    3. **npt** — NPT equilibration at production T, backbone-restrained (relaxes
+       the box volume)
+    4. **equilibration** — long NVT production equilibration at production T,
+       unrestrained (the trajectory used for RMSF/anchor selection and Boresch
+       distributions, and the source of the bound-state structure)
+
+    Pure and unit-testable; the keys match :class:`PrepStageSpec`'s fields.
+    """
     t = PRODUCTION_TEMPERATURE_K
     return [
-        ("minimisation", BSS.Protocol.Minimisation(steps=prep_config.minimisation_steps)),
-        (
-            "nvt_heat",
-            BSS.Protocol.Equilibration(
-                runtime=prep_config.nvt_heat_ns * ns,
-                temperature_start=0 * kelvin,
-                temperature_end=t * kelvin,
-                restraint="backbone",
-            ),
-        ),
-        (
-            "nvt",
-            BSS.Protocol.Equilibration(
-                runtime=prep_config.nvt_ns * ns,
-                temperature_start=t * kelvin,
-                temperature_end=t * kelvin,
-                restraint="backbone",
-            ),
-        ),
-        (
-            "npt",
-            BSS.Protocol.Equilibration(
-                runtime=prep_config.npt_ns * ns,
-                temperature_start=t * kelvin,
-                temperature_end=t * kelvin,
-                pressure=atm,
-                restraint="backbone",
-            ),
-        ),
-        (
-            "equilibration",
-            BSS.Protocol.Equilibration(
-                runtime=prep_config.equilibration_ns * ns,
-                temperature_start=t * kelvin,
-                temperature_end=t * kelvin,
-                restraint="none",
-            ),
-        ),
+        {
+            "stage": "minimisation",
+            "kind": "minimisation",
+            "minimisation_steps": prep_config.minimisation_steps,
+        },
+        {
+            "stage": "nvt_heat",
+            "kind": "equilibration",
+            "runtime_ns": prep_config.nvt_heat_ns,
+            "temperature_start_K": 0.0,
+            "temperature_end_K": t,
+            "pressure": False,
+            "restraint": "backbone",
+        },
+        {
+            "stage": "npt",
+            "kind": "equilibration",
+            "runtime_ns": prep_config.npt_ns,
+            "temperature_start_K": t,
+            "temperature_end_K": t,
+            "pressure": True,
+            "restraint": "backbone",
+        },
+        {
+            "stage": "equilibration",
+            "kind": "equilibration",
+            "runtime_ns": prep_config.equilibration_ns,
+            "temperature_start_K": t,
+            "temperature_end_K": t,
+            "pressure": False,
+            "restraint": "none",
+        },
     ]
 
 
+def build_equilibration_protocols(prep_config: PrepConfig):
+    """The staged protocols as ``(name, BSS protocol)`` pairs, built from the plan.
+
+    Used for the in-process bulk-species equilibration; the main complex
+    equilibration instead runs stage-by-stage through the backend (see
+    :func:`run_equilibration_stages`).
+    """
+    from gluebind.simulation.prep_stage import build_protocol
+
+    protocols = []
+    for entry in equilibration_stage_plan(prep_config):
+        params = {k: v for k, v in entry.items() if k != "stage"}
+        protocols.append((entry["stage"], build_protocol(**params)))
+    return protocols
+
+
 def run_equilibration(system, protocols, *, platform: str = "CPU"):
-    """Run each protocol in turn with OpenMM; return (final system, last process)."""
+    """Run each protocol in turn with OpenMM; return (final system, last process).
+
+    In-process runner used for the small isolated bulk species (see
+    :func:`_extract_bulk`); the main complex equilibration is dispatched as
+    separate backend jobs by :func:`run_equilibration_stages`.
+    """
     import BioSimSpace as BSS
 
     process = None
@@ -192,6 +219,72 @@ def run_equilibration(system, protocols, *, platform: str = "CPU"):
             raise RuntimeError(f"equilibration stage {name!r} failed:\n{process.stdout(20)}")
         system = process.getSystem()
     return system, process
+
+
+def run_equilibration_stages(
+    solvated_prm7: str | pathlib.Path,
+    solvated_rst7: str | pathlib.Path,
+    plan: list[dict],
+    work_dir: str | pathlib.Path,
+    backend,
+    *,
+    platform: str = "CUDA",
+    poll_interval: float = 30.0,
+    save_trajectory: bool = True,
+) -> tuple[str, str, str | None]:
+    """Run the equilibration ``plan`` as one backend job per stage.
+
+    Each stage runs in its own ``NN_<stage>/`` subdirectory (own SLURM log) and
+    writes ``output.prm7`` / ``.rst7`` (and ``.dcd`` for MD stages), which chain
+    into the next stage's input. Returns ``(final_prm7, final_rst7, trajectory)``
+    where ``trajectory`` is the last MD stage's ``.dcd`` (or ``None`` if not
+    produced). Blocks on each stage before submitting the next — the stages are a
+    strict sequential dependency chain.
+    """
+    from gluebind.backend.base import JobSpec, JobState
+    from gluebind.backend.scheduler import Scheduler
+    from gluebind.simulation.prep_stage import (
+        PREP_STAGE_OUTPUT_PREFIX,
+        PREP_STAGE_SPEC_FILENAME,
+        PrepStageSpec,
+        prep_stage_launch_command,
+    )
+
+    work_dir = pathlib.Path(work_dir)
+    scheduler = Scheduler(backend, poll_interval=poll_interval)
+    input_prm7, input_rst7 = str(solvated_prm7), str(solvated_rst7)
+    trajectory: str | None = None
+
+    for i, entry in enumerate(plan, start=1):
+        stage_dir = work_dir / f"{i:02d}_{entry['stage']}"
+        stage_dir.mkdir(parents=True, exist_ok=True)
+        spec = PrepStageSpec(
+            input_prm7=input_prm7,
+            input_rst7=input_rst7,
+            platform=platform,
+            save_trajectory=save_trajectory,
+            **entry,
+        )
+        spec.dump(stage_dir / PREP_STAGE_SPEC_FILENAME)
+
+        job = JobSpec(
+            command=prep_stage_launch_command(),
+            work_dir=str(stage_dir),
+            name=f"prep_{entry['stage']}",
+        )
+        (state,) = scheduler.run([job])
+        if state is not JobState.FINISHED:
+            raise RuntimeError(f"prep stage {entry['stage']!r} did not finish (state={state})")
+
+        prefix = stage_dir / PREP_STAGE_OUTPUT_PREFIX
+        input_prm7 = f"{prefix}.prm7"
+        input_rst7 = f"{prefix}.rst7"
+        if entry["kind"] == "equilibration":
+            traj = prefix.with_suffix(".dcd")
+            if traj.exists():
+                trajectory = str(traj)
+
+    return input_prm7, input_rst7, trajectory
 
 
 def _save(system, prefix: pathlib.Path) -> tuple[str, str]:
@@ -225,8 +318,9 @@ def _extract_bulk(system, indices, prep_config, prefix, platform) -> tuple[str, 
         is_neutral=prep_config.neutralise,
         ion_conc=prep_config.ion_concentration_M,
     )
-    # Short NVT + NPT for the isolated species (reuse the first protocols).
-    protocols = build_equilibration_protocols(prep_config)[:4]
+    # Short pre-equilibration for the small isolated species: minimisation,
+    # NVT heating, NPT (the first three stages) — not the long production run.
+    protocols = build_equilibration_protocols(prep_config)[:3]
     equilibrated, _ = run_equilibration(solvated, protocols, platform=platform)
     return _save(equilibrated, prefix)
 
@@ -237,12 +331,24 @@ def _bounding_box(molecule):
 
 
 def prepare(
-    config: CalculationConfig, work_dir: str | pathlib.Path, *, platform: str = "CPU"
+    config: CalculationConfig,
+    work_dir: str | pathlib.Path,
+    backend,
+    *,
+    platform: str = "CUDA",
+    poll_interval: float = 30.0,
 ) -> PreparedSystem:
     """Full preparation: parameterise, assemble, solvate, equilibrate, extract bulk.
 
-    Writes ``complex_equil.*``, ``target_bulk.*``, ``receptor_bulk.*`` and the
-    ``prepared.json`` manifest into ``work_dir``, and returns the manifest.
+    The cheap, CPU-bound setup (glue parameterisation, assembly, solvation) runs
+    here on the driver; the expensive complex equilibration is dispatched to
+    ``backend`` as one job per stage (see :func:`run_equilibration_stages`), so it
+    runs on compute nodes with per-stage logs and intermediate snapshots rather
+    than blocking the driver. A single equilibration run is used (no ensemble).
+
+    Writes ``solvated.*``, ``equilibration/NN_<stage>/output.*``, ``target_bulk.*``,
+    ``receptor_bulk.*`` and the ``prepared.json`` manifest into ``work_dir``, and
+    returns the manifest.
     """
     import BioSimSpace as BSS
 
@@ -260,20 +366,23 @@ def prepare(
 
     layout = compute_layout(count_molecules(target), count_molecules(receptor), glue is not None)
 
+    # Driver (fast, CPU): assemble + solvate, then hand the MD stages to the backend.
     solvated = assemble_and_solvate(target, receptor, glue, config.prep)
-    equilibrated, last_process = run_equilibration(
-        solvated, build_equilibration_protocols(config.prep), platform=platform
+    solvated_prm7, solvated_rst7 = _save(solvated, work_dir / "solvated")
+
+    complex_prm7, complex_rst7, trajectory = run_equilibration_stages(
+        solvated_prm7,
+        solvated_rst7,
+        equilibration_stage_plan(config.prep),
+        work_dir / "equilibration",
+        backend,
+        platform=platform,
+        poll_interval=poll_interval,
     )
 
-    complex_prm7, complex_rst7 = _save(equilibrated, work_dir / "complex_equil")
-    trajectory = None
-    try:
-        traj_path = work_dir / "complex_equil.dcd"
-        last_process.getTrajectory().getTrajectory(format="mdtraj").save(str(traj_path))
-        trajectory = str(traj_path)
-    except Exception:  # noqa: BLE001 - trajectory is best-effort; prep still succeeds
-        trajectory = None
-
+    # Bulk reference species (small, fast): isolate, re-solvate and briefly
+    # equilibrate in-process from the equilibrated complex.
+    equilibrated = BSS.IO.readMolecules([complex_prm7, complex_rst7])
     target_bulk = _extract_bulk(
         equilibrated,
         _bulk_indices(layout, "target", assign_to),
