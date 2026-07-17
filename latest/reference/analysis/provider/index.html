@@ -10,29 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://github.com/BenTanYK/gluebind/latest/development/">
+        <link rel="canonical" href="https://github.com/BenTanYK/gluebind/latest/reference/analysis/provider/">
       
       
-        <link rel="prev" href="../reference/system/prep/">
+        <link rel="prev" href="../pmf/">
       
+      
+        <link rel="next" href="../wham/">
       
       
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Development - gluebind</title>
+        <title>provider - gluebind</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#development" class="md-skip">
+        <a href="#gluebind.analysis.provider" class="md-skip">
           Skip to content
         </a>
       
@@ -98,7 +100,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="gluebind" class="md-header__button md-logo" aria-label="gluebind" data-md-component="logo">
+    <a href="../../.." title="gluebind" class="md-header__button md-logo" aria-label="gluebind" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -118,7 +120,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Development
+              provider
             
           </span>
         </div>
@@ -227,7 +229,7 @@
     
     
       <li class="md-tabs__item">
-        <a href=".." class="md-tabs__link">
+        <a href="../../.." class="md-tabs__link">
           
   
   
@@ -245,6 +247,8 @@
   
   
   
+    
+  
   
     
     
@@ -252,11 +256,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../reference/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
   
@@ -277,11 +283,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../../../development/" class="md-tabs__link">
         
   
   
@@ -322,7 +326,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="gluebind" class="md-nav__button md-logo" aria-label="gluebind" data-md-component="logo">
+    <a href="../../.." title="gluebind" class="md-nav__button md-logo" aria-label="gluebind" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -375,7 +379,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href=".." class="md-nav__link ">
+            <a href="../../.." class="md-nav__link ">
               
   
   
@@ -418,8 +422,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -429,19 +435,22 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -459,7 +468,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -474,6 +483,8 @@
                 
   
   
+    
+  
   
   
     
@@ -511,18 +522,21 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   
@@ -540,13 +554,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_1" id="__nav_2_1_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -563,6 +577,8 @@
                 
   
   
+    
+  
   
   
     
@@ -589,15 +605,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_2" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/analysis/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -621,7 +637,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2_1_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -641,7 +657,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/analysis/free_energy/" class="md-nav__link">
+      <a href="../free_energy/" class="md-nav__link">
         
   
   
@@ -669,7 +685,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/analysis/pmf/" class="md-nav__link">
+      <a href="../pmf/" class="md-nav__link">
         
   
   
@@ -694,10 +710,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../reference/analysis/provider/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    provider
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -713,6 +756,48 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gluebind.analysis.provider.WhamPmfProvider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WhamPmfProvider
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gluebind.analysis.provider.wham_units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;wham_units
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -725,7 +810,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/analysis/wham/" class="md-nav__link">
+      <a href="../wham/" class="md-nav__link">
         
   
   
@@ -792,7 +877,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/backend/" class="md-nav__link ">
+            <a href="../../backend/" class="md-nav__link ">
               
   
   
@@ -836,7 +921,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/backend/base/" class="md-nav__link">
+      <a href="../../backend/base/" class="md-nav__link">
         
   
   
@@ -864,7 +949,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/backend/local/" class="md-nav__link">
+      <a href="../../backend/local/" class="md-nav__link">
         
   
   
@@ -892,7 +977,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/backend/scheduler/" class="md-nav__link">
+      <a href="../../backend/scheduler/" class="md-nav__link">
         
   
   
@@ -920,7 +1005,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/backend/slurm/" class="md-nav__link">
+      <a href="../../backend/slurm/" class="md-nav__link">
         
   
   
@@ -956,7 +1041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/boresch_geometry/" class="md-nav__link">
+      <a href="../../boresch_geometry/" class="md-nav__link">
         
   
   
@@ -1017,7 +1102,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/config/" class="md-nav__link ">
+            <a href="../../config/" class="md-nav__link ">
               
   
   
@@ -1061,7 +1146,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/calculation/" class="md-nav__link">
+      <a href="../../config/calculation/" class="md-nav__link">
         
   
   
@@ -1089,7 +1174,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/prep/" class="md-nav__link">
+      <a href="../../config/prep/" class="md-nav__link">
         
   
   
@@ -1117,7 +1202,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/restraints/" class="md-nav__link">
+      <a href="../../config/restraints/" class="md-nav__link">
         
   
   
@@ -1145,7 +1230,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/sampling/" class="md-nav__link">
+      <a href="../../config/sampling/" class="md-nav__link">
         
   
   
@@ -1173,7 +1258,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/slurm/" class="md-nav__link">
+      <a href="../../config/slurm/" class="md-nav__link">
         
   
   
@@ -1240,7 +1325,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/restraints/" class="md-nav__link ">
+            <a href="../../restraints/" class="md-nav__link ">
               
   
   
@@ -1284,7 +1369,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/restraints/boresch/" class="md-nav__link">
+      <a href="../../restraints/boresch/" class="md-nav__link">
         
   
   
@@ -1312,7 +1397,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/restraints/rmsd/" class="md-nav__link">
+      <a href="../../restraints/rmsd/" class="md-nav__link">
         
   
   
@@ -1340,7 +1425,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/restraints/separation/" class="md-nav__link">
+      <a href="../../restraints/separation/" class="md-nav__link">
         
   
   
@@ -1368,7 +1453,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/restraints/system_builder/" class="md-nav__link">
+      <a href="../../restraints/system_builder/" class="md-nav__link">
         
   
   
@@ -1437,7 +1522,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/runners/" class="md-nav__link ">
+            <a href="../../runners/" class="md-nav__link ">
               
   
   
@@ -1481,7 +1566,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/runners/base/" class="md-nav__link">
+      <a href="../../runners/base/" class="md-nav__link">
         
   
   
@@ -1509,7 +1594,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/runners/calculation/" class="md-nav__link">
+      <a href="../../runners/calculation/" class="md-nav__link">
         
   
   
@@ -1537,7 +1622,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/runners/group/" class="md-nav__link">
+      <a href="../../runners/group/" class="md-nav__link">
         
   
   
@@ -1565,7 +1650,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/runners/stage/" class="md-nav__link">
+      <a href="../../runners/stage/" class="md-nav__link">
         
   
   
@@ -1593,7 +1678,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/runners/window/" class="md-nav__link">
+      <a href="../../runners/window/" class="md-nav__link">
         
   
   
@@ -1664,7 +1749,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/selection/" class="md-nav__link ">
+            <a href="../../selection/" class="md-nav__link ">
               
   
   
@@ -1708,7 +1793,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/anchors/" class="md-nav__link">
+      <a href="../../selection/anchors/" class="md-nav__link">
         
   
   
@@ -1736,7 +1821,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/dssp/" class="md-nav__link">
+      <a href="../../selection/dssp/" class="md-nav__link">
         
   
   
@@ -1764,7 +1849,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/equilibration/" class="md-nav__link">
+      <a href="../../selection/equilibration/" class="md-nav__link">
         
   
   
@@ -1792,7 +1877,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/geometry/" class="md-nav__link">
+      <a href="../../selection/geometry/" class="md-nav__link">
         
   
   
@@ -1820,7 +1905,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/interface/" class="md-nav__link">
+      <a href="../../selection/interface/" class="md-nav__link">
         
   
   
@@ -1848,7 +1933,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/rmsf/" class="md-nav__link">
+      <a href="../../selection/rmsf/" class="md-nav__link">
         
   
   
@@ -1911,7 +1996,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/simulation/" class="md-nav__link ">
+            <a href="../../simulation/" class="md-nav__link ">
               
   
   
@@ -1955,7 +2040,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/simulation/steered_md/" class="md-nav__link">
+      <a href="../../simulation/steered_md/" class="md-nav__link">
         
   
   
@@ -1983,7 +2068,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/simulation/window/" class="md-nav__link">
+      <a href="../../simulation/window/" class="md-nav__link">
         
   
   
@@ -2019,7 +2104,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/spec_builder/" class="md-nav__link">
+      <a href="../../spec_builder/" class="md-nav__link">
         
   
   
@@ -2047,7 +2132,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/state/" class="md-nav__link">
+      <a href="../../state/" class="md-nav__link">
         
   
   
@@ -2102,7 +2187,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/system/" class="md-nav__link ">
+            <a href="../../system/" class="md-nav__link ">
               
   
   
@@ -2146,7 +2231,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/system/inputs/" class="md-nav__link">
+      <a href="../../system/inputs/" class="md-nav__link">
         
   
   
@@ -2174,7 +2259,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/system/prep/" class="md-nav__link">
+      <a href="../../system/prep/" class="md-nav__link">
         
   
   
@@ -2222,19 +2307,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../development/" class="md-nav__link">
         
   
   
@@ -2250,7 +2326,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -2275,6 +2350,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gluebind.analysis.provider.WhamPmfProvider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WhamPmfProvider
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gluebind.analysis.provider.wham_units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;wham_units
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2293,21 +2398,275 @@
   
 
 
-<h1 id="development">Development<a class="headerlink" href="#development" title="Permanent link">#</a></h1>
-<p>To create a development environment, you must have <a href="https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html"><code>mamba</code> installed</a>.</p>
-<p>A development conda environment can be created and activated with:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>make<span class="w"> </span>env
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>conda<span class="w"> </span>activate<span class="w"> </span>gluebind
+<div class="doc doc-object doc-module">
+
+
+
+<h1 id="gluebind.analysis.provider" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">provider</span>
+
+
+<a href="#gluebind.analysis.provider" class="headerlink" title="Permanent link">#</a></h1>
+
+    <div class="doc doc-contents first">
+
+        <p>The real WHAM PMF provider — <code>(cv, pmf)</code> for a stage.</p>
+<p>Given a stage (its windows, each with per-replicate CV timeseries on disk), this
+writes a WHAM metadata file per replicate, runs the Grossfield <code>wham</code> binary
+(locally on the driver, or as a submitted SLURM job — resolved question 1), loads
+the per-replicate PMFs, and averages them. The returned callable is exactly the
+<code>pmf_provider</code> the runner uses for the Boresch equilibrium-value feedback and
+that :meth:<code>Calculation.analyse</code> uses for the final contributions.</p>
+<p>Unit handling is centralised in :func:<code>wham_units</code>: CV timeseries are recorded in
+nm (RMSD/separation) or rad (Boresch), so window centres (Å for RMSD, nm for
+separation, rad for Boresch) and force constants (kcal/mol/Å² or /rad²) are
+converted to match — the config remains the single source of truth for <code>k</code>.</p>
+
+
+
+
+
+
+
+
+
+
+<p><span class="doc-section-title">Classes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;WhamPmfProvider&lt;/span&gt; (&lt;code&gt;gluebind.analysis.provider.WhamPmfProvider&lt;/code&gt;)" href="#gluebind.analysis.provider.WhamPmfProvider">WhamPmfProvider</a></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Callable <code>stage -&gt; (cv, pmf)</code> via WHAM over the stage's windows.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+<p><span class="doc-section-title">Functions:</span></p>
+    <ul>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;wham_units&lt;/span&gt; (&lt;code&gt;gluebind.analysis.provider.wham_units&lt;/code&gt;)" href="#gluebind.analysis.provider.wham_units">wham_units</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Convert a window centre + force constant to WHAM units (nm / rad).</p>
+            </div>
+          </li>
+    </ul>
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="gluebind.analysis.provider.WhamPmfProvider" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">WhamPmfProvider</span>
+
+
+<a href="#gluebind.analysis.provider.WhamPmfProvider" class="headerlink" title="Permanent link">#</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WhamPmfProvider</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;CalculationConfig&lt;/span&gt; (&lt;code&gt;gluebind.config.calculation.CalculationConfig&lt;/code&gt;)" href="../../config/calculation/#gluebind.config.calculation.CalculationConfig">CalculationConfig</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">wham_binary</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="n"><span title="pathlib.Path">Path</span></span> <span class="o">=</span> <span class="s2">&quot;wham&quot;</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">location</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">&quot;local&quot;</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">backend</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">num_bins</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">tol</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">1e-06</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">numpad</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">hist_margin</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.1</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>To format the codebase:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>format
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Callable <code>stage -&gt; (cv, pmf)</code> via WHAM over the stage's windows.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                  <details class="mkdocstrings-source">
+                    <summary>Source code in <code>gluebind/analysis/provider.py</code></summary>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#__codelineno-0-55">55</a></span>
+<span class="normal"><a href="#__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#__codelineno-0-64">64</a></span>
+<span class="normal"><a href="#__codelineno-0-65">65</a></span>
+<span class="normal"><a href="#__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">CalculationConfig</span><span class="p">,</span>
+</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52"></a>    <span class="n">wham_binary</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span> <span class="o">=</span> <span class="s2">&quot;wham&quot;</span><span class="p">,</span>
+</span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53"></a>    <span class="n">location</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;local&quot;</span><span class="p">,</span>
+</span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="n">backend</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-55"><a id="__codelineno-0-55" name="__codelineno-0-55"></a>    <span class="n">num_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+</span><span id="__span-0-56"><a id="__codelineno-0-56" name="__codelineno-0-56"></a>    <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+</span><span id="__span-0-57"><a id="__codelineno-0-57" name="__codelineno-0-57"></a>    <span class="n">numpad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-58"><a id="__codelineno-0-58" name="__codelineno-0-58"></a>    <span class="n">hist_margin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+</span><span id="__span-0-59"><a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-60"><a id="__codelineno-0-60" name="__codelineno-0-60"></a>    <span class="k">if</span> <span class="n">location</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;local&quot;</span><span class="p">,</span> <span class="s2">&quot;slurm&quot;</span><span class="p">):</span>
+</span><span id="__span-0-61"><a id="__codelineno-0-61" name="__codelineno-0-61"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;location must be &#39;local&#39; or &#39;slurm&#39;&quot;</span><span class="p">)</span>
+</span><span id="__span-0-62"><a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="k">if</span> <span class="n">location</span> <span class="o">==</span> <span class="s2">&quot;slurm&quot;</span> <span class="ow">and</span> <span class="n">backend</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-63"><a id="__codelineno-0-63" name="__codelineno-0-63"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;a backend is required for location=&#39;slurm&#39;&quot;</span><span class="p">)</span>
+</span><span id="__span-0-64"><a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="n">resolved</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">wham_binary</span><span class="p">))</span>
+</span><span id="__span-0-65"><a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="k">if</span> <span class="n">resolved</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-66"><a id="__codelineno-0-66" name="__codelineno-0-66"></a>        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+</span><span id="__span-0-67"><a id="__codelineno-0-67" name="__codelineno-0-67"></a>            <span class="sa">f</span><span class="s2">&quot;WHAM binary </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">wham_binary</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> was not found on PATH. Install it &quot;</span>
+</span><span id="__span-0-68"><a id="__codelineno-0-68" name="__codelineno-0-68"></a>            <span class="s2">&quot;with `make wham` from the gluebind repo (this compiles Grossfield &quot;</span>
+</span><span id="__span-0-69"><a id="__codelineno-0-69" name="__codelineno-0-69"></a>            <span class="s2">&quot;WHAM into the active conda environment), or compile it yourself and &quot;</span>
+</span><span id="__span-0-70"><a id="__codelineno-0-70" name="__codelineno-0-70"></a>            <span class="s2">&quot;put the `wham` binary on your PATH. See the README for the fallback &quot;</span>
+</span><span id="__span-0-71"><a id="__codelineno-0-71" name="__codelineno-0-71"></a>            <span class="s2">&quot;options if the download URL has changed.&quot;</span>
+</span><span id="__span-0-72"><a id="__codelineno-0-72" name="__codelineno-0-72"></a>        <span class="p">)</span>
+</span><span id="__span-0-73"><a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+</span><span id="__span-0-74"><a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">wham_binary</span> <span class="o">=</span> <span class="n">resolved</span>
+</span><span id="__span-0-75"><a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">location</span>
+</span><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">=</span> <span class="n">backend</span>
+</span><span id="__span-0-77"><a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span> <span class="o">=</span> <span class="n">num_bins</span>
+</span><span id="__span-0-78"><a id="__codelineno-0-78" name="__codelineno-0-78"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">tol</span> <span class="o">=</span> <span class="n">tol</span>
+</span><span id="__span-0-79"><a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">numpad</span> <span class="o">=</span> <span class="n">numpad</span>
+</span><span id="__span-0-80"><a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">hist_margin</span> <span class="o">=</span> <span class="n">hist_margin</span>
+</span></code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="gluebind.analysis.provider.wham_units" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">wham_units</span>
+
+
+<a href="#gluebind.analysis.provider.wham_units" class="headerlink" title="Permanent link">#</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">wham_units</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">cv_type</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">centre</span><span class="p">:</span> <span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n">force_constant</span><span class="p">:</span> <span class="n"><span title="float">float</span></span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]</span>
 </span></code></pre></div>
-<p>To run the unit tests:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>make<span class="w"> </span><span class="nb">test</span>
-</span></code></pre></div>
-<p>To serve the documentation locally:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mkdocs<span class="w"> </span>serve
-</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a window centre + force constant to WHAM units (nm / rad).</p>
+<ul>
+<li>Boresch — rad and kcal/mol/rad² (no conversion).</li>
+<li>RMSD — centre Å→nm (×0.1), k Å⁻²→nm⁻² (×100).</li>
+<li>Separation — centre already nm, k Å⁻²→nm⁻² (×100).</li>
+</ul>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>gluebind/analysis/provider.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-29">29</a></span>
+<span class="normal"><a href="#__codelineno-0-30">30</a></span>
+<span class="normal"><a href="#__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#__codelineno-0-36">36</a></span>
+<span class="normal"><a href="#__codelineno-0-37">37</a></span>
+<span class="normal"><a href="#__codelineno-0-38">38</a></span>
+<span class="normal"><a href="#__codelineno-0-39">39</a></span>
+<span class="normal"><a href="#__codelineno-0-40">40</a></span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="k">def</span><span class="w"> </span><span class="nf">wham_units</span><span class="p">(</span><span class="n">cv_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">centre</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">force_constant</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a window centre + force constant to WHAM units (nm / rad).</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31"></a>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="sd">    * Boresch — rad and kcal/mol/rad² (no conversion).</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">    * RMSD — centre Å→nm (×0.1), k Å⁻²→nm⁻² (×100).</span>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="sd">    * Separation — centre already nm, k Å⁻²→nm⁻² (×100).</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="k">if</span> <span class="n">cv_type</span> <span class="o">==</span> <span class="s2">&quot;boresch&quot;</span><span class="p">:</span>
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="k">return</span> <span class="n">centre</span><span class="p">,</span> <span class="n">force_constant</span>
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38"></a>    <span class="k">if</span> <span class="n">cv_type</span> <span class="o">==</span> <span class="s2">&quot;rmsd&quot;</span><span class="p">:</span>
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39"></a>        <span class="k">return</span> <span class="n">centre</span> <span class="o">*</span> <span class="mf">0.1</span><span class="p">,</span> <span class="n">force_constant</span> <span class="o">*</span> <span class="mf">100.0</span>
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="k">if</span> <span class="n">cv_type</span> <span class="o">==</span> <span class="s2">&quot;separation&quot;</span><span class="p">:</span>
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41"></a>        <span class="k">return</span> <span class="n">centre</span><span class="p">,</span> <span class="n">force_constant</span> <span class="o">*</span> <span class="mf">100.0</span>
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown cv_type </span><span class="si">{</span><span class="n">cv_type</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
 
 
 
@@ -2343,7 +2702,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../reference/system/prep/" class="md-footer__link md-footer__link--prev" aria-label="Previous: prep">
+          <a href="../pmf/" class="md-footer__link md-footer__link--prev" aria-label="Previous: pmf">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2353,11 +2712,27 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                prep
+                pmf
               </div>
             </div>
           </a>
         
+        
+          
+          <a href="../wham/" class="md-footer__link md-footer__link--next" aria-label="Next: wham">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                wham
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
         
       </nav>
     
@@ -2391,12 +2766,12 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.highlight", "search.suggest", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../javascripts/mathjax.js"></script>
+        <script src="../../../javascripts/mathjax.js"></script>
       
         <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       

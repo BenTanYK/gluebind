@@ -10,29 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://github.com/BenTanYK/gluebind/latest/development/">
+        <link rel="canonical" href="https://github.com/BenTanYK/gluebind/latest/reference/runners/stage/">
       
       
-        <link rel="prev" href="../reference/system/prep/">
+        <link rel="prev" href="../group/">
       
+      
+        <link rel="next" href="../window/">
       
       
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Development - gluebind</title>
+        <title>stage - gluebind</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#development" class="md-skip">
+        <a href="#gluebind.runners.stage" class="md-skip">
           Skip to content
         </a>
       
@@ -98,7 +100,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="gluebind" class="md-header__button md-logo" aria-label="gluebind" data-md-component="logo">
+    <a href="../../.." title="gluebind" class="md-header__button md-logo" aria-label="gluebind" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -118,7 +120,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Development
+              stage
             
           </span>
         </div>
@@ -227,7 +229,7 @@
     
     
       <li class="md-tabs__item">
-        <a href=".." class="md-tabs__link">
+        <a href="../../.." class="md-tabs__link">
           
   
   
@@ -245,6 +247,8 @@
   
   
   
+    
+  
   
     
     
@@ -252,11 +256,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../reference/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
   
@@ -277,11 +283,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../../../development/" class="md-tabs__link">
         
   
   
@@ -322,7 +326,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="gluebind" class="md-nav__button md-logo" aria-label="gluebind" data-md-component="logo">
+    <a href="../../.." title="gluebind" class="md-nav__button md-logo" aria-label="gluebind" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -375,7 +379,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href=".." class="md-nav__link ">
+            <a href="../../.." class="md-nav__link ">
               
   
   
@@ -418,8 +422,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -429,19 +435,22 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -459,7 +468,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -474,6 +483,8 @@
                 
   
   
+    
+  
   
   
     
@@ -511,18 +522,21 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   
@@ -540,13 +554,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_1" id="__nav_2_1_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -597,7 +611,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/analysis/" class="md-nav__link ">
+            <a href="../../analysis/" class="md-nav__link ">
               
   
   
@@ -641,7 +655,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/analysis/free_energy/" class="md-nav__link">
+      <a href="../../analysis/free_energy/" class="md-nav__link">
         
   
   
@@ -669,7 +683,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/analysis/pmf/" class="md-nav__link">
+      <a href="../../analysis/pmf/" class="md-nav__link">
         
   
   
@@ -697,7 +711,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/analysis/provider/" class="md-nav__link">
+      <a href="../../analysis/provider/" class="md-nav__link">
         
   
   
@@ -725,7 +739,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/analysis/wham/" class="md-nav__link">
+      <a href="../../analysis/wham/" class="md-nav__link">
         
   
   
@@ -792,7 +806,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/backend/" class="md-nav__link ">
+            <a href="../../backend/" class="md-nav__link ">
               
   
   
@@ -836,7 +850,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/backend/base/" class="md-nav__link">
+      <a href="../../backend/base/" class="md-nav__link">
         
   
   
@@ -864,7 +878,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/backend/local/" class="md-nav__link">
+      <a href="../../backend/local/" class="md-nav__link">
         
   
   
@@ -892,7 +906,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/backend/scheduler/" class="md-nav__link">
+      <a href="../../backend/scheduler/" class="md-nav__link">
         
   
   
@@ -920,7 +934,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/backend/slurm/" class="md-nav__link">
+      <a href="../../backend/slurm/" class="md-nav__link">
         
   
   
@@ -956,7 +970,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/boresch_geometry/" class="md-nav__link">
+      <a href="../../boresch_geometry/" class="md-nav__link">
         
   
   
@@ -1017,7 +1031,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/config/" class="md-nav__link ">
+            <a href="../../config/" class="md-nav__link ">
               
   
   
@@ -1061,7 +1075,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/calculation/" class="md-nav__link">
+      <a href="../../config/calculation/" class="md-nav__link">
         
   
   
@@ -1089,7 +1103,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/prep/" class="md-nav__link">
+      <a href="../../config/prep/" class="md-nav__link">
         
   
   
@@ -1117,7 +1131,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/restraints/" class="md-nav__link">
+      <a href="../../config/restraints/" class="md-nav__link">
         
   
   
@@ -1145,7 +1159,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/sampling/" class="md-nav__link">
+      <a href="../../config/sampling/" class="md-nav__link">
         
   
   
@@ -1173,7 +1187,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/config/slurm/" class="md-nav__link">
+      <a href="../../config/slurm/" class="md-nav__link">
         
   
   
@@ -1240,7 +1254,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/restraints/" class="md-nav__link ">
+            <a href="../../restraints/" class="md-nav__link ">
               
   
   
@@ -1284,7 +1298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/restraints/boresch/" class="md-nav__link">
+      <a href="../../restraints/boresch/" class="md-nav__link">
         
   
   
@@ -1312,7 +1326,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/restraints/rmsd/" class="md-nav__link">
+      <a href="../../restraints/rmsd/" class="md-nav__link">
         
   
   
@@ -1340,7 +1354,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/restraints/separation/" class="md-nav__link">
+      <a href="../../restraints/separation/" class="md-nav__link">
         
   
   
@@ -1368,7 +1382,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/restraints/system_builder/" class="md-nav__link">
+      <a href="../../restraints/system_builder/" class="md-nav__link">
         
   
   
@@ -1401,6 +1415,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1429,15 +1445,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_7" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/runners/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1461,7 +1477,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2_1_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1481,7 +1497,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/runners/base/" class="md-nav__link">
+      <a href="../base/" class="md-nav__link">
         
   
   
@@ -1509,7 +1525,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/runners/calculation/" class="md-nav__link">
+      <a href="../calculation/" class="md-nav__link">
         
   
   
@@ -1537,7 +1553,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/runners/group/" class="md-nav__link">
+      <a href="../group/" class="md-nav__link">
         
   
   
@@ -1562,10 +1578,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../reference/runners/stage/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    stage
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1581,6 +1624,76 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gluebind.runners.stage.Stage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Stage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Stage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.runners.stage.Stage.is_bulk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;is_bulk
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.runners.stage.Stage.write_specs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;write_specs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.runners.stage.Stage.setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1593,7 +1706,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/runners/window/" class="md-nav__link">
+      <a href="../window/" class="md-nav__link">
         
   
   
@@ -1664,7 +1777,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/selection/" class="md-nav__link ">
+            <a href="../../selection/" class="md-nav__link ">
               
   
   
@@ -1708,7 +1821,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/anchors/" class="md-nav__link">
+      <a href="../../selection/anchors/" class="md-nav__link">
         
   
   
@@ -1736,7 +1849,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/dssp/" class="md-nav__link">
+      <a href="../../selection/dssp/" class="md-nav__link">
         
   
   
@@ -1764,7 +1877,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/equilibration/" class="md-nav__link">
+      <a href="../../selection/equilibration/" class="md-nav__link">
         
   
   
@@ -1792,7 +1905,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/geometry/" class="md-nav__link">
+      <a href="../../selection/geometry/" class="md-nav__link">
         
   
   
@@ -1820,7 +1933,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/interface/" class="md-nav__link">
+      <a href="../../selection/interface/" class="md-nav__link">
         
   
   
@@ -1848,7 +1961,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/selection/rmsf/" class="md-nav__link">
+      <a href="../../selection/rmsf/" class="md-nav__link">
         
   
   
@@ -1911,7 +2024,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/simulation/" class="md-nav__link ">
+            <a href="../../simulation/" class="md-nav__link ">
               
   
   
@@ -1955,7 +2068,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/simulation/steered_md/" class="md-nav__link">
+      <a href="../../simulation/steered_md/" class="md-nav__link">
         
   
   
@@ -1983,7 +2096,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/simulation/window/" class="md-nav__link">
+      <a href="../../simulation/window/" class="md-nav__link">
         
   
   
@@ -2019,7 +2132,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/spec_builder/" class="md-nav__link">
+      <a href="../../spec_builder/" class="md-nav__link">
         
   
   
@@ -2047,7 +2160,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/state/" class="md-nav__link">
+      <a href="../../state/" class="md-nav__link">
         
   
   
@@ -2102,7 +2215,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/system/" class="md-nav__link ">
+            <a href="../../system/" class="md-nav__link ">
               
   
   
@@ -2146,7 +2259,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/system/inputs/" class="md-nav__link">
+      <a href="../../system/inputs/" class="md-nav__link">
         
   
   
@@ -2174,7 +2287,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/system/prep/" class="md-nav__link">
+      <a href="../../system/prep/" class="md-nav__link">
         
   
   
@@ -2222,19 +2335,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../development/" class="md-nav__link">
         
   
   
@@ -2250,7 +2354,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -2275,6 +2378,64 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gluebind.runners.stage.Stage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Stage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Stage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.runners.stage.Stage.is_bulk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;is_bulk
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.runners.stage.Stage.write_specs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;write_specs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.runners.stage.Stage.setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2293,21 +2454,319 @@
   
 
 
-<h1 id="development">Development<a class="headerlink" href="#development" title="Permanent link">#</a></h1>
-<p>To create a development environment, you must have <a href="https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html"><code>mamba</code> installed</a>.</p>
-<p>A development conda environment can be created and activated with:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>make<span class="w"> </span>env
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>conda<span class="w"> </span>activate<span class="w"> </span>gluebind
+<div class="doc doc-object doc-module">
+
+
+
+<h1 id="gluebind.runners.stage" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">stage</span>
+
+
+<a href="#gluebind.runners.stage" class="headerlink" title="Permanent link">#</a></h1>
+
+    <div class="doc doc-contents first">
+
+        <p>Stage runner: one collective variable → one PMF → one WHAM run.</p>
+<p>A :class:<code>Stage</code> owns the set of windows spanning its CV and knows its
+contribution's role in the free-energy sum (via <code>cv_type</code> and, for RMSD,
+whether it is a bound or bulk stage).</p>
+
+
+
+
+
+
+
+
+
+
+<p><span class="doc-section-title">Classes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Stage&lt;/span&gt; (&lt;code&gt;gluebind.runners.stage.Stage&lt;/code&gt;)" href="#gluebind.runners.stage.Stage">Stage</a></code></b>
+          –
+          <div class="doc-md-description">
+            <p>One CV's umbrella-sampling windows.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="gluebind.runners.stage.Stage" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">Stage</span>
+
+
+<a href="#gluebind.runners.stage.Stage" class="headerlink" title="Permanent link">#</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Stage</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">base_dir</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="n"><span title="pathlib.Path">Path</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">cv_type</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">dof</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">centres</span><span class="p">:</span> <span class="n"><span title="collections.abc.Sequence">Sequence</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">],</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">ensemble_size</span><span class="p">:</span> <span class="n"><span title="int">int</span></span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">spec_builder</span><span class="p">:</span> <span class="n"><span title="gluebind.runners.window.SpecBuilder">SpecBuilder</span></span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">command_factory</span><span class="p">:</span> <span class="n"><span title="gluebind.runners.window.CommandFactory">CommandFactory</span></span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;window_launch_command&lt;/span&gt; (&lt;code&gt;gluebind.simulation.window.window_launch_command&lt;/code&gt;)" href="../../simulation/window/#gluebind.simulation.window.window_launch_command">window_launch_command</a></span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>To format the codebase:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>format
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SimulationRunner&lt;/span&gt; (&lt;code&gt;gluebind.runners.base.SimulationRunner&lt;/code&gt;)" href="../base/#gluebind.runners.base.SimulationRunner">SimulationRunner</a></code></p>
+
+
+
+        <p>One CV's umbrella-sampling windows.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+<p><span class="doc-section-title">Methods:</span></p>
+    <ul>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;write_specs&lt;/span&gt; (&lt;code&gt;gluebind.runners.stage.Stage.write_specs&lt;/code&gt;)" href="#gluebind.runners.stage.Stage.write_specs">write_specs</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Write every window's replicate specs with the given Boresch eq values.</p>
+            </div>
+          </li>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;setup&lt;/span&gt; (&lt;code&gt;gluebind.runners.stage.Stage.setup&lt;/code&gt;)" href="#gluebind.runners.stage.Stage.setup">setup</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Create this node's directory, then recurse into children.</p>
+            </div>
+          </li>
+    </ul>
+
+
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;is_bulk&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.runners.stage.Stage.is_bulk&lt;/code&gt;)" href="#gluebind.runners.stage.Stage.is_bulk">is_bulk</a></code></b>
+              (<code><span title="bool">bool</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>True for a released/bulk RMSD stage (enters the sum with <code>+</code> sign).</p>
+          </div>
+        </li>
+    </ul>
+
+                  <details class="mkdocstrings-source">
+                    <summary>Source code in <code>gluebind/runners/stage.py</code></summary>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-21">21</a></span>
+<span class="normal"><a href="#__codelineno-0-22">22</a></span>
+<span class="normal"><a href="#__codelineno-0-23">23</a></span>
+<span class="normal"><a href="#__codelineno-0-24">24</a></span>
+<span class="normal"><a href="#__codelineno-0-25">25</a></span>
+<span class="normal"><a href="#__codelineno-0-26">26</a></span>
+<span class="normal"><a href="#__codelineno-0-27">27</a></span>
+<span class="normal"><a href="#__codelineno-0-28">28</a></span>
+<span class="normal"><a href="#__codelineno-0-29">29</a></span>
+<span class="normal"><a href="#__codelineno-0-30">30</a></span>
+<span class="normal"><a href="#__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#__codelineno-0-36">36</a></span>
+<span class="normal"><a href="#__codelineno-0-37">37</a></span>
+<span class="normal"><a href="#__codelineno-0-38">38</a></span>
+<span class="normal"><a href="#__codelineno-0-39">39</a></span>
+<span class="normal"><a href="#__codelineno-0-40">40</a></span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22"></a>    <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23"></a>    <span class="n">base_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="n">cv_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27"></a>    <span class="n">dof</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28"></a>    <span class="n">centres</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="n">ensemble_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="n">spec_builder</span><span class="p">:</span> <span class="n">SpecBuilder</span><span class="p">,</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31"></a>    <span class="n">command_factory</span><span class="p">:</span> <span class="n">CommandFactory</span> <span class="o">=</span> <span class="n">window_launch_command</span><span class="p">,</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">base_dir</span><span class="p">)</span>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">cv_type</span> <span class="o">=</span> <span class="n">cv_type</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">dof</span> <span class="o">=</span> <span class="n">dof</span>
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">windows</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38"></a>        <span class="n">Window</span><span class="p">(</span>
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">base_dir</span> <span class="o">/</span> <span class="n">format_label</span><span class="p">(</span><span class="n">cv_type</span><span class="p">,</span> <span class="n">centre</span><span class="p">),</span>
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40"></a>            <span class="n">cv_type</span><span class="o">=</span><span class="n">cv_type</span><span class="p">,</span>
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41"></a>            <span class="n">stage_name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42"></a>            <span class="n">dof</span><span class="o">=</span><span class="n">dof</span><span class="p">,</span>
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43"></a>            <span class="n">centre</span><span class="o">=</span><span class="n">centre</span><span class="p">,</span>
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44"></a>            <span class="n">ensemble_size</span><span class="o">=</span><span class="n">ensemble_size</span><span class="p">,</span>
+</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45"></a>            <span class="n">spec_builder</span><span class="o">=</span><span class="n">spec_builder</span><span class="p">,</span>
+</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46"></a>            <span class="n">command_factory</span><span class="o">=</span><span class="n">command_factory</span><span class="p">,</span>
+</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47"></a>        <span class="p">)</span>
+</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48"></a>        <span class="k">for</span> <span class="n">centre</span> <span class="ow">in</span> <span class="n">centres</span>
+</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="p">]</span>
+</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">sub_runners</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">windows</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="gluebind.runners.stage.Stage.is_bulk" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">is_bulk</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#gluebind.runners.stage.Stage.is_bulk" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">is_bulk</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span>
 </span></code></pre></div>
-<p>To run the unit tests:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>make<span class="w"> </span><span class="nb">test</span>
+
+    <div class="doc doc-contents ">
+
+        <p>True for a released/bulk RMSD stage (enters the sum with <code>+</code> sign).</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="gluebind.runners.stage.Stage.write_specs" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">write_specs</span>
+
+
+<a href="#gluebind.runners.stage.Stage.write_specs" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write_specs</span><span class="p">(</span><span class="n">boresch_eq_values</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
-<p>To serve the documentation locally:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mkdocs<span class="w"> </span>serve
+
+    <div class="doc doc-contents ">
+
+        <p>Write every window's replicate specs with the given Boresch eq values.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>gluebind/runners/stage.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#__codelineno-0-55">55</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="k">def</span><span class="w"> </span><span class="nf">write_specs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">boresch_eq_values</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Write every window&#39;s replicate specs with the given Boresch eq values.&quot;&quot;&quot;</span>
+</span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="k">for</span> <span class="n">window</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">windows</span><span class="p">:</span>
+</span><span id="__span-0-55"><a id="__codelineno-0-55" name="__codelineno-0-55"></a>        <span class="n">window</span><span class="o">.</span><span class="n">write_specs</span><span class="p">(</span><span class="n">boresch_eq_values</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="gluebind.runners.stage.Stage.setup" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">setup</span>
+
+
+<a href="#gluebind.runners.stage.Stage.setup" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">setup</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Create this node's directory, then recurse into children.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>gluebind/runners/base.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-22">22</a></span>
+<span class="normal"><a href="#__codelineno-0-23">23</a></span>
+<span class="normal"><a href="#__codelineno-0-24">24</a></span>
+<span class="normal"><a href="#__codelineno-0-25">25</a></span>
+<span class="normal"><a href="#__codelineno-0-26">26</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create this node&#39;s directory, then recurse into children.&quot;&quot;&quot;</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">base_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="k">for</span> <span class="n">runner</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_runners</span><span class="p">:</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26"></a>        <span class="n">runner</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
 
 
 
@@ -2343,7 +2802,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../reference/system/prep/" class="md-footer__link md-footer__link--prev" aria-label="Previous: prep">
+          <a href="../group/" class="md-footer__link md-footer__link--prev" aria-label="Previous: group">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2353,11 +2812,27 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                prep
+                group
               </div>
             </div>
           </a>
         
+        
+          
+          <a href="../window/" class="md-footer__link md-footer__link--next" aria-label="Next: window">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                window
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
         
       </nav>
     
@@ -2391,12 +2866,12 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.highlight", "search.suggest", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../javascripts/mathjax.js"></script>
+        <script src="../../../javascripts/mathjax.js"></script>
       
         <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       

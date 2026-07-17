@@ -10,27 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://github.com/BenTanYK/gluebind/latest/reference/SUMMARY/">
+        <link rel="canonical" href="https://github.com/BenTanYK/gluebind/latest/reference/backend/slurm/">
       
       
+        <link rel="prev" href="../scheduler/">
+      
+      
+        <link rel="next" href="../../boresch_geometry/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>SUMMARY - gluebind</title>
+        <title>slurm - gluebind</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -49,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -75,6 +79,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#gluebind.backend.slurm" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -91,7 +100,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="gluebind" class="md-header__button md-logo" aria-label="gluebind" data-md-component="logo">
+    <a href="../../.." title="gluebind" class="md-header__button md-logo" aria-label="gluebind" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -111,7 +120,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              SUMMARY
+              slurm
             
           </span>
         </div>
@@ -220,7 +229,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../.." class="md-tabs__link">
+        <a href="../../.." class="md-tabs__link">
           
   
   
@@ -238,6 +247,8 @@
   
   
   
+    
+  
   
     
     
@@ -245,11 +256,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
   
@@ -272,7 +285,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../development/" class="md-tabs__link">
+      <a href="../../../development/" class="md-tabs__link">
         
   
   
@@ -313,7 +326,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="gluebind" class="md-nav__button md-logo" aria-label="gluebind" data-md-component="logo">
+    <a href="../../.." title="gluebind" class="md-nav__button md-logo" aria-label="gluebind" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -366,7 +379,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../.." class="md-nav__link ">
+            <a href="../../.." class="md-nav__link ">
               
   
   
@@ -409,8 +422,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -420,19 +435,22 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -450,7 +468,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -465,6 +483,8 @@
                 
   
   
+    
+  
   
   
     
@@ -502,18 +522,21 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   
@@ -531,13 +554,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_1" id="__nav_2_1_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -588,7 +611,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../analysis/" class="md-nav__link ">
+            <a href="../../analysis/" class="md-nav__link ">
               
   
   
@@ -632,7 +655,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analysis/free_energy/" class="md-nav__link">
+      <a href="../../analysis/free_energy/" class="md-nav__link">
         
   
   
@@ -660,7 +683,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analysis/pmf/" class="md-nav__link">
+      <a href="../../analysis/pmf/" class="md-nav__link">
         
   
   
@@ -688,7 +711,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analysis/provider/" class="md-nav__link">
+      <a href="../../analysis/provider/" class="md-nav__link">
         
   
   
@@ -716,7 +739,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analysis/wham/" class="md-nav__link">
+      <a href="../../analysis/wham/" class="md-nav__link">
         
   
   
@@ -749,6 +772,8 @@
                 
   
   
+    
+  
   
   
     
@@ -775,15 +800,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../backend/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -807,7 +832,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2_1_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -827,7 +852,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../backend/base/" class="md-nav__link">
+      <a href="../base/" class="md-nav__link">
         
   
   
@@ -855,7 +880,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../backend/local/" class="md-nav__link">
+      <a href="../local/" class="md-nav__link">
         
   
   
@@ -883,7 +908,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../backend/scheduler/" class="md-nav__link">
+      <a href="../scheduler/" class="md-nav__link">
         
   
   
@@ -908,10 +933,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../backend/slurm/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    slurm
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -927,6 +979,54 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gluebind.backend.slurm.SlurmBackend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SlurmBackend
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" SlurmBackend">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.backend.slurm.SlurmBackend.poll" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;poll
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -947,7 +1047,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../boresch_geometry/" class="md-nav__link">
+      <a href="../../boresch_geometry/" class="md-nav__link">
         
   
   
@@ -1008,7 +1108,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../config/" class="md-nav__link ">
+            <a href="../../config/" class="md-nav__link ">
               
   
   
@@ -1052,7 +1152,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../config/calculation/" class="md-nav__link">
+      <a href="../../config/calculation/" class="md-nav__link">
         
   
   
@@ -1080,7 +1180,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../config/prep/" class="md-nav__link">
+      <a href="../../config/prep/" class="md-nav__link">
         
   
   
@@ -1108,7 +1208,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../config/restraints/" class="md-nav__link">
+      <a href="../../config/restraints/" class="md-nav__link">
         
   
   
@@ -1136,7 +1236,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../config/sampling/" class="md-nav__link">
+      <a href="../../config/sampling/" class="md-nav__link">
         
   
   
@@ -1164,7 +1264,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../config/slurm/" class="md-nav__link">
+      <a href="../../config/slurm/" class="md-nav__link">
         
   
   
@@ -1231,7 +1331,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../restraints/" class="md-nav__link ">
+            <a href="../../restraints/" class="md-nav__link ">
               
   
   
@@ -1275,7 +1375,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../restraints/boresch/" class="md-nav__link">
+      <a href="../../restraints/boresch/" class="md-nav__link">
         
   
   
@@ -1303,7 +1403,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../restraints/rmsd/" class="md-nav__link">
+      <a href="../../restraints/rmsd/" class="md-nav__link">
         
   
   
@@ -1331,7 +1431,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../restraints/separation/" class="md-nav__link">
+      <a href="../../restraints/separation/" class="md-nav__link">
         
   
   
@@ -1359,7 +1459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../restraints/system_builder/" class="md-nav__link">
+      <a href="../../restraints/system_builder/" class="md-nav__link">
         
   
   
@@ -1428,7 +1528,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../runners/" class="md-nav__link ">
+            <a href="../../runners/" class="md-nav__link ">
               
   
   
@@ -1472,7 +1572,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../runners/base/" class="md-nav__link">
+      <a href="../../runners/base/" class="md-nav__link">
         
   
   
@@ -1500,7 +1600,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../runners/calculation/" class="md-nav__link">
+      <a href="../../runners/calculation/" class="md-nav__link">
         
   
   
@@ -1528,7 +1628,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../runners/group/" class="md-nav__link">
+      <a href="../../runners/group/" class="md-nav__link">
         
   
   
@@ -1556,7 +1656,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../runners/stage/" class="md-nav__link">
+      <a href="../../runners/stage/" class="md-nav__link">
         
   
   
@@ -1584,7 +1684,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../runners/window/" class="md-nav__link">
+      <a href="../../runners/window/" class="md-nav__link">
         
   
   
@@ -1655,7 +1755,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../selection/" class="md-nav__link ">
+            <a href="../../selection/" class="md-nav__link ">
               
   
   
@@ -1699,7 +1799,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../selection/anchors/" class="md-nav__link">
+      <a href="../../selection/anchors/" class="md-nav__link">
         
   
   
@@ -1727,7 +1827,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../selection/dssp/" class="md-nav__link">
+      <a href="../../selection/dssp/" class="md-nav__link">
         
   
   
@@ -1755,7 +1855,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../selection/equilibration/" class="md-nav__link">
+      <a href="../../selection/equilibration/" class="md-nav__link">
         
   
   
@@ -1783,7 +1883,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../selection/geometry/" class="md-nav__link">
+      <a href="../../selection/geometry/" class="md-nav__link">
         
   
   
@@ -1811,7 +1911,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../selection/interface/" class="md-nav__link">
+      <a href="../../selection/interface/" class="md-nav__link">
         
   
   
@@ -1839,7 +1939,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../selection/rmsf/" class="md-nav__link">
+      <a href="../../selection/rmsf/" class="md-nav__link">
         
   
   
@@ -1902,7 +2002,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../simulation/" class="md-nav__link ">
+            <a href="../../simulation/" class="md-nav__link ">
               
   
   
@@ -1946,7 +2046,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../simulation/steered_md/" class="md-nav__link">
+      <a href="../../simulation/steered_md/" class="md-nav__link">
         
   
   
@@ -1974,7 +2074,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../simulation/window/" class="md-nav__link">
+      <a href="../../simulation/window/" class="md-nav__link">
         
   
   
@@ -2010,7 +2110,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../spec_builder/" class="md-nav__link">
+      <a href="../../spec_builder/" class="md-nav__link">
         
   
   
@@ -2038,7 +2138,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../state/" class="md-nav__link">
+      <a href="../../state/" class="md-nav__link">
         
   
   
@@ -2093,7 +2193,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../system/" class="md-nav__link ">
+            <a href="../../system/" class="md-nav__link ">
               
   
   
@@ -2137,7 +2237,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../system/inputs/" class="md-nav__link">
+      <a href="../../system/inputs/" class="md-nav__link">
         
   
   
@@ -2165,7 +2265,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../system/prep/" class="md-nav__link">
+      <a href="../../system/prep/" class="md-nav__link">
         
   
   
@@ -2216,7 +2316,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/" class="md-nav__link">
+      <a href="../../../development/" class="md-nav__link">
         
   
   
@@ -2253,6 +2353,44 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gluebind.backend.slurm.SlurmBackend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SlurmBackend
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" SlurmBackend">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.backend.slurm.SlurmBackend.poll" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;poll
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2268,73 +2406,204 @@
                   
 
 
+  
+  
 
-  <h1>SUMMARY</h1>
 
-<ul>
-<li><a href="../">gluebind</a><ul>
-<li><a href="../analysis/">analysis</a><ul>
-<li><a href="../analysis/free_energy/">free_energy</a></li>
-<li><a href="../analysis/pmf/">pmf</a></li>
-<li><a href="../analysis/provider/">provider</a></li>
-<li><a href="../analysis/wham/">wham</a></li>
-</ul>
-</li>
-<li><a href="../backend/">backend</a><ul>
-<li><a href="../backend/base/">base</a></li>
-<li><a href="../backend/local/">local</a></li>
-<li><a href="../backend/scheduler/">scheduler</a></li>
-<li><a href="../backend/slurm/">slurm</a></li>
-</ul>
-</li>
-<li><a href="../boresch_geometry/">boresch_geometry</a></li>
-<li><a href="../config/">config</a><ul>
-<li><a href="../config/calculation/">calculation</a></li>
-<li><a href="../config/prep/">prep</a></li>
-<li><a href="../config/restraints/">restraints</a></li>
-<li><a href="../config/sampling/">sampling</a></li>
-<li><a href="../config/slurm/">slurm</a></li>
-</ul>
-</li>
-<li><a href="../restraints/">restraints</a><ul>
-<li><a href="../restraints/boresch/">boresch</a></li>
-<li><a href="../restraints/rmsd/">rmsd</a></li>
-<li><a href="../restraints/separation/">separation</a></li>
-<li><a href="../restraints/system_builder/">system_builder</a></li>
-</ul>
-</li>
-<li><a href="../runners/">runners</a><ul>
-<li><a href="../runners/base/">base</a></li>
-<li><a href="../runners/calculation/">calculation</a></li>
-<li><a href="../runners/group/">group</a></li>
-<li><a href="../runners/stage/">stage</a></li>
-<li><a href="../runners/window/">window</a></li>
-</ul>
-</li>
-<li><a href="../selection/">selection</a><ul>
-<li><a href="../selection/anchors/">anchors</a></li>
-<li><a href="../selection/dssp/">dssp</a></li>
-<li><a href="../selection/equilibration/">equilibration</a></li>
-<li><a href="../selection/geometry/">geometry</a></li>
-<li><a href="../selection/interface/">interface</a></li>
-<li><a href="../selection/rmsf/">rmsf</a></li>
-</ul>
-</li>
-<li><a href="../simulation/">simulation</a><ul>
-<li><a href="../simulation/steered_md/">steered_md</a></li>
-<li><a href="../simulation/window/">window</a></li>
-</ul>
-</li>
-<li><a href="../spec_builder/">spec_builder</a></li>
-<li><a href="../state/">state</a></li>
-<li><a href="../system/">system</a><ul>
-<li><a href="../system/inputs/">inputs</a></li>
-<li><a href="../system/prep/">prep</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
+<div class="doc doc-object doc-module">
+
+
+
+<h1 id="gluebind.backend.slurm" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">slurm</span>
+
+
+<a href="#gluebind.backend.slurm" class="headerlink" title="Permanent link">#</a></h1>
+
+    <div class="doc doc-contents first">
+
+        <p>SLURM backend — the v1 execution path.</p>
+<p>Scaffolds one umbrella-sampling window into one sbatch job and submits it. Many
+such jobs are submitted independently and SLURM spreads them across the nodes of
+the configured partition (targeting specific nodes is done with a <code>nodelist</code>
+entry in :attr:<code>SlurmConfig.extra_options</code>). Submitted jobs are <em>detached</em> — they
+outlive the driver — so a run can be resumed by reconciling handles against
+<code>squeue</code>.</p>
+
+
+
+
+
+
+
+
+
+
+<p><span class="doc-section-title">Classes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SlurmBackend&lt;/span&gt; (&lt;code&gt;gluebind.backend.slurm.SlurmBackend&lt;/code&gt;)" href="#gluebind.backend.slurm.SlurmBackend">SlurmBackend</a></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Submit each job as a single-window sbatch job.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="gluebind.backend.slurm.SlurmBackend" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">SlurmBackend</span>
+
+
+<a href="#gluebind.backend.slurm.SlurmBackend" class="headerlink" title="Permanent link">#</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SlurmBackend</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SlurmConfig&lt;/span&gt; (&lt;code&gt;gluebind.config.slurm.SlurmConfig&lt;/code&gt;)" href="../../config/slurm/#gluebind.config.slurm.SlurmConfig">SlurmConfig</a></span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Backend&lt;/span&gt; (&lt;code&gt;gluebind.backend.base.Backend&lt;/code&gt;)" href="../base/#gluebind.backend.base.Backend">Backend</a></code></p>
+
+
+
+        <p>Submit each job as a single-window sbatch job.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+<p><span class="doc-section-title">Methods:</span></p>
+    <ul>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;poll&lt;/span&gt; (&lt;code&gt;gluebind.backend.slurm.SlurmBackend.poll&lt;/code&gt;)" href="#gluebind.backend.slurm.SlurmBackend.poll">poll</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Report each handle as RUNNING (still in the queue) or FINISHED (left it).</p>
+            </div>
+          </li>
+    </ul>
+
+
+
+                  <details class="mkdocstrings-source">
+                    <summary>Source code in <code>gluebind/backend/slurm.py</code></summary>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-25">25</a></span>
+<span class="normal"><a href="#__codelineno-0-26">26</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">SlurmConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+</span></code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="gluebind.backend.slurm.SlurmBackend.poll" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">poll</span>
+
+
+<a href="#gluebind.backend.slurm.SlurmBackend.poll" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">poll</span><span class="p">(</span><span class="n">handles</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;JobHandle&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.backend.base.JobHandle&lt;/code&gt;)" href="../base/#gluebind.backend.base.JobHandle">JobHandle</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;JobHandle&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.backend.base.JobHandle&lt;/code&gt;)" href="../base/#gluebind.backend.base.JobHandle">JobHandle</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;JobState&lt;/span&gt; (&lt;code&gt;gluebind.backend.base.JobState&lt;/code&gt;)" href="../base/#gluebind.backend.base.JobState">JobState</a></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Report each handle as RUNNING (still in the queue) or FINISHED (left it).</p>
+<p><code>squeue</code> reports <em>presence</em>, not exit status, so a handle that has left
+the queue is reported FINISHED; whether it actually succeeded is
+reconciled by the caller from the job's output files. This mirrors the
+filesystem-as-truth resume model.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>gluebind/backend/slurm.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#__codelineno-0-51">51</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="k">def</span><span class="w"> </span><span class="nf">poll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handles</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">JobHandle</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">JobHandle</span><span class="p">,</span> <span class="n">JobState</span><span class="p">]:</span>
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Report each handle as RUNNING (still in the queue) or FINISHED (left it).</span>
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44"></a>
+</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    ``squeue`` reports *presence*, not exit status, so a handle that has left</span>
+</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    the queue is reported FINISHED; whether it actually succeeded is</span>
+</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">    reconciled by the caller from the job&#39;s output files. This mirrors the</span>
+</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    filesystem-as-truth resume model.</span>
+</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="n">running</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_running_job_ids</span><span class="p">()</span>
+</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="k">return</span> <span class="p">{</span><span class="n">h</span><span class="p">:</span> <span class="p">(</span><span class="n">JobState</span><span class="o">.</span><span class="n">RUNNING</span> <span class="k">if</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">running</span> <span class="k">else</span> <span class="n">JobState</span><span class="o">.</span><span class="n">FINISHED</span><span class="p">)</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">handles</span><span class="p">}</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
 
 
 
@@ -2366,6 +2635,44 @@
         <footer class="md-footer">
   
     
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../scheduler/" class="md-footer__link md-footer__link--prev" aria-label="Previous: scheduler">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                scheduler
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../boresch_geometry/" class="md-footer__link md-footer__link--next" aria-label="Next: boresch_geometry">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                boresch_geometry
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
@@ -2396,12 +2703,12 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.highlight", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.highlight", "search.suggest", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../../javascripts/mathjax.js"></script>
+        <script src="../../../javascripts/mathjax.js"></script>
       
         <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       
