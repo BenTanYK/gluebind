@@ -3,10 +3,12 @@
 Parameterises the glue and assembles + solvates the complex on the driver, then
 dispatches the equilibration to a backend as one job per stage (minimisation ->
 NVT heat -> NPT -> long NVT production; see :func:`run_equilibration_stages` and
-:mod:`gluebind.simulation.prep_stage`), extracts the isolated bulk species, and
-writes a :class:`PreparedSystem` manifest — the hand-off to Phase 4 (selection)
-and the runner's ``spec_builder``. A single equilibration run is used; the paper
-found triplicate equilibration trajectories to be essentially identical.
+:mod:`gluebind.simulation.prep_stage`). The isolated bulk species are likewise
+equilibrated through the backend — no MD/GPU work runs on the driver at all. It
+then writes a :class:`PreparedSystem` manifest — the hand-off to Phase 4
+(selection) and the runner's ``spec_builder``. A single equilibration run is
+used; the paper found triplicate equilibration trajectories to be essentially
+identical.
 
 The MD-running functions require BioSimSpace + a working MD engine, so they are
 verified in integration (Phase 7), not the unit suite; BSS is imported lazily.
@@ -185,42 +187,6 @@ def equilibration_stage_plan(prep_config: PrepConfig) -> list[dict]:
     ]
 
 
-def build_equilibration_protocols(prep_config: PrepConfig):
-    """The staged protocols as ``(name, BSS protocol)`` pairs, built from the plan.
-
-    Used for the in-process bulk-species equilibration; the main complex
-    equilibration instead runs stage-by-stage through the backend (see
-    :func:`run_equilibration_stages`).
-    """
-    from gluebind.simulation.prep_stage import build_protocol
-
-    protocols = []
-    for entry in equilibration_stage_plan(prep_config):
-        params = {k: v for k, v in entry.items() if k != "stage"}
-        protocols.append((entry["stage"], build_protocol(**params)))
-    return protocols
-
-
-def run_equilibration(system, protocols, *, platform: str = "CPU"):
-    """Run each protocol in turn with OpenMM; return (final system, last process).
-
-    In-process runner used for the small isolated bulk species (see
-    :func:`_extract_bulk`); the main complex equilibration is dispatched as
-    separate backend jobs by :func:`run_equilibration_stages`.
-    """
-    import BioSimSpace as BSS
-
-    process = None
-    for name, protocol in protocols:
-        process = BSS.Process.OpenMM(system, protocol, platform=platform)
-        process.start()
-        process.wait()
-        if process.isError():
-            raise RuntimeError(f"equilibration stage {name!r} failed:\n{process.stdout(20)}")
-        system = process.getSystem()
-    return system, process
-
-
 def run_equilibration_stages(
     solvated_prm7: str | pathlib.Path,
     solvated_rst7: str | pathlib.Path,
@@ -301,10 +267,18 @@ def _bulk_indices(layout: ComponentLayout, component: str, assign_to: str | None
     return indices
 
 
-def _extract_bulk(system, indices, prep_config, prefix, platform) -> tuple[str, str]:
-    """Isolate the given molecules, re-solvate, briefly equilibrate, and save."""
+def _extract_bulk(
+    system, indices, prep_config, out_dir, backend, *, platform: str, poll_interval: float
+) -> tuple[str, str]:
+    """Isolate the given molecules and re-solvate them on the driver (cheap), then
+    equilibrate through ``backend`` — like the complex, no MD runs on the driver.
+
+    Uses the short pre-equilibration (minimisation -> NVT heat -> NPT, the first
+    three stages) — not the long production run — and keeps no trajectory.
+    """
     import BioSimSpace as BSS
 
+    out_dir = pathlib.Path(out_dir)
     isolated = system[indices[0]]
     for i in indices[1:]:
         isolated = isolated + system[i]
@@ -318,11 +292,20 @@ def _extract_bulk(system, indices, prep_config, prefix, platform) -> tuple[str, 
         is_neutral=prep_config.neutralise,
         ion_conc=prep_config.ion_concentration_M,
     )
-    # Short pre-equilibration for the small isolated species: minimisation,
-    # NVT heating, NPT (the first three stages) — not the long production run.
-    protocols = build_equilibration_protocols(prep_config)[:3]
-    equilibrated, _ = run_equilibration(solvated, protocols, platform=platform)
-    return _save(equilibrated, prefix)
+    solvated_prm7, solvated_rst7 = _save(solvated, out_dir / "solvated")
+
+    bulk_plan = equilibration_stage_plan(prep_config)[:3]  # min -> NVT heat -> NPT
+    final_prm7, final_rst7, _ = run_equilibration_stages(
+        solvated_prm7,
+        solvated_rst7,
+        bulk_plan,
+        out_dir / "equilibration",
+        backend,
+        platform=platform,
+        poll_interval=poll_interval,
+        save_trajectory=False,
+    )
+    return final_prm7, final_rst7
 
 
 def _bounding_box(molecule):
@@ -340,15 +323,17 @@ def prepare(
 ) -> PreparedSystem:
     """Full preparation: parameterise, assemble, solvate, equilibrate, extract bulk.
 
-    The cheap, CPU-bound setup (glue parameterisation, assembly, solvation) runs
-    here on the driver; the expensive complex equilibration is dispatched to
+    The cheap, CPU-bound setup (glue parameterisation, assembly, solvation, and
+    bulk isolation) runs here on the driver; every MD stage — the complex
+    equilibration and the two bulk-species equilibrations — is dispatched to
     ``backend`` as one job per stage (see :func:`run_equilibration_stages`), so it
-    runs on compute nodes with per-stage logs and intermediate snapshots rather
-    than blocking the driver. A single equilibration run is used (no ensemble).
+    runs on compute nodes with per-stage logs and intermediate snapshots and no
+    MD/GPU work runs on the driver. A single equilibration run is used (no
+    ensemble).
 
-    Writes ``solvated.*``, ``equilibration/NN_<stage>/output.*``, ``target_bulk.*``,
-    ``receptor_bulk.*`` and the ``prepared.json`` manifest into ``work_dir``, and
-    returns the manifest.
+    Writes ``solvated.*``, ``equilibration/NN_<stage>/output.*``,
+    ``{target,receptor}_bulk/{solvated.*,equilibration/NN_<stage>/output.*}`` and
+    the ``prepared.json`` manifest into ``work_dir``, and returns the manifest.
     """
     import BioSimSpace as BSS
 
@@ -380,22 +365,26 @@ def prepare(
         poll_interval=poll_interval,
     )
 
-    # Bulk reference species (small, fast): isolate, re-solvate and briefly
-    # equilibrate in-process from the equilibrated complex.
+    # Bulk reference species: isolate + re-solvate on the driver (cheap), then
+    # equilibrate through the backend — no MD runs on the driver.
     equilibrated = BSS.IO.readMolecules([complex_prm7, complex_rst7])
     target_bulk = _extract_bulk(
         equilibrated,
         _bulk_indices(layout, "target", assign_to),
         config.prep,
         work_dir / "target_bulk",
-        platform,
+        backend,
+        platform=platform,
+        poll_interval=poll_interval,
     )
     receptor_bulk = _extract_bulk(
         equilibrated,
         _bulk_indices(layout, "receptor", assign_to),
         config.prep,
         work_dir / "receptor_bulk",
-        platform,
+        backend,
+        platform=platform,
+        poll_interval=poll_interval,
     )
 
     prepared = PreparedSystem(
