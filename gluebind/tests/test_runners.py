@@ -267,6 +267,56 @@ def test_analyse_aggregates(tmp_path):
     )
 
 
+# ---- facade (from_config / deferred wiring / analyse-from-state) -----------
+
+
+def test_from_config_defers_wiring(tmp_path):
+    # Built from a config object: cheap, no tree yet (wiring happens in prepare()).
+    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+    assert calc.spec_builder is None
+    assert calc.groups == []
+
+
+def test_run_auto_prepares_when_not_wired(tmp_path):
+    # run() on a from_config calculation calls prepare() itself (end to end from
+    # a single call). We stub prepare() to wire trivially, avoiding real MD/BSS.
+    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+    calls = {"prepare": 0}
+
+    def fake_prepare():
+        calls["prepare"] += 1
+        calc.spec_builder = _spec_builder
+        calc.command_factory = _trivial_command
+        calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+        calc.groups = calc._build_groups()
+        calc.sub_runners = list(calc.groups)
+
+    calc.prepare = fake_prepare
+    calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    assert calls["prepare"] == 1
+    # a second run() does not re-prepare (already wired)
+    calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    assert calls["prepare"] == 1
+
+
+def test_analyse_derives_theta_and_r_star_from_state(tmp_path):
+    calc = Calculation(
+        tmp_path,
+        _config(),
+        LocalBackend(),
+        _spec_builder,
+        command_factory=_trivial_command,
+        stage_centres={"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]},
+    )
+    calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+
+    # No r_star/theta passed: theta minima from the run state, r_star from the
+    # outermost separation centre (1.5).
+    result = calc.analyse(_fake_pmf)
+    assert set(result) == {"dg_bind", "dg_rmsd", "dg_boresch", "dg_sep", "dg_corr"}
+    assert math.isfinite(result["dg_bind"])
+
+
 # ---- design invariant ------------------------------------------------------
 
 

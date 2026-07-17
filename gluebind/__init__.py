@@ -18,6 +18,8 @@ __version__ = "0.0.1.dev0"
 
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.slurm import SlurmConfig
+from gluebind.runners.calc_set import CalcSet
+from gluebind.runners.calculation import Calculation
 from gluebind.spec_builder import RestraintContext, SpecBuilder
 from gluebind.state import RunState
 
@@ -27,5 +29,7 @@ __all__ = [
     "RunState",
     "SpecBuilder",
     "RestraintContext",
+    "Calculation",
+    "CalcSet",
     "__version__",
 ]

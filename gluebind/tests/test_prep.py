@@ -210,3 +210,31 @@ def test_run_equilibration_stages_chains_outputs(tmp_path):
     assert final_prm7.endswith("04_equilibration/output.prm7")
     assert final_rst7.endswith("04_equilibration/output.rst7")
     assert traj is not None and traj.endswith("04_equilibration/output.dcd")
+
+
+def test_run_equilibration_stages_skips_completed(tmp_path):
+    backend = _FakeStageBackend()
+    plan = equilibration_stage_plan(PrepConfig())
+    (tmp_path / "solvated.prm7").write_text("s")
+    (tmp_path / "solvated.rst7").write_text("s")
+    # pre-create stage 1 (minimisation) output as if a previous run finished it
+    stage1 = tmp_path / "equilibration" / "01_minimisation"
+    stage1.mkdir(parents=True)
+    (stage1 / "output.prm7").write_text("done")
+    (stage1 / "output.rst7").write_text("done")
+
+    final_prm7, _, _ = run_equilibration_stages(
+        tmp_path / "solvated.prm7",
+        tmp_path / "solvated.rst7",
+        plan,
+        tmp_path / "equilibration",
+        backend,
+        platform="CPU",
+        poll_interval=0.0,
+    )
+
+    # minimisation was skipped (resume); only the remaining stages submitted
+    assert [s.stage for s in backend.submitted] == ["nvt_heat", "npt", "equilibration"]
+    # and the next stage's input chains from the pre-existing stage-1 output
+    assert backend.submitted[0].input_prm7.endswith("01_minimisation/output.prm7")
+    assert final_prm7.endswith("04_equilibration/output.prm7")

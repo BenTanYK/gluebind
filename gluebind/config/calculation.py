@@ -97,6 +97,29 @@ class CalculationConfig(pydantic.BaseModel):
         """Dump the fully-resolved config into a run directory for provenance."""
         return self.dump(pathlib.Path(run_dir) / RESOLVED_CONFIG_FILENAME)
 
+    def with_resolved_input_paths(self, base: str | pathlib.Path) -> "CalculationConfig":
+        """Return a copy with relative input file paths resolved against ``base``.
+
+        Lets a ``config.yaml`` live alongside its AMBER inputs in a self-contained
+        directory (paths relative to that directory) — how CalcSet treats each
+        per-system subdirectory, and how a single calc can be run from its own
+        input directory. Absolute paths are left unchanged.
+        """
+        base = pathlib.Path(base)
+
+        def _abs(path: str) -> str:
+            p = pathlib.Path(path)
+            return str(p if p.is_absolute() else (base / p).resolve())
+
+        data = self.model_dump()
+        inputs = data["inputs"]
+        for molecule in ("target", "receptor"):
+            inputs[molecule]["prm7"] = _abs(inputs[molecule]["prm7"])
+            inputs[molecule]["rst7"] = _abs(inputs[molecule]["rst7"])
+        if inputs.get("glue"):
+            inputs["glue"]["sdf"] = _abs(inputs["glue"]["sdf"])
+        return CalculationConfig.model_validate(data)
+
     @property
     def config_hash(self) -> str:
         """A stable SHA-256 over the canonical config, for drift detection.

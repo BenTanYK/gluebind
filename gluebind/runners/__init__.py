@@ -10,6 +10,7 @@ aggregates per-stage PMFs into the standard-state binding free energy.
 from __future__ import annotations
 
 from gluebind.runners.base import SimulationRunner
+from gluebind.runners.calc_set import CalcSet
 from gluebind.runners.calculation import Calculation
 from gluebind.runners.group import Group
 from gluebind.runners.stage import Stage
@@ -17,6 +18,7 @@ from gluebind.runners.window import Window, enumerate_centres, format_label
 
 __all__ = [
     "SimulationRunner",
+    "CalcSet",
     "Calculation",
     "Group",
     "Stage",

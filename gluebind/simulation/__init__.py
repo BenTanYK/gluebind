@@ -16,9 +16,12 @@ from gluebind.simulation.prep_stage import (
     run_prep_stage,
 )
 from gluebind.simulation.steered_md import (
-    make_frame_generator,
+    SmdSpec,
+    make_steered_md_runner,
+    run_smd,
     run_steered_md,
     separation_window_targets,
+    smd_launch_command,
 )
 from gluebind.simulation.window import WindowSpec, run_window, window_launch_command
 
@@ -29,7 +32,10 @@ __all__ = [
     "PrepStageSpec",
     "run_prep_stage",
     "prep_stage_launch_command",
+    "SmdSpec",
+    "run_smd",
+    "smd_launch_command",
     "run_steered_md",
     "separation_window_targets",
-    "make_frame_generator",
+    "make_steered_md_runner",
 ]

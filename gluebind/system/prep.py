@@ -223,32 +223,35 @@ def run_equilibration_stages(
 
     for i, entry in enumerate(plan, start=1):
         stage_dir = work_dir / f"{i:02d}_{entry['stage']}"
-        stage_dir.mkdir(parents=True, exist_ok=True)
-        spec = PrepStageSpec(
-            input_prm7=input_prm7,
-            input_rst7=input_rst7,
-            platform=platform,
-            save_trajectory=save_trajectory,
-            **entry,
-        )
-        spec.dump(stage_dir / PREP_STAGE_SPEC_FILENAME)
-
-        job = JobSpec(
-            command=prep_stage_launch_command(),
-            work_dir=str(stage_dir),
-            name=f"prep_{entry['stage']}",
-        )
-        (state,) = scheduler.run([job])
-        if state is not JobState.FINISHED:
-            raise RuntimeError(f"prep stage {entry['stage']!r} did not finish (state={state})")
-
         prefix = stage_dir / PREP_STAGE_OUTPUT_PREFIX
-        input_prm7 = f"{prefix}.prm7"
-        input_rst7 = f"{prefix}.rst7"
-        if entry["kind"] == "equilibration":
-            traj = prefix.with_suffix(".dcd")
-            if traj.exists():
-                trajectory = str(traj)
+        out_prm7, out_rst7 = f"{prefix}.prm7", f"{prefix}.rst7"
+
+        # Resume: a stage whose output structures already exist is skipped, so an
+        # interrupted prep (or an auto-prepare on a resumed run) never re-runs
+        # completed equilibration stages.
+        already_done = pathlib.Path(out_prm7).exists() and pathlib.Path(out_rst7).exists()
+        if not already_done:
+            stage_dir.mkdir(parents=True, exist_ok=True)
+            spec = PrepStageSpec(
+                input_prm7=input_prm7,
+                input_rst7=input_rst7,
+                platform=platform,
+                save_trajectory=save_trajectory,
+                **entry,
+            )
+            spec.dump(stage_dir / PREP_STAGE_SPEC_FILENAME)
+            job = JobSpec(
+                command=prep_stage_launch_command(),
+                work_dir=str(stage_dir),
+                name=f"prep_{entry['stage']}",
+            )
+            (state,) = scheduler.run([job])
+            if state is not JobState.FINISHED:
+                raise RuntimeError(f"prep stage {entry['stage']!r} did not finish (state={state})")
+
+        input_prm7, input_rst7 = out_prm7, out_rst7
+        if entry["kind"] == "equilibration" and prefix.with_suffix(".dcd").exists():
+            trajectory = str(prefix.with_suffix(".dcd"))
 
     return input_prm7, input_rst7, trajectory
 

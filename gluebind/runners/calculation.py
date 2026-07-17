@@ -61,12 +61,14 @@ class Calculation(SimulationRunner):
         base_dir: str | pathlib.Path,
         config: CalculationConfig,
         backend: Backend,
-        spec_builder: SpecBuilder,
+        spec_builder: SpecBuilder | None = None,
         *,
         slurm_config: SlurmConfig | None = None,
         command_factory: Callable[[], list[str]] = window_launch_command,
         stage_centres: dict[str, list[float]] | None = None,
         steered_md_runner: Callable[[dict], object] | None = None,
+        platform: str = "CUDA",
+        poll_interval: float = 30.0,
     ) -> None:
         super().__init__(base_dir)
         self.config = config
@@ -78,8 +80,105 @@ class Calculation(SimulationRunner):
         # Generates the separation-window SMD frames from the Boresch equilibrium
         # values; invoked automatically between the Boresch and separation stages.
         self.steered_md_runner = steered_md_runner
+        self.platform = platform
+        self.poll_interval = poll_interval
+        self.prepared = None
+        # When built via from_config the wiring is deferred to prepare(); with a
+        # spec_builder supplied directly (tests / advanced use) the tree is built now.
+        self.groups = self._build_groups() if spec_builder is not None else []
+        self.sub_runners = list(self.groups)
+
+    @classmethod
+    def from_config(
+        cls,
+        config: "CalculationConfig | str | pathlib.Path",
+        base_dir: str | pathlib.Path,
+        backend: Backend,
+        *,
+        slurm_config: SlurmConfig | None = None,
+        command_factory: Callable[[], list[str]] = window_launch_command,
+        platform: str = "CUDA",
+        poll_interval: float = 30.0,
+    ) -> "Calculation":
+        """Build a calculation from a config (path or object); prep/wiring deferred.
+
+        Construction is cheap — the heavy work (system prep, restraint context,
+        window centres, steered-MD hook) runs in :meth:`prepare`, which :meth:`run`
+        calls automatically. So the whole calculation runs end to end from a single
+        call: ``from_config(...).run()`` (then :meth:`analyse` for the ΔG°). Call
+        :meth:`prepare` explicitly only if you want to inspect the prepared system
+        before sampling.
+        """
+        if not isinstance(config, CalculationConfig):
+            config_path = pathlib.Path(config)
+            config = CalculationConfig.load(config_path).with_resolved_input_paths(
+                config_path.parent
+            )
+        return cls(
+            base_dir,
+            config,
+            backend,
+            slurm_config=slurm_config,
+            command_factory=command_factory,
+            platform=platform,
+            poll_interval=poll_interval,
+        )
+
+    def prepare(self):
+        """Prepare the system and wire the runner from the config alone.
+
+        Runs system prep through the backend (no MD on the driver), resolves the
+        restraint context, computes the Boresch/separation window centres, and
+        builds the ``spec_builder`` and the backend-dispatched steered-MD hook.
+        Returns the :class:`~gluebind.system.prep.PreparedSystem`.
+
+        Idempotent: if the system is already prepared (``prep/prepared.json``
+        exists) the equilibration is not re-run — the manifest is loaded and only
+        the cheap driver-side wiring (context/centres) is rebuilt. This is what
+        lets :meth:`run` auto-prepare safely on a resumed run. Called
+        automatically by :meth:`run` when the calculation is not yet wired.
+        """
+        from gluebind.simulation.steered_md import make_steered_md_runner
+        from gluebind.spec_builder import SpecBuilder, build_restraint_context
+        from gluebind.stage_centres import compute_stage_centres
+        from gluebind.system.prep import PreparedSystem
+        from gluebind.system.prep import prepare as prepare_system
+
+        prep_dir = self.base_dir / "prep"
+        try:
+            prepared = PreparedSystem.load(prep_dir)  # resume: prep already complete
+        except FileNotFoundError:
+            prepared = prepare_system(
+                self.config,
+                prep_dir,
+                self.backend,
+                platform=self.platform,
+                poll_interval=self.poll_interval,
+            )
+        context = build_restraint_context(prepared, self.config)
+        self.stage_centres = compute_stage_centres(prepared, context, self.config)
+
+        smd_frames_dir = self.base_dir / "smd_frames"
+        self.spec_builder = SpecBuilder(context, self.config, smd_frames_dir=smd_frames_dir)
+        self.steered_md_runner = make_steered_md_runner(
+            backend=self.backend,
+            scheduler_factory=self._default_scheduler,
+            work_dir=self.base_dir / "smd",
+            out_dir=smd_frames_dir,
+            topology=context.complex_topology,
+            coordinates=context.complex_coordinates,
+            rec_group=context.rec_group,
+            lig_group=context.lig_group,
+            anchors=context.anchors,
+            rmsd_atoms_bound=context.rmsd_atoms_bound,
+            window_centres=self.stage_centres["separation"],
+            sampling=self.config.sampling,
+            platform=self.platform,
+        )
+        self.prepared = prepared
         self.groups = self._build_groups()
         self.sub_runners = list(self.groups)
+        return prepared
 
     # ---- tree construction -------------------------------------------------
 
@@ -204,6 +303,10 @@ class Calculation(SimulationRunner):
         ``pmf_provider(stage) -> (cv, pmf)`` is required whenever there are Boresch
         stages still to analyse (their equilibrium values are their PMF minima).
         """
+        if self.spec_builder is None:
+            # Auto-prepare (idempotent): a from_config calculation runs end to end
+            # from run() alone; prep is skipped if already complete on disk.
+            self.prepare()
         self.setup()
         state = self._load_or_init_state()
         scheduler = scheduler or self._default_scheduler()
@@ -281,19 +384,44 @@ class Calculation(SimulationRunner):
 
     def analyse(
         self,
-        pmf_provider: PmfProvider,
+        pmf_provider: PmfProvider | None = None,
         *,
-        r_star_nm: float,
-        theta_a_min: float,
-        theta_b_min: float,
+        r_star_nm: float | None = None,
+        theta_a_min: float | None = None,
+        theta_b_min: float | None = None,
     ) -> dict:
         """Aggregate per-stage PMFs into the standard-state binding free energy.
 
-        ``pmf_provider(stage)`` returns ``(cv, pmf)`` for a stage (normally WHAM
-        over its windows, averaged across replicates). ``r_star_nm`` /
-        ``theta_*_min`` parameterise the separation cutoff and the standard-state
-        correction.
+        With no arguments, everything is resolved from the run: ``pmf_provider``
+        defaults to a local WHAM provider, the ``theta_*`` minima come from the
+        Boresch equilibrium values in the run state, and ``r_star_nm`` is the
+        outermost separation window centre. Any of them may be passed explicitly
+        to override. ``pmf_provider(stage)`` returns ``(cv, pmf)`` for a stage.
         """
+        if pmf_provider is None:
+            from gluebind.analysis.provider import WhamPmfProvider
+
+            pmf_provider = WhamPmfProvider(self.config)
+        if theta_a_min is None or theta_b_min is None or r_star_nm is None:
+            state = self._load_or_init_state()
+            if theta_a_min is None:
+                theta_a_min = state.boresch_eq_values.get("thetaA")
+            if theta_b_min is None:
+                theta_b_min = state.boresch_eq_values.get("thetaB")
+            if theta_a_min is None or theta_b_min is None:
+                raise ValueError(
+                    "cannot derive theta minima: run the Boresch stages first, "
+                    "or pass theta_a_min/theta_b_min explicitly"
+                )
+            if r_star_nm is None:
+                sep = self.stage_centres.get("separation")
+                if not sep:
+                    raise ValueError(
+                        "cannot derive r_star_nm: no separation window centres; "
+                        "pass r_star_nm explicitly"
+                    )
+                r_star_nm = max(sep)
+
         k_boresch = self.config.sampling.boresch.force_constant  # kcal/mol/rad^2
         k_rmsd = self.config.sampling.rmsd.force_constant * _A2_TO_NM2  # -> kcal/mol/nm^2
         totals = {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
