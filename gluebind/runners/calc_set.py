@@ -83,7 +83,15 @@ class CalcSet(SimulationRunner):
             calc.prepare()
 
     def run(self) -> None:
-        """Run every system to completion (sequentially; each calc is resumable)."""
+        """Run every system to completion, one after another.
+
+        **Sequential across systems:** each system's full pipeline (prep → RMSD →
+        sequential Boresch → SMD → separation) completes before the next begins, so
+        on SLURM the queue is filled by only one system at a time. Each calc is
+        independently resumable, so re-running skips completed work. (Cross-system
+        concurrency — submitting/polling all systems at once to fill the cluster —
+        is a deliberate future enhancement, not yet implemented.)
+        """
         for calc in self.calcs.values():
             calc.run()
 

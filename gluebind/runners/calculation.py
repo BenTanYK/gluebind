@@ -138,9 +138,6 @@ class Calculation(SimulationRunner):
         lets :meth:`run` auto-prepare safely on a resumed run. Called
         automatically by :meth:`run` when the calculation is not yet wired.
         """
-        from gluebind.simulation.steered_md import make_steered_md_runner
-        from gluebind.spec_builder import SpecBuilder, build_restraint_context
-        from gluebind.stage_centres import compute_stage_centres
         from gluebind.system.prep import PreparedSystem
         from gluebind.system.prep import prepare as prepare_system
 
@@ -155,6 +152,27 @@ class Calculation(SimulationRunner):
                 platform=self.platform,
                 poll_interval=self.poll_interval,
             )
+        self._wire(prepared)
+        return prepared
+
+    def _load_prepared(self):
+        """Return the on-disk :class:`PreparedSystem`, or ``None`` if not prepared."""
+        from gluebind.system.prep import PreparedSystem
+
+        try:
+            return PreparedSystem.load(self.base_dir / "prep")
+        except FileNotFoundError:
+            return None
+
+    def _wire(self, prepared) -> None:
+        """Build the restraint context, window centres, spec builder and steered-MD
+        hook from a prepared system, and construct the group tree. Driver-side only
+        (reads the trajectory; runs no MD) — shared by :meth:`prepare` and the
+        re-wiring :meth:`analyse` does in a fresh process."""
+        from gluebind.simulation.steered_md import make_steered_md_runner
+        from gluebind.spec_builder import SpecBuilder, build_restraint_context
+        from gluebind.stage_centres import compute_stage_centres
+
         context = build_restraint_context(prepared, self.config)
         self.stage_centres = compute_stage_centres(prepared, context, self.config)
 
@@ -178,7 +196,6 @@ class Calculation(SimulationRunner):
         self.prepared = prepared
         self.groups = self._build_groups()
         self.sub_runners = list(self.groups)
-        return prepared
 
     # ---- tree construction -------------------------------------------------
 
@@ -276,7 +293,9 @@ class Calculation(SimulationRunner):
         return Scheduler(
             self.backend,
             queue_len_lim=self.slurm_config.queue_len_lim if self.slurm_config else 2000,
-            poll_interval=self.slurm_config.queue_check_interval if self.slurm_config else 30.0,
+            poll_interval=(
+                self.slurm_config.queue_check_interval if self.slurm_config else self.poll_interval
+            ),
         )
 
     def _group(self, cv_type: str) -> Group | None:
@@ -322,10 +341,13 @@ class Calculation(SimulationRunner):
         if boresch_group:
             unanalysed = [s for s in boresch_group.stages if s.dof not in state.boresch_eq_values]
             if unanalysed and pmf_provider is None:
-                raise ValueError(
-                    "pmf_provider is required to run Boresch stages "
-                    "(each DoF's equilibrium value is its PMF minimum)"
-                )
+                # Self-default so a from_config calculation runs end to end from a
+                # single run() (symmetric with analyse()); the Boresch feedback
+                # needs PMFs. WHAM runs locally on the driver (fast, CPU) by
+                # default; a slurm/backed provider can still be injected.
+                from gluebind.analysis.provider import WhamPmfProvider
+
+                pmf_provider = WhamPmfProvider(self.config)
             for stage in boresch_group.stages:
                 if stage.dof in state.boresch_eq_values:
                     continue  # already determined on a previous run (resume)
@@ -397,7 +419,21 @@ class Calculation(SimulationRunner):
         Boresch equilibrium values in the run state, and ``r_star_nm`` is the
         outermost separation window centre. Any of them may be passed explicitly
         to override. ``pmf_provider(stage)`` returns ``(cv, pmf)`` for a stage.
+
+        Works in a fresh process (the detached submit → come back later → analyse
+        workflow): if the calculation isn't wired, it re-wires from the on-disk
+        prepared system (rebuilding the stage tree + centres, no MD) so the stages
+        are actually iterated. Raises if the system was never prepared.
         """
+        if self.spec_builder is None:
+            prepared = self._load_prepared()
+            if prepared is None:
+                raise RuntimeError(
+                    "cannot analyse: the system is not prepared (no prep/prepared.json); "
+                    "run() first"
+                )
+            self._wire(prepared)
+
         if pmf_provider is None:
             from gluebind.analysis.provider import WhamPmfProvider
 
@@ -415,11 +451,8 @@ class Calculation(SimulationRunner):
                 )
             if r_star_nm is None:
                 sep = self.stage_centres.get("separation")
-                if not sep:
-                    raise ValueError(
-                        "cannot derive r_star_nm: no separation window centres; "
-                        "pass r_star_nm explicitly"
-                    )
+                if not sep:  # e.g. constructed directly with empty stage_centres
+                    sep = enumerate_centres(self.config.sampling.for_cv("separation", "separation"))
                 r_star_nm = max(sep)
 
         k_boresch = self.config.sampling.boresch.force_constant  # kcal/mol/rad^2

@@ -163,12 +163,6 @@ def test_resume_config_hash_mismatch_aborts(tmp_path):
         calc2.run(scheduler=Scheduler(calc2.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
 
 
-def test_run_requires_pmf_provider_for_boresch(tmp_path):
-    calc = _calc(tmp_path)  # has a thetaA Boresch stage
-    with pytest.raises(ValueError, match="pmf_provider"):
-        calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01))
-
-
 def test_boresch_sequential_feedback(tmp_path):
     # Two Boresch DoFs: thetaA runs first, its PMF minimum (=1.0) is fed forward
     # as a fixed restraint into thetaB's windows and into separation.
@@ -314,6 +308,100 @@ def test_analyse_derives_theta_and_r_star_from_state(tmp_path):
     # outermost separation centre (1.5).
     result = calc.analyse(_fake_pmf)
     assert set(result) == {"dg_bind", "dg_rmsd", "dg_boresch", "dg_sep", "dg_corr"}
+    assert math.isfinite(result["dg_bind"])
+
+
+class _FakeProvider:
+    """Stands in for WhamPmfProvider(config) -> callable(stage) -> (cv, pmf)."""
+
+    def __init__(self, config):
+        self.config = config
+
+    def __call__(self, stage):
+        return _fake_pmf(stage)
+
+
+def test_run_self_defaults_pmf_provider_for_boresch(tmp_path, monkeypatch):
+    # run() with no pmf_provider must self-default (like analyse()) for Boresch
+    # stages, not raise — this is what makes from_config(...).run() / CalcSet.run()
+    # work end to end. Monkeypatch the provider so no real wham binary is needed.
+    import gluebind.analysis.provider as provider_mod
+
+    monkeypatch.setattr(provider_mod, "WhamPmfProvider", _FakeProvider)
+    calc = Calculation(
+        tmp_path,
+        _config(),
+        LocalBackend(),
+        _spec_builder,
+        command_factory=_trivial_command,
+        stage_centres={"thetaA": [1.0], "separation": [1.5]},
+    )
+    state = calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01))  # no pmf_provider
+    assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
+
+
+def _dump_prepared(base_dir):
+    from gluebind.system.prep import PreparedSystem
+
+    PreparedSystem(
+        complex_prm7="c.prm7",
+        complex_rst7="c.rst7",
+        complex_trajectory="c.dcd",
+        target_bulk_prm7="tb.prm7",
+        target_bulk_rst7="tb.rst7",
+        receptor_bulk_prm7="rb.prm7",
+        receptor_bulk_rst7="rb.rst7",
+        target_molecules=[0],
+        receptor_molecules=[1],
+        glue_molecule=2,
+    ).dump(base_dir / "prep")
+
+
+def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
+    # Fresh process: an unwired from_config calc analysing an already-prepared run
+    # must re-wire from disk (rebuild the stage tree) so stages are iterated — not
+    # silently return zero contributions. _wire is stubbed to avoid MDA.
+    _dump_prepared(tmp_path)
+    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+
+    def fake_wire(prepared):
+        calc.spec_builder = _spec_builder
+        calc.command_factory = _trivial_command
+        calc.stage_centres = {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]}
+        calc.groups = calc._build_groups()
+        calc.sub_runners = list(calc.groups)
+
+    calc._wire = fake_wire
+    result = calc.analyse(_fake_pmf, theta_a_min=1.0, theta_b_min=1.0)
+
+    assert calc.spec_builder is not None and len(calc.groups) > 0  # re-wired, tree rebuilt
+    assert set(result) == {"dg_bind", "dg_rmsd", "dg_boresch", "dg_sep", "dg_corr"}
+    assert math.isfinite(result["dg_bind"])
+
+
+def test_analyse_raises_when_not_prepared(tmp_path):
+    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+    with pytest.raises(RuntimeError, match="not prepared"):
+        calc.analyse(_fake_pmf, theta_a_min=1.0, theta_b_min=1.0)
+
+
+def test_analyse_r_star_falls_back_to_config(tmp_path):
+    # When stage_centres lacks separation (e.g. a fresh/degenerate wiring), r_star
+    # falls back to the config schedule instead of raising.
+    cfg = _config()
+    cfg.sampling.separation.window_min = 1.15
+    cfg.sampling.separation.window_max = 3.0
+    cfg.sampling.separation.window_spacing = 0.5
+    calc = Calculation(
+        tmp_path,
+        cfg,
+        LocalBackend(),
+        _spec_builder,
+        command_factory=_trivial_command,
+        stage_centres={"thetaA": [1.0], "separation": [1.5]},
+    )
+    calc.stage_centres = {}  # groups already built at construction; centres now gone
+    result = calc.analyse(_fake_pmf, theta_a_min=1.0, theta_b_min=1.0)
     assert math.isfinite(result["dg_bind"])
 
 

@@ -6,10 +6,12 @@ the set-level orchestration and the dependency-light aggregation without MD.
 """
 
 import pathlib
+import sys
 
 import pytest
 import yaml
 
+from gluebind import RunState
 from gluebind.backend import LocalBackend
 from gluebind.config import CalculationConfig
 from gluebind.runners.calc_set import (
@@ -20,6 +22,7 @@ from gluebind.runners.calc_set import (
     pearson_r,
     write_results_csv,
 )
+from gluebind.simulation import WindowSpec
 
 # A ternary config (with glue) and a binary-PPI config (no glue) — proving
 # systems in one set can differ structurally.
@@ -162,3 +165,70 @@ def test_analyse_aggregates_and_writes_csv(tmp_path):
     assert out["stats"]["r2"] == pytest.approx(1.0)  # two points -> perfectly correlated
     # the ONLY set-level artifact
     assert (tmp_path / "results.csv").exists()
+
+
+# ---- CalcSet.run() end-to-end (regression: self-defaulted provider) --------
+
+RUN_CONFIG_YAML = """
+inputs:
+  target: {prm7: t.prm7, rst7: t.rst7}
+  receptor: {prm7: r.prm7, rst7: r.rst7}
+sampling:
+  ensemble_size: 1
+  rmsd: {force_constant: 5.0, window_min: 0.0, window_max: 0.2, window_spacing: 0.2, sampling_time_ns: 1.0}
+"""
+
+
+def _run_spec_builder(*, cv_type, stage_name, dof, cv_centre, replicate, boresch_eq_values):
+    return WindowSpec(
+        cv_type=cv_type,
+        stage_name=stage_name,
+        cv_centre=cv_centre,
+        replicate=replicate,
+        dof=dof,
+        topology="t.prm7",
+        coordinates="c.rst7",
+        force_constant=5.0,
+        sampling_time_ns=1.0,
+    )
+
+
+def _run_trivial_cmd():
+    return [sys.executable, "-c", "open('result.json', 'w').write('{}')"]
+
+
+class _RunFakeProvider:
+    def __init__(self, config):
+        pass
+
+    def __call__(self, stage):
+        import numpy as np
+
+        x = np.linspace(0.0, 2.0, 21)
+        return x, (x - 1.0) ** 2
+
+
+def test_calc_set_run_completes_boresch_without_explicit_provider(tmp_path, monkeypatch):
+    # Regression: CalcSet.run() -> calc.run() with no provider previously raised
+    # "pmf_provider is required" on the first Boresch stage of every real system.
+    import gluebind.analysis.provider as provider_mod
+
+    monkeypatch.setattr(provider_mod, "WhamPmfProvider", _RunFakeProvider)
+
+    _system(tmp_path, "A", RUN_CONFIG_YAML)
+    cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.01)
+    calc = cset.calcs["A"]
+
+    def fake_prepare():  # avoid real BSS prep; wire trivially
+        calc.spec_builder = _run_spec_builder
+        calc.command_factory = _run_trivial_cmd
+        calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+        calc.groups = calc._build_groups()
+        calc.sub_runners = list(calc.groups)
+
+    calc.prepare = fake_prepare
+
+    cset.run()  # must NOT raise "pmf_provider is required"
+
+    state = RunState.load(calc.base_dir)
+    assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
