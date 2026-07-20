@@ -230,6 +230,26 @@ def test_rmsd_bulk_applies_held_and_always_on():
     ]
 
 
+def test_validate_include_glue():
+    from gluebind.config.restraints import RmsdCVSpec
+    from gluebind.spec_builder import _validate_include_glue
+
+    on_target = RmsdCVSpec(name="BD2", selection="resid 1", include_glue=True)
+    # glue on the same protein as the CV: fine
+    _validate_include_glue("BD2", on_target, assign="target", protein="target")
+    # bound-only CV: no bulk leg to mismatch, so a cross-protein glue is allowed
+    bound_only = RmsdCVSpec(
+        name="X", selection="resid 1", states=["bound"], include_glue=True
+    )
+    _validate_include_glue("X", bound_only, assign="target", protein="receptor")
+    # bulk-sampled CV on the other protein: inconsistent bound/bulk -> raise
+    with pytest.raises(ValueError, match="inconsistent CV"):
+        _validate_include_glue("BD2", on_target, assign="receptor", protein="target")
+    # include_glue with no glue defined -> raise
+    with pytest.raises(ValueError, match="no glue is defined"):
+        _validate_include_glue("BD2", on_target, assign=None, protein="target")
+
+
 def test_infer_protein_ranges():
     from gluebind.spec_builder import _infer_protein
 

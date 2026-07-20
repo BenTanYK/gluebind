@@ -511,6 +511,30 @@ def _infer_protein(resindices: list[int], n_target: int, n_receptor: int) -> str
     )
 
 
+def _validate_include_glue(name: str, cv, assign: str | None, protein: str) -> None:
+    """Raise if a CV's ``include_glue`` is inconsistent with the glue assignment.
+
+    ``include_glue`` adds the glue to a CV's RMSD group in both the bound and bulk
+    states. The glue lives in only one bulk topology (``inputs.glue.assign_to``),
+    so a bulk-sampled CV on the *other* protein would restrain the glue in the
+    bound state but not the bulk state — a broken thermodynamic cycle."""
+    if not cv.include_glue:
+        return
+    if assign is None:
+        raise ValueError(
+            f"RMSD CV {name!r} sets include_glue=True but no glue is defined "
+            "(inputs.glue)."
+        )
+    if assign != protein and "bulk" in cv.states:
+        raise ValueError(
+            f"RMSD CV {name!r} is on the {protein} and sets include_glue=True, but "
+            f"the glue is assigned to the {assign} (inputs.glue.assign_to). Its bound "
+            f"state would restrain the glue while the {protein} bulk topology has none "
+            "— an inconsistent CV. Assign the glue to this CV's protein, or drop "
+            "include_glue."
+        )
+
+
 def _remap_to_bulk(complex_sel, bulk_universe, offset: int) -> list[int]:
     """Map a complex-topology selection onto the isolated bulk topology: same
     residues (shifted by ``offset``), same atom names, bulk atom indices."""
@@ -553,6 +577,7 @@ def _resolve_custom_bulk(
         protein = _infer_protein(
             [int(r) for r in sel.residues.resindices], n_target, n_receptor
         )
+        _validate_include_glue(name, cv, assign, protein)
         buni = bulk_universe[protein]
         atoms = _remap_to_bulk(sel, buni, offset[protein])
         if cv.include_glue and assign == protein:
