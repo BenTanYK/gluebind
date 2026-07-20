@@ -79,6 +79,44 @@ def test_scheduler_reports_mixed_outcomes(tmp_path):
     assert states[1] is JobState.FAILED
 
 
+def test_local_max_concurrent_caps_running(tmp_path):
+    # With a cap of 1, only one job runs at a time; the rest queue (PENDING) and
+    # start as slots free — but the run still completes every spec.
+    backend = LocalBackend(max_concurrent=1)
+    specs = [_spec(tmp_path / f"w{i}", "pass", name=f"w{i}") for i in range(4)]
+    h0 = backend.submit(specs[0])
+    handles = [h0] + [backend.submit(s) for s in specs[1:]]
+    # immediately after submit: one running, three queued
+    states = backend.poll(handles)
+    assert sum(s is JobState.RUNNING for s in states.values()) <= 1
+    assert any(s is JobState.PENDING for s in states.values())
+    # draining to completion still finishes all four
+    for h in handles:
+        assert _wait(backend, h) is JobState.FINISHED
+
+
+def test_local_invalid_max_concurrent():
+    with pytest.raises(ValueError, match="max_concurrent"):
+        LocalBackend(max_concurrent=0)
+
+
+def test_local_gpu_pinning_round_robin(tmp_path):
+    # Each job records the CUDA_VISIBLE_DEVICES it was pinned to; with two GPUs
+    # the two concurrent jobs land on different devices.
+    code = (
+        "import os; "
+        "open('gpu.txt','w').write(os.environ.get('CUDA_VISIBLE_DEVICES','none'))"
+    )
+    backend = LocalBackend(gpu_ids=[0, 1])
+    assert backend._max_concurrent == 2  # cap defaults to the GPU count
+    specs = [_spec(tmp_path / f"w{i}", code, name=f"w{i}") for i in range(2)]
+    handles = [backend.submit(s) for s in specs]
+    for h in handles:
+        _wait(backend, h)
+    pinned = {(tmp_path / f"w{i}" / "gpu.txt").read_text() for i in range(2)}
+    assert pinned == {"0", "1"}
+
+
 def test_detached_flags():
     assert SlurmBackend.detached is True
     assert LocalBackend.detached is False
