@@ -15,7 +15,12 @@ subpackages so that ``import gluebind`` stays cheap and works in a bare environm
 
 from __future__ import annotations
 
-__version__ = "0.0.1.dev0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("gluebind")
+except PackageNotFoundError:  # not installed (e.g. imported from a bare source tree)
+    __version__ = "0.0.0+unknown"
 
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.slurm import SlurmConfig
