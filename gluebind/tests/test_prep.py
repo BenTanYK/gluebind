@@ -32,7 +32,9 @@ def test_box_length():
 
 
 def test_normalise_ff_name():
-    assert normalise_ff_name("openff_unconstrained-2.2.1") == "openff_unconstrained_2_2_1"
+    assert (
+        normalise_ff_name("openff_unconstrained-2.2.1") == "openff_unconstrained_2_2_1"
+    )
     assert normalise_ff_name("gaff2") == "gaff2"
 
 
@@ -42,7 +44,9 @@ def test_validate_forcefield_ok():
 
 def test_validate_forcefield_normalises_dash_dot():
     assert (
-        validate_forcefield("openff_unconstrained_2.2.1", ["openff_unconstrained-2.2.1"])
+        validate_forcefield(
+            "openff_unconstrained_2.2.1", ["openff_unconstrained-2.2.1"]
+        )
         == "openff_unconstrained_2_2_1"
     )
 
@@ -112,7 +116,9 @@ def test_equilibration_stage_plan_structure():
 
     by = {s["stage"]: s for s in plan}
     assert by["minimisation"]["kind"] == "minimisation"
-    assert all(by[s]["kind"] == "equilibration" for s in ["nvt_heat", "npt", "equilibration"])
+    assert all(
+        by[s]["kind"] == "equilibration" for s in ["nvt_heat", "npt", "equilibration"]
+    )
     # NVT heating: ramp 10 K -> production T, backbone-restrained, no barostat
     assert by["nvt_heat"]["temperature_start_K"] == 10.0
     assert by["nvt_heat"]["restraint"] == "backbone"
@@ -168,7 +174,7 @@ class _FakeStageBackend(Backend):
         return f"fake-{self._counter}"
 
     def poll(self, handles):
-        return {h: JobState.FINISHED for h in handles}
+        return dict.fromkeys(handles, JobState.FINISHED)
 
     def cancel(self, handle):  # pragma: no cover - not exercised
         pass

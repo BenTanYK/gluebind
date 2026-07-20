@@ -14,7 +14,9 @@ import openmm as mm
 import openmm.unit as unit
 
 
-def make_cv(rec_group: Sequence[int], lig_group: Sequence[int]) -> mm.CustomCentroidBondForce:
+def make_cv(
+    rec_group: Sequence[int], lig_group: Sequence[int]
+) -> mm.CustomCentroidBondForce:
     """Bare distance CV between the two interface groups' centroids."""
     cv = mm.CustomCentroidBondForce(2, "distance(g1,g2)")
     cv.addGroup(list(rec_group))
@@ -36,7 +38,9 @@ def add_bias(
     current separation (nm) during sampling.
     """
     bias = mm.CustomCVForce("0.5*k_r*(cv-r0)^2")
-    bias.addGlobalParameter("k_r", force_constant * unit.kilocalories_per_mole / unit.angstrom**2)
+    bias.addGlobalParameter(
+        "k_r", force_constant * unit.kilocalories_per_mole / unit.angstrom**2
+    )
     bias.addGlobalParameter("r0", r0_nm * unit.nanometers)
     bias.addCollectiveVariable("cv", make_cv(rec_group, lig_group))
     system.addForce(bias)

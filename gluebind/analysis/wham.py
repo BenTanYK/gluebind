@@ -46,7 +46,8 @@ def build_wham_command(
     """
     if len(wham_params) != 6:
         raise ValueError(
-            "wham_params must be [hist_min, hist_max, num_bins, tol, temperature, numpad]"
+            "wham_params must be "
+            "[hist_min, hist_max, num_bins, tol, temperature, numpad]"
         )
     return [
         str(wham_binary),

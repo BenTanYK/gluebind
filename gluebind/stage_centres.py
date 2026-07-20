@@ -61,12 +61,15 @@ def compute_stage_centres(prepared, context, config) -> dict[str, list[float]]:
     if prepared.complex_trajectory is None:
         raise ValueError(
             "Boresch window centres need an equilibration trajectory "
-            "(prepared.complex_trajectory is None); supply explicit centres via the config"
+            "(prepared.complex_trajectory is None); supply explicit centres via "
+            "the config"
         )
 
     traj = mda.Universe(prepared.complex_prm7, prepared.complex_trajectory)
     anchor_atoms = [context.anchors[k] for k in ("b", "c", "B", "C")]
-    series = _collect_series(traj, context.rec_group, context.lig_group, anchor_atoms, np)
+    series = _collect_series(
+        traj, context.rec_group, context.lig_group, anchor_atoms, np
+    )
     points = {
         "a": series["a"],
         "A": series["A"],
@@ -79,5 +82,7 @@ def compute_stage_centres(prepared, context, config) -> dict[str, list[float]]:
     for dof in DOFS:
         centres[dof] = boresch_centres_from_series(dof_timeseries(points, dof), spacing)
 
-    centres["separation"] = enumerate_centres(config.sampling.for_cv("separation", "separation"))
+    centres["separation"] = enumerate_centres(
+        config.sampling.for_cv("separation", "separation")
+    )
     return centres

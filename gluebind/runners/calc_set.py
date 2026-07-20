@@ -48,7 +48,9 @@ class CalcSet(SimulationRunner):
     ) -> None:
         super().__init__(base_dir)
         self.backend = backend
-        self.experimental = self._load_experimental(self.base_dir / self.MANIFEST_FILENAME)
+        self.experimental = self._load_experimental(
+            self.base_dir / self.MANIFEST_FILENAME
+        )
         self.calcs: dict[str, Calculation] = {}
         for system_dir in self._system_dirs(self.base_dir):
             self.calcs[system_dir.name] = Calculation.from_config(
@@ -66,7 +68,9 @@ class CalcSet(SimulationRunner):
         if not base_dir.is_dir():
             return []
         return sorted(
-            p for p in base_dir.iterdir() if p.is_dir() and (p / cls.CONFIG_FILENAME).exists()
+            p
+            for p in base_dir.iterdir()
+            if p.is_dir() and (p / cls.CONFIG_FILENAME).exists()
         )
 
     @staticmethod
@@ -75,7 +79,9 @@ class CalcSet(SimulationRunner):
         if not manifest_path.exists():
             return {}
         data = yaml.safe_load(manifest_path.read_text()) or {}
-        return {str(k): float(v) for k, v in (data.get("experimental_dg") or {}).items()}
+        return {
+            str(k): float(v) for k, v in (data.get("experimental_dg") or {}).items()
+        }
 
     def prepare(self) -> None:
         """Prepare every system (each through the shared backend)."""

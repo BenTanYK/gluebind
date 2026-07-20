@@ -104,7 +104,9 @@ class BoreschSpec(pydantic.BaseModel):
             return v
         expected = {"b", "c", "B", "C"}
         if not isinstance(v, dict) or set(v) != expected:
-            raise ValueError(f"explicit anchors must have exactly keys {sorted(expected)}")
+            raise ValueError(
+                f"explicit anchors must have exactly keys {sorted(expected)}"
+            )
         return v
 
 
@@ -128,7 +130,9 @@ class RestraintsConfig(pydantic.BaseModel):
             raise ValueError(f"duplicate rmsd_cv names: {names}")
         unknown = set(self.rmsd_order) - set(names)
         if unknown:
-            raise ValueError(f"rmsd_order references unknown CV names: {sorted(unknown)}")
+            raise ValueError(
+                f"rmsd_order references unknown CV names: {sorted(unknown)}"
+            )
         return self
 
     @property

@@ -84,7 +84,9 @@ def prep_stage_launch_command(python: str = "python") -> list[str]:
     so a backend only has to set the job's working directory — the same ``python
     -c`` seam used for windows, keeping v1 free of any CLI.
     """
-    code = "from gluebind.simulation.prep_stage import run_prep_stage; run_prep_stage('.')"
+    code = (
+        "from gluebind.simulation.prep_stage import run_prep_stage; run_prep_stage('.')"
+    )
     return [python, "-c", code]
 
 

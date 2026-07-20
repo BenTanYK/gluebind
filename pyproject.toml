@@ -21,10 +21,12 @@ include = ["gluebind*"]
 
 [tool.setuptools_scm]
 
+[tool.ruff]
+line-length = 88
+
 [tool.ruff.lint]
 ignore = ["C901"]
 select = ["B","C","E","F","W","B9"]
-ignore-init-module-imports = true
 
 [tool.coverage.run]
 omit = ["**/tests/*"]

@@ -32,7 +32,11 @@ class LocalBackend(Backend):
         env = {**os.environ, **spec.env}
         out = open(work_dir / f"{spec.name}.out", "w")
         proc = subprocess.Popen(
-            spec.command, cwd=str(work_dir), env=env, stdout=out, stderr=subprocess.STDOUT
+            spec.command,
+            cwd=str(work_dir),
+            env=env,
+            stdout=out,
+            stderr=subprocess.STDOUT,
         )
         self._jobs[token] = (proc, out)
         return token

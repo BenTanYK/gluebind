@@ -35,9 +35,14 @@ def dof_timeseries(points: PointsSeries, dof: str) -> np.ndarray:
     series = [np.asarray(points[label], float) for label in labels]
     n_frames = series[0].shape[0]
     if dof in ANGLE_DOFS:
-        return np.array([angle(series[0][t], series[1][t], series[2][t]) for t in range(n_frames)])
+        return np.array(
+            [angle(series[0][t], series[1][t], series[2][t]) for t in range(n_frames)]
+        )
     return np.array(
-        [dihedral(series[0][t], series[1][t], series[2][t], series[3][t]) for t in range(n_frames)]
+        [
+            dihedral(series[0][t], series[1][t], series[2][t], series[3][t])
+            for t in range(n_frames)
+        ]
     )
 
 
@@ -46,7 +51,9 @@ def total_dof_variance(points: PointsSeries) -> float:
     return sum(circular_variance(dof_timeseries(points, dof)) for dof in DOFS)
 
 
-def is_valid_anchor_set(mean_coords: Mapping[str, np.ndarray], *, tol_deg: float = 15.0) -> bool:
+def is_valid_anchor_set(
+    mean_coords: Mapping[str, np.ndarray], *, tol_deg: float = 15.0
+) -> bool:
     """True if no consecutive triple along the c-b-a-A-B-C chain is collinear."""
     for i in range(len(ANCHOR_CHAIN) - 2):
         p1 = mean_coords[ANCHOR_CHAIN[i]]
@@ -97,7 +104,9 @@ def select_anchors(
                 "B": coords_of(big_b),
                 "C": coords_of(big_c),
             }
-            mean_coords = {label: series.mean(axis=0) for label, series in points.items()}
+            mean_coords = {
+                label: series.mean(axis=0) for label, series in points.items()
+            }
             if not is_valid_anchor_set(mean_coords, tol_deg=collinearity_tol_deg):
                 continue
             score = total_dof_variance(points)

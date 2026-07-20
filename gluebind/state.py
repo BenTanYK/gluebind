@@ -78,7 +78,9 @@ class RunState(pydantic.BaseModel):
         path = run_dir / STATE_FILENAME
         payload = json.dumps(self.model_dump(), indent=2)
 
-        fd, tmp = tempfile.mkstemp(dir=run_dir, prefix=".gluebind-state.", suffix=".tmp")
+        fd, tmp = tempfile.mkstemp(
+            dir=run_dir, prefix=".gluebind-state.", suffix=".tmp"
+        )
         try:
             with os.fdopen(fd, "w") as f:
                 f.write(payload)
@@ -107,7 +109,8 @@ class RunState(pydantic.BaseModel):
             raise ValueError(
                 f"State file at {path} has schema_version={on_disk}, but this "
                 f"gluebind build only knows v{SCHEMA_VERSION}. It was written by a "
-                "newer release — upgrade gluebind, or delete the state file and resubmit."
+                "newer release — upgrade gluebind, or delete the state file and "
+                "resubmit."
             )
         if on_disk < SCHEMA_VERSION:
             raw = _migrate(raw, from_version=on_disk)

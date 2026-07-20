@@ -78,7 +78,11 @@ def _calc(tmp_path, config=None, command_factory=_trivial_command):
 
 def test_enumerate_from_range():
     s = WindowSampling(
-        force_constant=5.0, sampling_time_ns=1.0, window_min=0.0, window_max=1.0, window_spacing=0.5
+        force_constant=5.0,
+        sampling_time_ns=1.0,
+        window_min=0.0,
+        window_max=1.0,
+        window_spacing=0.5,
     )
     assert enumerate_centres(s) == [0.0, 0.5, 1.0]
 
@@ -152,7 +156,9 @@ def test_write_specs_threads_boresch_eq(tmp_path):
     theta_a = calc._group("boresch").stages[0]
     assert theta_a.dof == "thetaA"
     theta_a.write_specs({"thetaX": 0.5})
-    spec = WindowSpec.load(tmp_path / "boresch" / "thetaA" / "1rad" / "run_01" / "window.json")
+    spec = WindowSpec.load(
+        tmp_path / "boresch" / "thetaA" / "1rad" / "run_01" / "window.json"
+    )
     assert spec.cv_type == "boresch" and spec.dof == "thetaA"
     assert spec.restraints["boresch_eq_values"] == {"thetaX": 0.5}
 
@@ -162,7 +168,9 @@ def test_write_specs_threads_boresch_eq(tmp_path):
 
 def test_run_completes_and_records_state(tmp_path):
     calc = _calc(tmp_path)
-    state = calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    state = calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
     for window in calc._iter_windows():
         assert window.is_replicate_complete(1)
     assert (tmp_path / ".gluebind-state.json").exists()
@@ -180,13 +188,18 @@ def test_run_surfaces_failed_windows(tmp_path):
         command_factory=lambda: [sys.executable, "-c", "raise SystemExit(1)"],
     )
     with pytest.raises(RuntimeError, match="produced no result"):
-        calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+        calc.run(
+            scheduler=Scheduler(calc.backend, poll_interval=0.01),
+            pmf_provider=_fake_pmf,
+        )
     assert "failed" in RunState.load(tmp_path).stage_status.values()
 
 
 def test_run_is_idempotent(tmp_path):
     calc = _calc(tmp_path)
-    calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
     calc2 = _calc(tmp_path)
     pending = [
         (w.stage_name, w.label, r)
@@ -198,12 +211,17 @@ def test_run_is_idempotent(tmp_path):
 
 
 def test_resume_config_hash_mismatch_aborts(tmp_path):
-    _calc(tmp_path).run(scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf)
+    _calc(tmp_path).run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
     changed = _config()
     changed.sampling.rmsd.force_constant = 99.0
     calc2 = _calc(tmp_path, config=changed)
     with pytest.raises(ValueError, match="config_hash"):
-        calc2.run(scheduler=Scheduler(calc2.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+        calc2.run(
+            scheduler=Scheduler(calc2.backend, poll_interval=0.01),
+            pmf_provider=_fake_pmf,
+        )
 
 
 def test_boresch_sequential_feedback(tmp_path):
@@ -217,12 +235,16 @@ def test_boresch_sequential_feedback(tmp_path):
         command_factory=_trivial_command,
         stage_centres={"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]},
     )
-    state = calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    state = calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
 
     assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
     assert state.boresch_eq_values["thetaB"] == pytest.approx(1.0)
 
-    theta_b_spec = WindowSpec.load(tmp_path / "boresch" / "thetaB" / "1rad" / "run_01" / "window.json")
+    theta_b_spec = WindowSpec.load(
+        tmp_path / "boresch" / "thetaB" / "1rad" / "run_01" / "window.json"
+    )
     assert theta_b_spec.restraints["boresch_eq_values"]["thetaA"] == pytest.approx(1.0)
 
     # group dir and stage name are both "separation" (uniform tree depth).
@@ -246,7 +268,9 @@ def test_run_invokes_steered_md_before_separation(tmp_path):
         stage_centres={"thetaA": [1.0], "separation": [1.5]},
         steered_md_runner=lambda eq: calls.append(dict(eq)),
     )
-    state = calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    state = calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
     assert len(calls) == 1
     assert "thetaA" in calls[0]  # invoked with the resolved Boresch eq values
     assert state.stage_status.get("steered_md") == "done"
@@ -263,7 +287,9 @@ def test_run_without_separation_skips_steered_md(tmp_path):
         stage_centres={"thetaA": [1.0]},  # no separation group
         steered_md_runner=lambda eq: calls.append(eq),
     )
-    calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
     assert calls == []
 
 
@@ -281,8 +307,12 @@ def test_steered_md_runs_once_across_resume(tmp_path):
             steered_md_runner=lambda eq: counter.__setitem__("n", counter["n"] + 1),
         )
 
-    _mk().run(scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf)
-    _mk().run(scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf)
+    _mk().run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    _mk().run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
     assert counter["n"] == 1  # not repeated on the resumed run
 
 
@@ -329,10 +359,14 @@ def test_run_auto_prepares_when_not_wired(tmp_path):
         calc.sub_runners = list(calc.groups)
 
     calc.prepare = fake_prepare
-    calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
     assert calls["prepare"] == 1
     # a second run() does not re-prepare (already wired)
-    calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
     assert calls["prepare"] == 1
 
 
@@ -345,7 +379,9 @@ def test_analyse_derives_theta_and_r_star_from_state(tmp_path):
         command_factory=_trivial_command,
         stage_centres={"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]},
     )
-    calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
 
     # No r_star/theta passed: theta minima from the run state, r_star from the
     # outermost separation centre (1.5).
@@ -379,7 +415,9 @@ def test_run_self_defaults_pmf_provider_for_boresch(tmp_path, monkeypatch):
         command_factory=_trivial_command,
         stage_centres={"thetaA": [1.0], "separation": [1.5]},
     )
-    state = calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01))  # no pmf_provider
+    state = calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01)
+    )  # no pmf_provider
     assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
 
 
@@ -417,7 +455,9 @@ def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
     calc._wire = fake_wire
     result = calc.analyse(_fake_pmf, theta_a_min=1.0, theta_b_min=1.0)
 
-    assert calc.spec_builder is not None and len(calc.groups) > 0  # re-wired, tree rebuilt
+    assert (
+        calc.spec_builder is not None and len(calc.groups) > 0
+    )  # re-wired, tree rebuilt
     assert set(result) == {"dg_bind", "dg_rmsd", "dg_boresch", "dg_sep", "dg_corr"}
     assert math.isfinite(result["dg_bind"])
 
@@ -455,8 +495,16 @@ def test_rmsd_stage_names_respect_states(tmp_path):
             "inputs": INPUTS,
             "restraints": {
                 "rmsd_cvs": [
-                    {"name": "domainA", "selection": "resid 1-10", "states": ["bound", "bulk"]},
-                    {"name": "domainB", "selection": "resid 11-20", "states": ["bound"]},
+                    {
+                        "name": "domainA",
+                        "selection": "resid 1-10",
+                        "states": ["bound", "bulk"],
+                    },
+                    {
+                        "name": "domainB",
+                        "selection": "resid 11-20",
+                        "states": ["bound"],
+                    },
                 ]
             },
         }
@@ -466,7 +514,11 @@ def test_rmsd_stage_names_respect_states(tmp_path):
     cfg.sampling.rmsd.window_max = 0.2
     cfg.sampling.rmsd.window_spacing = 0.2
     calc = Calculation(
-        tmp_path, cfg, LocalBackend(), _spec_builder, command_factory=_trivial_command,
+        tmp_path,
+        cfg,
+        LocalBackend(),
+        _spec_builder,
+        command_factory=_trivial_command,
         stage_centres={"thetaA": [1.0], "separation": [1.5]},
     )
     names = calc._rmsd_stage_names()
@@ -506,7 +558,9 @@ def test_add_windows_extends_rmsd_stage(tmp_path):
     calc = _wired_calc(tmp_path)
     stage = calc._group("rmsd").stages[0]
     before = len(stage.windows)
-    calc.add_windows("rmsd", stage.name, [stage.windows[0].centre, 99.0])  # one dup, one new
+    calc.add_windows(
+        "rmsd", stage.name, [stage.windows[0].centre, 99.0]
+    )  # one dup, one new
     assert len(stage.windows) == before + 1
     assert any(w.centre == 99.0 for w in stage.windows)
 

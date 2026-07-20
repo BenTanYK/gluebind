@@ -21,7 +21,12 @@ from gluebind.analysis.free_energy import (
 )
 from gluebind.analysis.pmf import average_pmfs, detect_equilibration, pmf_minimum
 from gluebind.analysis.provider import WhamPmfProvider, wham_units
-from gluebind.analysis.wham import build_wham_command, load_pmf, run_wham, write_metafile
+from gluebind.analysis.wham import (
+    build_wham_command,
+    load_pmf,
+    run_wham,
+    write_metafile,
+)
 
 __all__ = [
     "rmsd_contribution",

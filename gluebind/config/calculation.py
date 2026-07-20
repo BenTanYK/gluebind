@@ -89,7 +89,10 @@ class CalculationConfig(pydantic.BaseModel):
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
             yaml.safe_dump(
-                self.model_dump(mode="json"), f, sort_keys=False, default_flow_style=False
+                self.model_dump(mode="json"),
+                f,
+                sort_keys=False,
+                default_flow_style=False,
             )
         return path
 
@@ -97,7 +100,9 @@ class CalculationConfig(pydantic.BaseModel):
         """Dump the fully-resolved config into a run directory for provenance."""
         return self.dump(pathlib.Path(run_dir) / RESOLVED_CONFIG_FILENAME)
 
-    def with_resolved_input_paths(self, base: str | pathlib.Path) -> "CalculationConfig":
+    def with_resolved_input_paths(
+        self, base: str | pathlib.Path
+    ) -> "CalculationConfig":
         """Return a copy with relative input file paths resolved against ``base``.
 
         Lets a ``config.yaml`` live alongside its AMBER inputs in a self-contained

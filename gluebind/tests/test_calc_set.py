@@ -151,8 +151,20 @@ def test_analyse_aggregates_and_writes_csv(tmp_path):
     cset = CalcSet(tmp_path, LocalBackend())
 
     fake = {
-        "A": {"dg_bind": -9.5, "dg_rmsd": 0.0, "dg_boresch": 0.0, "dg_sep": -9.5, "dg_corr": 0.0},
-        "B": {"dg_bind": -7.0, "dg_rmsd": 0.0, "dg_boresch": 0.0, "dg_sep": -7.0, "dg_corr": 0.0},
+        "A": {
+            "dg_bind": -9.5,
+            "dg_rmsd": 0.0,
+            "dg_boresch": 0.0,
+            "dg_sep": -9.5,
+            "dg_corr": 0.0,
+        },
+        "B": {
+            "dg_bind": -7.0,
+            "dg_rmsd": 0.0,
+            "dg_boresch": 0.0,
+            "dg_sep": -7.0,
+            "dg_corr": 0.0,
+        },
     }
     for name, calc in cset.calcs.items():
         calc.analyse = (lambda result: (lambda *a, **k: result))(fake[name])
@@ -162,7 +174,9 @@ def test_analyse_aggregates_and_writes_csv(tmp_path):
     assert [r["system"] for r in out["results"]] == ["A", "B"]
     assert out["results"][0]["experimental_dg"] == -10.0
     assert out["stats"]["n"] == 2
-    assert out["stats"]["r2"] == pytest.approx(1.0)  # two points -> perfectly correlated
+    assert out["stats"]["r2"] == pytest.approx(
+        1.0
+    )  # two points -> perfectly correlated
     # the ONLY set-level artifact
     assert (tmp_path / "results.csv").exists()
 
@@ -175,11 +189,18 @@ inputs:
   receptor: {prm7: r.prm7, rst7: r.rst7}
 sampling:
   ensemble_size: 1
-  rmsd: {force_constant: 5.0, window_min: 0.0, window_max: 0.2, window_spacing: 0.2, sampling_time_ns: 1.0}
+  rmsd:
+    force_constant: 5.0
+    window_min: 0.0
+    window_max: 0.2
+    window_spacing: 0.2
+    sampling_time_ns: 1.0
 """
 
 
-def _run_spec_builder(*, cv_type, stage_name, dof, cv_centre, replicate, boresch_eq_values):
+def _run_spec_builder(
+    *, cv_type, stage_name, dof, cv_centre, replicate, boresch_eq_values
+):
     return WindowSpec(
         cv_type=cv_type,
         stage_name=stage_name,
@@ -208,7 +229,9 @@ class _RunFakeProvider:
         return x, (x - 1.0) ** 2
 
 
-def test_calc_set_run_completes_boresch_without_explicit_provider(tmp_path, monkeypatch):
+def test_calc_set_run_completes_boresch_without_explicit_provider(
+    tmp_path, monkeypatch
+):
     # Regression: CalcSet.run() -> calc.run() with no provider previously raised
     # "pmf_provider is required" on the first Boresch stage of every real system.
     import gluebind.analysis.provider as provider_mod

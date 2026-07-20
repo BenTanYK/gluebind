@@ -71,9 +71,14 @@ def test_provider_local_run_with_fake_binary(tmp_path):
         for replicate in (1, 2):
             run_dir = window.replicate_dir(replicate)
             run_dir.mkdir(parents=True)
-            np.savetxt(run_dir / "cv_timeseries.dat", np.array([[0, 0.1], [1, 0.12], [2, 0.11]]))
+            np.savetxt(
+                run_dir / "cv_timeseries.dat",
+                np.array([[0, 0.1], [1, 0.12], [2, 0.11]]),
+            )
 
-    provider = WhamPmfProvider(cfg, wham_binary=str(_fake_wham(tmp_path)), location="local")
+    provider = WhamPmfProvider(
+        cfg, wham_binary=str(_fake_wham(tmp_path)), location="local"
+    )
     cv, pmf = provider(stage)
 
     assert len(cv) == 3 and len(pmf) == 3
@@ -98,9 +103,14 @@ def test_resolve_timeseries_red_truncates_rmsd(tmp_path):
     window = stage.windows[0]
     run_dir = window.replicate_dir(1)
     run_dir.mkdir(parents=True)
-    np.savetxt(run_dir / "cv_timeseries.dat", np.column_stack([np.arange(100), np.linspace(0, 1, 100)]))
+    np.savetxt(
+        run_dir / "cv_timeseries.dat",
+        np.column_stack([np.arange(100), np.linspace(0, 1, 100)]),
+    )
 
-    provider = WhamPmfProvider(cfg, wham_binary=str(_fake_wham(tmp_path)), apply_red=True)
+    provider = WhamPmfProvider(
+        cfg, wham_binary=str(_fake_wham(tmp_path)), apply_red=True
+    )
     path = provider._resolve_timeseries(stage, window, 1)
 
     assert path.endswith("RED/cv_timeseries.dat")
@@ -126,7 +136,9 @@ def test_resolve_timeseries_boresch_uses_raw(tmp_path):
     ts = run_dir / "cv_timeseries.dat"
     np.savetxt(ts, np.column_stack([np.arange(10), np.linspace(1.0, 1.1, 10)]))
 
-    provider = WhamPmfProvider(cfg, wham_binary=str(_fake_wham(tmp_path)), apply_red=True)
+    provider = WhamPmfProvider(
+        cfg, wham_binary=str(_fake_wham(tmp_path)), apply_red=True
+    )
     path = provider._resolve_timeseries(stage, window, 1)
 
     assert path == str(ts)
@@ -149,7 +161,9 @@ def test_provider_metafile_has_converted_units(tmp_path):
     run_dir.mkdir(parents=True)
     np.savetxt(run_dir / "cv_timeseries.dat", np.array([[0, 0.2]]))
 
-    provider = WhamPmfProvider(cfg, wham_binary=str(_fake_wham(tmp_path)), location="local")
+    provider = WhamPmfProvider(
+        cfg, wham_binary=str(_fake_wham(tmp_path)), location="local"
+    )
     provider(stage)
 
     line = (stage.base_dir / "metafile_run01.txt").read_text().split()

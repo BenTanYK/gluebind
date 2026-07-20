@@ -95,12 +95,18 @@ def test_valid_anchor_set_collinear_false():
     # all points on the x-axis -> every triple collinear
     coords = {label: np.array([float(i), 0.0, 0.0]) for i, label in enumerate("abcABC")}
     # remap to the expected keys
-    coords = {k: np.array([float(i), 0.0, 0.0]) for i, k in enumerate(["c", "b", "a", "A", "B", "C"])}
+    coords = {
+        k: np.array([float(i), 0.0, 0.0])
+        for i, k in enumerate(["c", "b", "a", "A", "B", "C"])
+    }
     assert not is_valid_anchor_set(coords)
 
 
 def test_validate_manual_anchors_raises_on_collinear():
-    coords = {k: np.array([float(i), 0.0, 0.0]) for i, k in enumerate(["c", "b", "a", "A", "B", "C"])}
+    coords = {
+        k: np.array([float(i), 0.0, 0.0])
+        for i, k in enumerate(["c", "b", "a", "A", "B", "C"])
+    }
     with pytest.raises(ValueError, match="collinear"):
         validate_manual_anchors(coords)
 

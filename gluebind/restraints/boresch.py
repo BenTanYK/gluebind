@@ -96,7 +96,10 @@ def add_bias(
     if dof in ANGLE_DOFS:
         expr = "0.5*k_boresch*(cv-bias_centre)^2"
     else:
-        expr = f"0.5*k_boresch*min(dtheta, 2*pi-dtheta)^2; dtheta=abs(cv-bias_centre); pi={_PI}"
+        expr = (
+            "0.5*k_boresch*min(dtheta, 2*pi-dtheta)^2; "
+            f"dtheta=abs(cv-bias_centre); pi={_PI}"
+        )
     bias = mm.CustomCVForce(expr)
     bias.addGlobalParameter("k_boresch", _k(force_constant))
     bias.addGlobalParameter("bias_centre", bias_centre)

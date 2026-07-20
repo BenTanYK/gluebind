@@ -26,7 +26,9 @@ def test_flat_pmf_rmsd_sign_convention():
 def test_rmsd_zero_force_constant_is_zero():
     x = np.linspace(0.0, 0.3, 61)
     pmf = np.zeros_like(x)
-    assert fe.rmsd_contribution(x, pmf, force_constant=0.0, unbound=True) == pytest.approx(0.0)
+    assert fe.rmsd_contribution(
+        x, pmf, force_constant=0.0, unbound=True
+    ) == pytest.approx(0.0)
 
 
 def test_boresch_contribution_is_negative_cost():
@@ -136,11 +138,15 @@ def test_contribution_unconverged_edge_peak():
 def test_contribution_converged_separation():
     x = np.linspace(0.9, 3.0, 43)
     pmf = 20.0 * (x - 1.8) ** 2 - 20.0  # well with rising edges within the range
-    assert fe.contribution_converged(x, pmf, cv_type="separation", force_constant=0.0, r_star=3.0)
+    assert fe.contribution_converged(
+        x, pmf, cv_type="separation", force_constant=0.0, r_star=3.0
+    )
 
 
 def test_binding_free_energy_is_sum():
-    assert fe.binding_free_energy(-8.7, -0.5, -19.4, 7.9) == pytest.approx(-8.7 - 0.5 - 19.4 + 7.9)
+    assert fe.binding_free_energy(-8.7, -0.5, -19.4, 7.9) == pytest.approx(
+        -8.7 - 0.5 - 19.4 + 7.9
+    )
 
 
 def test_combine_errors_quadrature():

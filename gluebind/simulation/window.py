@@ -122,10 +122,14 @@ def run_window(work_dir: str | pathlib.Path) -> None:
         spec.topology, hmr_factor=spec.hmr_factor, pme_cutoff_nm=spec.pme_cutoff_nm
     )
     positions, box_vectors = sb.load_coordinates(spec.coordinates)
-    simulation, integrator = sb.build_simulation(prmtop, system, timestep_fs=spec.timestep_fs)
+    simulation, integrator = sb.build_simulation(
+        prmtop, system, timestep_fs=spec.timestep_fs
+    )
     simulation.context.setPeriodicBoxVectors(*box_vectors)
     simulation.context.setPositions(positions)
-    sb.minimise_and_heat(simulation, integrator, target_temperature_K=spec.temperature_K)
+    sb.minimise_and_heat(
+        simulation, integrator, target_temperature_K=spec.temperature_K
+    )
     reference = simulation.context.getState(getPositions=True).getPositions()
 
     bias = None  # the force whose collective variable we record
@@ -147,26 +151,38 @@ def run_window(work_dir: str | pathlib.Path) -> None:
     # Fixed Boresch restraints (context for Boresch and separation windows).
     bore = ctx.get("boresch")
     if bore:
-        points = boresch.points_from_groups(bore["rec_group"], bore["lig_group"], bore["anchors"])
+        points = boresch.points_from_groups(
+            bore["rec_group"], bore["lig_group"], bore["anchors"]
+        )
         for dof, eq_value in bore.get("fixed", {}).items():
-            boresch.add_fixed_restraint(system, dof, points, eq_value, bore["force_constant"])
+            boresch.add_fixed_restraint(
+                system, dof, points, eq_value, bore["force_constant"]
+            )
         simulation.context.reinitialize(preserveState=True)
 
     # The biased CV for this window.
     if spec.cv_type == "boresch":
         if spec.dof is None:
             raise ValueError("a Boresch window requires spec.dof")
-        bias = boresch.add_bias(system, spec.dof, points, spec.cv_centre, spec.force_constant)
+        bias = boresch.add_bias(
+            system, spec.dof, points, spec.cv_centre, spec.force_constant
+        )
         simulation.context.reinitialize(preserveState=True)
     elif spec.cv_type == "separation":
         sep = ctx["separation"]
         bias = separation.add_bias(
-            system, sep["rec_group"], sep["lig_group"], spec.cv_centre, spec.force_constant
+            system,
+            sep["rec_group"],
+            sep["lig_group"],
+            spec.cv_centre,
+            spec.force_constant,
         )
         simulation.context.reinitialize(preserveState=True)
     elif spec.cv_type == "rmsd":
         if bias is None:
-            raise ValueError("an RMSD window requires a restraint entry with sampled=True")
+            raise ValueError(
+                "an RMSD window requires a restraint entry with sampled=True"
+            )
 
     ns_per_step = spec.timestep_fs * 1e-6
     samples = sb.collect_cv_samples(

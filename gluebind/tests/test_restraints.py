@@ -48,13 +48,17 @@ def test_separation_distance():
 def test_boresch_thetaA_is_right_angle():
     system = _system(6)
     points = {"a": [1], "A": [2], "b": [0], "c": [3], "B": [4], "C": [5]}
-    bias = boresch.add_bias(system, "thetaA", points, bias_centre=math.pi / 2, force_constant=100.0)
+    bias = boresch.add_bias(
+        system, "thetaA", points, bias_centre=math.pi / 2, force_constant=100.0
+    )
     # thetaA = angle(b, a, A); vertex a at origin, b along x, A along y => 90 deg.
     ctx = _context(
         system,
         _nm([(1, 0, 0), (0, 0, 0), (0, 1, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)]),
     )
-    assert bias.getCollectiveVariableValues(ctx)[0] == pytest.approx(math.pi / 2, abs=1e-4)
+    assert bias.getCollectiveVariableValues(ctx)[0] == pytest.approx(
+        math.pi / 2, abs=1e-4
+    )
 
 
 @pytest.mark.parametrize("dof", boresch.DOFS)
@@ -70,12 +74,16 @@ def test_boresch_fixed_restraint_adds_one_force():
     system = _system(6)
     points = {"a": [0], "A": [1], "b": [2], "c": [3], "B": [4], "C": [5]}
     before = system.getNumForces()
-    boresch.add_fixed_restraint(system, "thetaA", points, eq_value=1.0, force_constant=100.0)
+    boresch.add_fixed_restraint(
+        system, "thetaA", points, eq_value=1.0, force_constant=100.0
+    )
     assert system.getNumForces() == before + 1
 
 
 def test_boresch_points_from_groups():
-    points = boresch.points_from_groups([0, 1], [2, 3], {"b": 4, "c": 5, "B": 6, "C": 7})
+    points = boresch.points_from_groups(
+        [0, 1], [2, 3], {"b": 4, "c": 5, "B": 6, "C": 7}
+    )
     assert points["a"] == [0, 1]
     assert points["A"] == [2, 3]
     assert points["b"] == [4]
@@ -93,8 +101,12 @@ def test_rmsd_zero_at_reference():
 def test_rmsd_moving_restraint_has_centre_param():
     system = _system(3)
     positions = _nm([(0, 0, 0), (1, 0, 0), (0, 1, 0)])
-    force = rmsd.add_rmsd_restraint(system, [0, 1, 2], positions, 5.0, name="lig", centre=2.0)
-    names = {force.getGlobalParameterName(i) for i in range(force.getNumGlobalParameters())}
+    force = rmsd.add_rmsd_restraint(
+        system, [0, 1, 2], positions, 5.0, name="lig", centre=2.0
+    )
+    names = {
+        force.getGlobalParameterName(i) for i in range(force.getNumGlobalParameters())
+    }
     assert {"k_lig", "lig_centre"} <= names
 
 
@@ -116,5 +128,7 @@ def test_glue_heavy_atoms_excludes_hydrogen():
 
 
 def test_atoms_in_residues_by_name():
-    idx = system_builder.atoms_in_residues(_topology(), residue_indices=[1], atom_names={"CA"})
+    idx = system_builder.atoms_in_residues(
+        _topology(), residue_indices=[1], atom_names={"CA"}
+    )
     assert idx == [2]

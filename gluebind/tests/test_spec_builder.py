@@ -29,7 +29,9 @@ def _context():
         rmsd_order=["receptor", "target"],
         rmsd_atoms_bound={"receptor": [1, 2, 3], "target": [4, 5, 6]},
         rmsd_bulk={
-            "receptor": BulkTarget("receptor_bulk.prm7", "receptor_bulk.rst7", [0, 1, 2]),
+            "receptor": BulkTarget(
+                "receptor_bulk.prm7", "receptor_bulk.rst7", [0, 1, 2]
+            ),
             "target": BulkTarget("target_bulk.prm7", "target_bulk.rst7", [0, 1, 2]),
         },
     )
@@ -71,19 +73,29 @@ def test_boresch_spec():
 
 def test_rmsd_bound_first_region_sampled_alone():
     spec = _builder()(
-        cv_type="rmsd", stage_name="receptor_bound", dof=None, cv_centre=0.4,
-        replicate=1, boresch_eq_values={},
+        cv_type="rmsd",
+        stage_name="receptor_bound",
+        dof=None,
+        cv_centre=0.4,
+        replicate=1,
+        boresch_eq_values={},
     )
     assert spec.topology == "complex.prm7"
-    assert [(r["name"], r["sampled"]) for r in spec.restraints["rmsd"]] == [("receptor", True)]
+    assert [(r["name"], r["sampled"]) for r in spec.restraints["rmsd"]] == [
+        ("receptor", True)
+    ]
     assert spec.restraints["rmsd"][0]["centre"] == 0.4
     assert spec.restraints["rmsd"][0]["atoms"] == [1, 2, 3]
 
 
 def test_rmsd_bound_later_region_fixes_earlier():
     spec = _builder()(
-        cv_type="rmsd", stage_name="target_bound", dof=None, cv_centre=0.5,
-        replicate=1, boresch_eq_values={},
+        cv_type="rmsd",
+        stage_name="target_bound",
+        dof=None,
+        cv_centre=0.5,
+        replicate=1,
+        boresch_eq_values={},
     )
     assert [(r["name"], r["sampled"]) for r in spec.restraints["rmsd"]] == [
         ("receptor", False),
@@ -93,8 +105,12 @@ def test_rmsd_bound_later_region_fixes_earlier():
 
 def test_rmsd_bulk_uses_isolated_topology():
     spec = _builder()(
-        cv_type="rmsd", stage_name="target_bulk", dof=None, cv_centre=0.6,
-        replicate=1, boresch_eq_values={},
+        cv_type="rmsd",
+        stage_name="target_bulk",
+        dof=None,
+        cv_centre=0.6,
+        replicate=1,
+        boresch_eq_values={},
     )
     assert spec.topology == "target_bulk.prm7"
     assert spec.coordinates == "target_bulk.rst7"
@@ -126,8 +142,12 @@ _DDB1_ENTRY = {
 
 def test_always_on_in_bound_rmsd_stage():
     spec = _builder_with_always_on()(
-        cv_type="rmsd", stage_name="receptor_bound", dof=None, cv_centre=0.4,
-        replicate=1, boresch_eq_values={},
+        cv_type="rmsd",
+        stage_name="receptor_bound",
+        dof=None,
+        cv_centre=0.4,
+        replicate=1,
+        boresch_eq_values={},
     )
     assert _DDB1_ENTRY in spec.restraints["rmsd"]
 
@@ -135,12 +155,20 @@ def test_always_on_in_bound_rmsd_stage():
 def test_always_on_in_boresch_and_separation(tmp_path):
     b = _builder_with_always_on()
     bores = b(
-        cv_type="boresch", stage_name="thetaA", dof="thetaA", cv_centre=1.0,
-        replicate=1, boresch_eq_values={},
+        cv_type="boresch",
+        stage_name="thetaA",
+        dof="thetaA",
+        cv_centre=1.0,
+        replicate=1,
+        boresch_eq_values={},
     )
     sep = b(
-        cv_type="separation", stage_name="separation", dof=None, cv_centre=1.5,
-        replicate=1, boresch_eq_values={"thetaA": 1.0},
+        cv_type="separation",
+        stage_name="separation",
+        dof=None,
+        cv_centre=1.5,
+        replicate=1,
+        boresch_eq_values={"thetaA": 1.0},
     )
     assert _DDB1_ENTRY in bores.restraints["rmsd"]
     assert _DDB1_ENTRY in sep.restraints["rmsd"]
@@ -150,8 +178,12 @@ def test_always_on_absent_from_bulk_stage():
     # Complex-resolved always-on atoms do not exist in an isolated bulk topology,
     # so they must not leak into a bulk stage (bulk always-on is resolved separately).
     spec = _builder_with_always_on()(
-        cv_type="rmsd", stage_name="target_bulk", dof=None, cv_centre=0.6,
-        replicate=1, boresch_eq_values={},
+        cv_type="rmsd",
+        stage_name="target_bulk",
+        dof=None,
+        cv_centre=0.6,
+        replicate=1,
+        boresch_eq_values={},
     )
     assert all(r["name"] != "ddb1" for r in spec.restraints["rmsd"])
 
@@ -170,18 +202,27 @@ def test_rmsd_bulk_applies_held_and_always_on():
         rmsd_atoms_bound={"BD1": [1, 2], "BD2": [3, 4]},
         rmsd_bulk={
             "BD2": BulkTarget(
-                "target_bulk.prm7", "target_bulk.rst7", atoms=[30, 31],
+                "target_bulk.prm7",
+                "target_bulk.rst7",
+                atoms=[30, 31],
                 held=[("BD1", [10, 11])],  # earlier same-protein region held fixed
                 always_on=[AlwaysOn("ddb1", [50], 100.0)],
             )
         },
     )
     spec = SpecBuilder(ctx, _config())(
-        cv_type="rmsd", stage_name="BD2_bulk", dof=None, cv_centre=0.6,
-        replicate=1, boresch_eq_values={},
+        cv_type="rmsd",
+        stage_name="BD2_bulk",
+        dof=None,
+        cv_centre=0.6,
+        replicate=1,
+        boresch_eq_values={},
     )
     assert spec.topology == "target_bulk.prm7"
-    entries = [(r["name"], r["sampled"], r["centre"], r["atoms"]) for r in spec.restraints["rmsd"]]
+    entries = [
+        (r["name"], r["sampled"], r["centre"], r["atoms"])
+        for r in spec.restraints["rmsd"]
+    ]
     assert entries == [
         ("BD1", False, None, [10, 11]),  # held partner first
         ("BD2", True, 0.6, [30, 31]),  # sampled region
@@ -211,19 +252,38 @@ def test_separation_uses_smd_frame_and_fixes_all(tmp_path):
         dof=None,
         cv_centre=1.5,
         replicate=1,
-        boresch_eq_values={"thetaA": 0.9, "thetaB": 1.0, "phiA": 0.1, "phiB": 0.2, "phiC": 0.3},
+        boresch_eq_values={
+            "thetaA": 0.9,
+            "thetaB": 1.0,
+            "phiA": 0.1,
+            "phiB": 0.2,
+            "phiC": 0.3,
+        },
     )
     assert spec.coordinates == str(tmp_path / "1.5nm.rst7")
-    assert spec.restraints["separation"] == {"rec_group": [1, 2, 3], "lig_group": [4, 5, 6]}
-    assert set(spec.restraints["boresch"]["fixed"]) == {"thetaA", "thetaB", "phiA", "phiB", "phiC"}
+    assert spec.restraints["separation"] == {
+        "rec_group": [1, 2, 3],
+        "lig_group": [4, 5, 6],
+    }
+    assert set(spec.restraints["boresch"]["fixed"]) == {
+        "thetaA",
+        "thetaB",
+        "phiA",
+        "phiB",
+        "phiC",
+    }
     assert all(r["sampled"] is False for r in spec.restraints["rmsd"])
     assert spec.force_constant == cfg.sampling.separation.force_constant
 
 
 def test_separation_falls_back_to_complex_coords_without_smd():
     spec = _builder()(
-        cv_type="separation", stage_name="separation", dof=None, cv_centre=1.5,
-        replicate=1, boresch_eq_values={},
+        cv_type="separation",
+        stage_name="separation",
+        dof=None,
+        cv_centre=1.5,
+        replicate=1,
+        boresch_eq_values={},
     )
     assert spec.coordinates == "complex.rst7"
 
@@ -244,12 +304,19 @@ def test_spec_builder_drives_runner(tmp_path):
         cfg,
         LocalBackend(),
         builder,
-        command_factory=lambda: [sys.executable, "-c", "open('result.json','w').write('{}')"],
+        command_factory=lambda: [
+            sys.executable,
+            "-c",
+            "open('result.json','w').write('{}')",
+        ],
         stage_centres={"thetaA": [1.0], "separation": [1.5]},
     )
     calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01),
-        pmf_provider=lambda stage: (np.linspace(0, 2, 21), (np.linspace(0, 2, 21) - 1.0) ** 2),
+        pmf_provider=lambda stage: (
+            np.linspace(0, 2, 21),
+            (np.linspace(0, 2, 21) - 1.0) ** 2,
+        ),
     )
 
     spec = WindowSpec.load(

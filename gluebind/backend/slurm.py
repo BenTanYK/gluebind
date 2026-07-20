@@ -27,7 +27,9 @@ class SlurmBackend(Backend):
 
     def submit(self, spec: JobSpec) -> JobHandle:
         cmd = " ".join(spec.command)
-        submission = self.config.get_submission_cmds(cmd, spec.work_dir, script_name=spec.name)
+        submission = self.config.get_submission_cmds(
+            cmd, spec.work_dir, script_name=spec.name
+        )
         proc = subprocess.run(submission, capture_output=True, text=True, check=True)
         return self._parse_job_id(proc.stdout)
 
@@ -36,7 +38,9 @@ class SlurmBackend(Backend):
         """Extract the job id from ``sbatch`` output (``Submitted batch job N``)."""
         tokens = sbatch_stdout.split()
         if not tokens:
-            raise RuntimeError(f"could not parse job id from sbatch output: {sbatch_stdout!r}")
+            raise RuntimeError(
+                f"could not parse job id from sbatch output: {sbatch_stdout!r}"
+            )
         return tokens[-1]
 
     def poll(self, handles: list[JobHandle]) -> dict[JobHandle, JobState]:
@@ -48,7 +52,10 @@ class SlurmBackend(Backend):
         filesystem-as-truth resume model.
         """
         running = self._running_job_ids()
-        return {h: (JobState.RUNNING if h in running else JobState.FINISHED) for h in handles}
+        return {
+            h: (JobState.RUNNING if h in running else JobState.FINISHED)
+            for h in handles
+        }
 
     def _running_job_ids(self) -> set[str]:
         proc = subprocess.run(

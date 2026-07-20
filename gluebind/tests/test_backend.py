@@ -9,7 +9,9 @@ from gluebind.backend import JobSpec, JobState, LocalBackend, Scheduler, SlurmBa
 
 
 def _spec(work_dir, code, name="job"):
-    return JobSpec(command=[sys.executable, "-c", code], work_dir=str(work_dir), name=name)
+    return JobSpec(
+        command=[sys.executable, "-c", code], work_dir=str(work_dir), name=name
+    )
 
 
 def _wait(backend, handle, timeout=20.0):

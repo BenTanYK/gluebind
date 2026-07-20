@@ -1,11 +1,12 @@
 """gluebind — geometric-route umbrella-sampling ternary-complex binding free energies.
 
-Package layout mirrors the development plan: :mod:`gluebind.config` (typed configuration),
-:mod:`gluebind.state` (on-disk run state), :mod:`gluebind.backend` (job submission),
-:mod:`gluebind.restraints` (OpenMM force builders), :mod:`gluebind.selection`
-(anchor/equilibration analysis), :mod:`gluebind.simulation` (window/steered-MD runners),
-:mod:`gluebind.runners` (the nested orchestration hierarchy) and :mod:`gluebind.analysis`
-(WHAM + free-energy assembly).
+Package layout mirrors the development plan: :mod:`gluebind.config` (typed
+configuration), :mod:`gluebind.state` (on-disk run state), :mod:`gluebind.backend`
+(job submission), :mod:`gluebind.restraints` (OpenMM force builders),
+:mod:`gluebind.selection` (anchor/equilibration analysis),
+:mod:`gluebind.simulation` (window/steered-MD runners), :mod:`gluebind.runners`
+(the nested orchestration hierarchy) and :mod:`gluebind.analysis` (WHAM +
+free-energy assembly).
 
 Only lightweight, dependency-safe objects are re-exported here. Heavy optional
 dependencies (OpenMM, BioSimSpace, MDAnalysis) are imported lazily inside their own

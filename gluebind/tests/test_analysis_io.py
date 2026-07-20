@@ -19,7 +19,9 @@ def test_write_metafile(tmp_path):
 
 
 def test_build_wham_command_shape():
-    cmd = build_wham_command("wham", [0.9, 3.0, 500, 1e-6, 298.15, 0], "meta.txt", "pmf.txt")
+    cmd = build_wham_command(
+        "wham", [0.9, 3.0, 500, 1e-6, 298.15, 0], "meta.txt", "pmf.txt"
+    )
     assert cmd[0] == "wham"
     assert cmd[-2:] == ["meta.txt", "pmf.txt"]
     assert len(cmd) == 9

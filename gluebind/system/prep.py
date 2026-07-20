@@ -62,7 +62,7 @@ def box_length(box_min, box_max, padding):
     Works with plain floats or BSS length Quantities (any type supporting
     subtraction and ``max``).
     """
-    dims = [hi - lo for lo, hi in zip(box_min, box_max)]
+    dims = [hi - lo for lo, hi in zip(box_min, box_max, strict=False)]
     return max(dims) + 2 * padding
 
 
@@ -91,7 +91,9 @@ class PreparedSystem(pydantic.BaseModel):
 
     @classmethod
     def load(cls, run_dir: str | pathlib.Path) -> "PreparedSystem":
-        return cls.model_validate_json((pathlib.Path(run_dir) / PREPARED_FILENAME).read_text())
+        return cls.model_validate_json(
+            (pathlib.Path(run_dir) / PREPARED_FILENAME).read_text()
+        )
 
 
 # ---- BioSimSpace operations (integration-verified) -------------------------
@@ -229,7 +231,9 @@ def run_equilibration_stages(
         # Resume: a stage whose output structures already exist is skipped, so an
         # interrupted prep (or an auto-prepare on a resumed run) never re-runs
         # completed equilibration stages.
-        already_done = pathlib.Path(out_prm7).exists() and pathlib.Path(out_rst7).exists()
+        already_done = (
+            pathlib.Path(out_prm7).exists() and pathlib.Path(out_rst7).exists()
+        )
         if not already_done:
             stage_dir.mkdir(parents=True, exist_ok=True)
             spec = PrepStageSpec(
@@ -247,7 +251,9 @@ def run_equilibration_stages(
             )
             (state,) = scheduler.run([job])
             if state is not JobState.FINISHED:
-                raise RuntimeError(f"prep stage {entry['stage']!r} did not finish (state={state})")
+                raise RuntimeError(
+                    f"prep stage {entry['stage']!r} did not finish (state={state})"
+                )
 
         input_prm7, input_rst7 = out_prm7, out_rst7
         if entry["kind"] == "equilibration" and prefix.with_suffix(".dcd").exists():
@@ -263,7 +269,9 @@ def _save(system, prefix: pathlib.Path) -> tuple[str, str]:
     return f"{prefix}.prm7", f"{prefix}.rst7"
 
 
-def _bulk_indices(layout: ComponentLayout, component: str, assign_to: str | None) -> list[int]:
+def _bulk_indices(
+    layout: ComponentLayout, component: str, assign_to: str | None
+) -> list[int]:
     indices = list(getattr(layout, component))
     if layout.glue is not None and assign_to == component:
         indices.append(layout.glue)
@@ -271,7 +279,14 @@ def _bulk_indices(layout: ComponentLayout, component: str, assign_to: str | None
 
 
 def _extract_bulk(
-    system, indices, prep_config, out_dir, backend, *, platform: str, poll_interval: float
+    system,
+    indices,
+    prep_config,
+    out_dir,
+    backend,
+    *,
+    platform: str,
+    poll_interval: float,
 ) -> tuple[str, str]:
     """Isolate the given molecules and re-solvate them on the driver (cheap), then
     equilibrate through ``backend`` — like the complex, no MD runs on the driver.
@@ -290,7 +305,10 @@ def _extract_bulk(
         molecule=isolated.toSystem() if hasattr(isolated, "toSystem") else isolated,
         box=BSS.Box.generateBoxParameters(
             prep_config.box_type,
-            box_length(*_bounding_box(isolated), prep_config.box_padding_angstrom * BSS.Units.Length.angstrom),
+            box_length(
+                *_bounding_box(isolated),
+                prep_config.box_padding_angstrom * BSS.Units.Length.angstrom,
+            ),
         )[0],
         is_neutral=prep_config.neutralise,
         ion_conc=prep_config.ion_concentration_M,
@@ -352,7 +370,9 @@ def prepare(
         glue = parameterise_glue(inputs.glue.sdf, config.prep.glue_forcefield)
         assign_to = inputs.glue.assign_to
 
-    layout = compute_layout(count_molecules(target), count_molecules(receptor), glue is not None)
+    layout = compute_layout(
+        count_molecules(target), count_molecules(receptor), glue is not None
+    )
 
     # Driver (fast, CPU): assemble + solvate, then hand the MD stages to the backend.
     solvated = assemble_and_solvate(target, receptor, glue, config.prep)

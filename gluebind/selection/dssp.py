@@ -23,9 +23,13 @@ def secondary_structure(universe) -> dict[int, str]:
     result = DSSP(universe).run()
     codes = result.results.dssp[0]  # (n_residues,) one-letter codes, first frame
     resids = universe.select_atoms("protein and name CA").resids
-    return {int(resid): str(code) for resid, code in zip(resids, codes)}
+    return {int(resid): str(code) for resid, code in zip(resids, codes, strict=False)}
 
 
 def structured_residues(universe) -> list[int]:
     """Residue ids in α-helix / β-sheet."""
-    return [resid for resid, code in secondary_structure(universe).items() if is_structured(code)]
+    return [
+        resid
+        for resid, code in secondary_structure(universe).items()
+        if is_structured(code)
+    ]

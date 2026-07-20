@@ -107,7 +107,10 @@ def _boresch_default() -> WindowSampling:
     # 1 ns unrecorded equilibration + 5 ns recorded sampling (the paper protocol);
     # RED is not applied to Boresch — this fixed discard is used instead.
     return WindowSampling(
-        force_constant=100.0, window_spacing=0.1, sampling_time_ns=5.0, equil_discard_ns=1.0
+        force_constant=100.0,
+        window_spacing=0.1,
+        sampling_time_ns=5.0,
+        equil_discard_ns=1.0,
     )
 
 
@@ -161,7 +164,9 @@ class SamplingConfig(pydantic.BaseModel):
     rmsd: WindowSampling = pydantic.Field(default_factory=_rmsd_default)
     separation: WindowSampling = pydantic.Field(default_factory=_separation_default)
 
-    @pydantic.field_validator("timestep_fs", "hmr_factor", "pme_cutoff_nm", "temperature_K")
+    @pydantic.field_validator(
+        "timestep_fs", "hmr_factor", "pme_cutoff_nm", "temperature_K"
+    )
     @classmethod
     def _positive(cls, v: float) -> float:
         if v <= 0:

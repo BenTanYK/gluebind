@@ -19,14 +19,21 @@ import pathlib
 import shutil
 
 from gluebind.analysis.pmf import average_pmfs
-from gluebind.analysis.wham import build_wham_command, load_pmf, run_wham, write_metafile
+from gluebind.analysis.wham import (
+    build_wham_command,
+    load_pmf,
+    run_wham,
+    write_metafile,
+)
 from gluebind.backend.base import JobSpec
 from gluebind.backend.scheduler import Scheduler
 from gluebind.config.calculation import CalculationConfig
 from gluebind.simulation.window import CV_TIMESERIES_FILENAME
 
 
-def wham_units(cv_type: str, centre: float, force_constant: float) -> tuple[float, float]:
+def wham_units(
+    cv_type: str, centre: float, force_constant: float
+) -> tuple[float, float]:
     """Convert a window centre + force constant to WHAM units (nm / rad).
 
     * Boresch — rad and kcal/mol/rad² (no conversion).
@@ -110,7 +117,9 @@ class WhamPmfProvider:
                 timeseries = self._resolve_timeseries(stage, window, replicate)
                 centre, k_wham = wham_units(stage.cv_type, window.centre, k)
                 entries.append((timeseries, centre, k_wham))
-            metafile = write_metafile(entries, stage.base_dir / f"metafile_run{replicate:02d}.txt")
+            metafile = write_metafile(
+                entries, stage.base_dir / f"metafile_run{replicate:02d}.txt"
+            )
             pmf_out = stage.base_dir / f"pmf_run{replicate:02d}.txt"
             self._run_wham(metafile, pmf_out, params)
             replicate_pmfs.append(load_pmf(pmf_out))
@@ -169,5 +178,7 @@ class WhamPmfProvider:
             return
         # SLURM: submit the wham invocation as a single job and wait for it.
         cmd = build_wham_command(self.wham_binary, params, metafile, pmf_out)
-        spec = JobSpec(command=cmd, work_dir=str(pathlib.Path(pmf_out).parent), name="wham")
+        spec = JobSpec(
+            command=cmd, work_dir=str(pathlib.Path(pmf_out).parent), name="wham"
+        )
         Scheduler(self.backend, poll_interval=5.0).run([spec])

@@ -108,7 +108,9 @@ class SpecBuilder:
         boresch_eq_values: dict,
     ) -> WindowSpec:
         if cv_type == "boresch":
-            return self._boresch(stage_name, dof, cv_centre, replicate, boresch_eq_values)
+            return self._boresch(
+                stage_name, dof, cv_centre, replicate, boresch_eq_values
+            )
         if cv_type == "rmsd":
             return self._rmsd(stage_name, cv_centre, replicate)
         if cv_type == "separation":
@@ -170,7 +172,9 @@ class SpecBuilder:
 
     # -- per-CV assembly -----------------------------------------------------
 
-    def _boresch(self, stage_name, dof, cv_centre, replicate, boresch_eq_values) -> WindowSpec:
+    def _boresch(
+        self, stage_name, dof, cv_centre, replicate, boresch_eq_values
+    ) -> WindowSpec:
         return WindowSpec(
             cv_type="boresch",
             dof=dof,
@@ -258,7 +262,10 @@ class SpecBuilder:
             restraints={
                 "rmsd": self._fixed_rmsd_list(),
                 "boresch": self._boresch_block(boresch_eq_values),
-                "separation": {"rec_group": self.ctx.rec_group, "lig_group": self.ctx.lig_group},
+                "separation": {
+                    "rec_group": self.ctx.rec_group,
+                    "lig_group": self.ctx.lig_group,
+                },
             },
             **self._common("separation", "separation", replicate),
         )
@@ -282,17 +289,16 @@ def build_restraint_context(
     import MDAnalysis as mda
     import numpy as np
 
-    from gluebind.selection.anchors import select_anchors, validate_manual_anchors
-    from gluebind.selection.dssp import structured_residues
     from gluebind.selection.interface import interface_residues
-    from gluebind.selection.rmsf import compute_rmsf, stablest_candidates
 
     universe = mda.Universe(prepared.complex_prm7, prepared.complex_rst7)
     n_target = mda.Universe(config.inputs.target.prm7).residues.n_residues
     n_receptor = mda.Universe(config.inputs.receptor.prm7).residues.n_residues
     residues = universe.residues
     target_ca = residues[:n_target].atoms.select_atoms("name CA")
-    receptor_ca = residues[n_target : n_target + n_receptor].atoms.select_atoms("name CA")
+    receptor_ca = residues[n_target : n_target + n_receptor].atoms.select_atoms(
+        "name CA"
+    )
 
     rec_i, lig_i = interface_residues(
         receptor_ca.positions, target_ca.positions, cutoff=interface_cutoff_angstrom
@@ -300,7 +306,9 @@ def build_restraint_context(
     rec_group = [int(i) for i in receptor_ca[rec_i].indices]
     lig_group = [int(i) for i in target_ca[lig_i].indices]
 
-    glue_indices = [int(i) for i in universe.select_atoms("resname MOL and not name H*").indices]
+    glue_indices = [
+        int(i) for i in universe.select_atoms("resname MOL and not name H*").indices
+    ]
     assign = config.inputs.glue.assign_to if config.inputs.glue else None
     if assign == "receptor":
         rec_group += glue_indices
@@ -312,7 +320,14 @@ def build_restraint_context(
     )
 
     rmsd_order, rmsd_atoms_bound, rmsd_bulk = _resolve_rmsd_regions(
-        config, prepared, universe, receptor_ca, target_ca, glue_indices, assign, n_target,
+        config,
+        prepared,
+        universe,
+        receptor_ca,
+        target_ca,
+        glue_indices,
+        assign,
+        n_target,
         n_receptor,
     )
 
@@ -338,7 +353,9 @@ def build_restraint_context(
     )
 
 
-def _resolve_anchors(config, prepared, universe, receptor_ca, target_ca, rec_group, lig_group, np):
+def _resolve_anchors(
+    config, prepared, universe, receptor_ca, target_ca, rec_group, lig_group, np
+):
     """Manual anchors (validated) or automatic selection over the trajectory."""
     from gluebind.selection.anchors import select_anchors, validate_manual_anchors
     from gluebind.selection.dssp import structured_residues
@@ -364,7 +381,9 @@ def _resolve_anchors(config, prepared, universe, receptor_ca, target_ca, rec_gro
     structured = set(structured_residues(traj))
 
     def _candidates(ca_atoms):
-        resids, rmsf = compute_rmsf(traj, selection=f"index {' '.join(map(str, ca_atoms.indices))}")
+        resids, rmsf = compute_rmsf(
+            traj, selection=f"index {' '.join(map(str, ca_atoms.indices))}"
+        )
         pool = stablest_candidates(resids, rmsf)
         # keep only structured residues, map back to a representative CA atom index
         keep = [r for r in pool if r in structured]
@@ -374,7 +393,9 @@ def _resolve_anchors(config, prepared, universe, receptor_ca, target_ca, rec_gro
     rec_candidates = _candidates(receptor_ca)
     lig_candidates = _candidates(target_ca)
 
-    series = _collect_series(traj, rec_group, lig_group, rec_candidates + lig_candidates, np)
+    series = _collect_series(
+        traj, rec_group, lig_group, rec_candidates + lig_candidates, np
+    )
     return select_anchors(
         receptor_candidates=rec_candidates,
         ligand_candidates=lig_candidates,
@@ -400,7 +421,14 @@ def _collect_series(traj, rec_group, lig_group, atom_indices, np):
 
 
 def _resolve_rmsd_regions(
-    config, prepared, universe, receptor_ca, target_ca, glue_indices, assign, n_target,
+    config,
+    prepared,
+    universe,
+    receptor_ca,
+    target_ca,
+    glue_indices,
+    assign,
+    n_target,
     n_receptor,
 ):
     """RMSD region atom indices for bound (complex) and bulk (isolated) topologies."""
@@ -411,7 +439,9 @@ def _resolve_rmsd_regions(
     bound: dict[str, list[int]] = {}
     bulk: dict[str, BulkTarget] = {}
 
-    receptor_bulk = mda.Universe(prepared.receptor_bulk_prm7, prepared.receptor_bulk_rst7)
+    receptor_bulk = mda.Universe(
+        prepared.receptor_bulk_prm7, prepared.receptor_bulk_rst7
+    )
     target_bulk = mda.Universe(prepared.target_bulk_prm7, prepared.target_bulk_rst7)
 
     if restraints.uses_default_all_ca:
@@ -424,8 +454,18 @@ def _resolve_rmsd_regions(
         order = ["receptor", "target"]
         bound = {"receptor": rec_bound, "target": lig_bound}
         bulk = {
-            "receptor": _bulk_target(prepared.receptor_bulk_prm7, prepared.receptor_bulk_rst7, receptor_bulk, assign == "receptor"),
-            "target": _bulk_target(prepared.target_bulk_prm7, prepared.target_bulk_rst7, target_bulk, assign == "target"),
+            "receptor": _bulk_target(
+                prepared.receptor_bulk_prm7,
+                prepared.receptor_bulk_rst7,
+                receptor_bulk,
+                assign == "receptor",
+            ),
+            "target": _bulk_target(
+                prepared.target_bulk_prm7,
+                prepared.target_bulk_rst7,
+                target_bulk,
+                assign == "target",
+            ),
         }
         return order, bound, bulk
 
@@ -442,7 +482,15 @@ def _resolve_rmsd_regions(
     # Bulk = each region re-resolved against its protein's isolated topology, with
     # earlier same-protein regions held and any always-on restraint that lives there.
     bulk = _resolve_custom_bulk(
-        config, prepared, universe, receptor_bulk, target_bulk, order, assign, n_target, n_receptor
+        config,
+        prepared,
+        universe,
+        receptor_bulk,
+        target_bulk,
+        order,
+        assign,
+        n_target,
+        n_receptor,
     )
     return order, bound, bulk
 
@@ -469,11 +517,21 @@ def _remap_to_bulk(complex_sel, bulk_universe, offset: int) -> list[int]:
     resindices = [int(r) - offset for r in complex_sel.residues.resindices]
     names = sorted({str(n) for n in complex_sel.names})
     residues = bulk_universe.residues[resindices]
-    return [int(i) for i in residues.atoms.select_atoms("name " + " ".join(names)).indices]
+    return [
+        int(i) for i in residues.atoms.select_atoms("name " + " ".join(names)).indices
+    ]
 
 
 def _resolve_custom_bulk(
-    config, prepared, universe, receptor_bulk, target_bulk, order, assign, n_target, n_receptor
+    config,
+    prepared,
+    universe,
+    receptor_bulk,
+    target_bulk,
+    order,
+    assign,
+    n_target,
+    n_receptor,
 ) -> dict[str, BulkTarget]:
     """Per-region bulk targets: isolated topology, remapped sampled atoms, held
     same-protein partners (sequential), and the always-on restraints present there."""
@@ -492,11 +550,15 @@ def _resolve_custom_bulk(
     for name in order:
         cv = cvs[name]
         sel = universe.select_atoms(cv.selection)
-        protein = _infer_protein([int(r) for r in sel.residues.resindices], n_target, n_receptor)
+        protein = _infer_protein(
+            [int(r) for r in sel.residues.resindices], n_target, n_receptor
+        )
         buni = bulk_universe[protein]
         atoms = _remap_to_bulk(sel, buni, offset[protein])
         if cv.include_glue and assign == protein:
-            atoms += [int(i) for i in buni.select_atoms("resname MOL and not name H*").indices]
+            atoms += [
+                int(i) for i in buni.select_atoms("resname MOL and not name H*").indices
+            ]
         region_protein[name] = protein
         region_atoms[name] = atoms
 
@@ -504,9 +566,13 @@ def _resolve_custom_bulk(
     always_on_by_protein: dict[str, list[AlwaysOn]] = {"target": [], "receptor": []}
     for i, r in enumerate(restraints.always_on):
         sel = universe.select_atoms(r.selection)
-        protein = _infer_protein([int(x) for x in sel.residues.resindices], n_target, n_receptor)
+        protein = _infer_protein(
+            [int(x) for x in sel.residues.resindices], n_target, n_receptor
+        )
         atoms = _remap_to_bulk(sel, bulk_universe[protein], offset[protein])
-        always_on_by_protein[protein].append(AlwaysOn(f"always_on_{i}", atoms, r.force_constant))
+        always_on_by_protein[protein].append(
+            AlwaysOn(f"always_on_{i}", atoms, r.force_constant)
+        )
 
     bulk: dict[str, BulkTarget] = {}
     for idx, name in enumerate(order):

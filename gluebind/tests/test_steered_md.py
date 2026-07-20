@@ -88,7 +88,7 @@ class _FakeSmdBackend(Backend):
         return f"smd-{self._counter}"
 
     def poll(self, handles):
-        return {h: JobState.FINISHED for h in handles}
+        return dict.fromkeys(handles, JobState.FINISHED)
 
     def cancel(self, handle):  # pragma: no cover
         pass

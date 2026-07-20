@@ -47,7 +47,11 @@ def smd_snapshot_targets(schedule) -> list[float]:
             "separation schedule needs window_min, smd_snapshot_spacing and "
             "smd_capture_max to build the SMD snapshot grid"
         )
-    lo, hi, step = schedule.window_min, schedule.smd_capture_max, schedule.smd_snapshot_spacing
+    lo, hi, step = (
+        schedule.window_min,
+        schedule.smd_capture_max,
+        schedule.smd_snapshot_spacing,
+    )
     n = int(round((hi - lo) / step))
     return [round(lo + i * step, 4) for i in range(n + 1)]
 
@@ -162,7 +166,9 @@ def make_steered_md_runner(
             platform=platform,
         )
         spec.dump(work_dir / SMD_SPEC_FILENAME)
-        job = JobSpec(command=smd_launch_command(), work_dir=str(work_dir), name="steered_md")
+        job = JobSpec(
+            command=smd_launch_command(), work_dir=str(work_dir), name="steered_md"
+        )
         (state,) = scheduler_factory().run([job])
         if state is not JobState.FINISHED:
             raise RuntimeError(f"steered MD did not finish (state={state})")
@@ -260,7 +266,9 @@ def run_steered_md(
     out_dir.mkdir(parents=True, exist_ok=True)
     targets = separation_window_targets(window_centres)
 
-    prmtop, system = sb.build_system(topology, hmr_factor=hmr_factor, pme_cutoff_nm=pme_cutoff_nm)
+    prmtop, system = sb.build_system(
+        topology, hmr_factor=hmr_factor, pme_cutoff_nm=pme_cutoff_nm
+    )
     positions, box = sb.load_coordinates(coordinates)
     simulation, integrator = sb.build_simulation(
         prmtop, system, timestep_fs=timestep_fs, platform=platform
@@ -272,14 +280,18 @@ def run_steered_md(
 
     # Fixed RMSD + Boresch restraints (rigid), then the moving separation bias.
     for region, atoms in rmsd_atoms_bound.items():
-        rmsd_mod.add_rmsd_restraint(system, atoms, reference, k_rmsd, name=region, centre=None)
+        rmsd_mod.add_rmsd_restraint(
+            system, atoms, reference, k_rmsd, name=region, centre=None
+        )
     points = boresch_mod.points_from_groups(rec_group, lig_group, anchors)
     for dof, eq_value in boresch_eq_values.items():
         boresch_mod.add_fixed_restraint(system, dof, points, eq_value, k_boresch)
 
     cv = separation_mod.make_cv(rec_group, lig_group)
     steer = mm.CustomCVForce("0.5*k_smd*(cv-r0)^2")
-    steer.addGlobalParameter("k_smd", k_smd * unit.kilocalories_per_mole / unit.angstrom**2)
+    steer.addGlobalParameter(
+        "k_smd", k_smd * unit.kilocalories_per_mole / unit.angstrom**2
+    )
     steer.addGlobalParameter("r0", initial_r0_nm * unit.nanometers)
     steer.addCollectiveVariable("cv", cv)
     system.addForce(steer)
@@ -304,7 +316,9 @@ def run_steered_md(
             target = remaining.pop(0)
             state = simulation.context.getState(getPositions=True)
             out_path = out_dir / f"{target:.4g}nm.rst7"
-            _save_frame_rst7(topology, state.getPositions(), state.getPeriodicBoxVectors(), out_path)
+            _save_frame_rst7(
+                topology, state.getPositions(), state.getPeriodicBoxVectors(), out_path
+            )
             frames[target] = str(out_path)
 
     return frames

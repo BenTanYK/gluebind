@@ -21,7 +21,8 @@ from gluebind.simulation.window import (
     window_launch_command,
 )
 
-# spec_builder(*, cv_type, stage_name, dof, cv_centre, replicate, boresch_eq_values) -> WindowSpec
+# spec_builder(*, cv_type, stage_name, dof, cv_centre, replicate, boresch_eq_values)
+#   -> WindowSpec
 SpecBuilder = Callable[..., WindowSpec]
 CommandFactory = Callable[[], list[str]]
 
@@ -50,13 +51,17 @@ def enumerate_centres(schedule) -> list[float]:
         or schedule.window_max is None
     ):
         raise ValueError(
-            "cannot enumerate windows: provide centres or (window_min, window_max, window_spacing)"
+            "cannot enumerate windows: provide centres or "
+            "(window_min, window_max, window_spacing)"
         )
 
     two_phase = schedule.coarse_from is not None and schedule.coarse_spacing
     fine_end = schedule.coarse_from if two_phase else schedule.window_max
     n_fine = int(round((fine_end - schedule.window_min) / schedule.window_spacing))
-    centres = [round(schedule.window_min + i * schedule.window_spacing, 4) for i in range(n_fine + 1)]
+    centres = [
+        round(schedule.window_min + i * schedule.window_spacing, 4)
+        for i in range(n_fine + 1)
+    ]
 
     if two_phase:
         c = fine_end + schedule.coarse_spacing

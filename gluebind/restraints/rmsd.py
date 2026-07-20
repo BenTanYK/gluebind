@@ -38,7 +38,9 @@ def add_rmsd_restraint(
         centre_name = f"{name}_centre"
         expr = f"0.5*{k_name}*(rmsd-{centre_name})^2"
     force = mm.CustomCVForce(expr)
-    force.addGlobalParameter(k_name, force_constant * unit.kilocalories_per_mole / unit.angstrom**2)
+    force.addGlobalParameter(
+        k_name, force_constant * unit.kilocalories_per_mole / unit.angstrom**2
+    )
     if centre is not None:
         force.addGlobalParameter(centre_name, centre * unit.angstrom)
     force.addCollectiveVariable("rmsd", mm.RMSDForce(reference_positions, list(atoms)))

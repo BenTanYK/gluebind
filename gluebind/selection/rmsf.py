@@ -18,20 +18,29 @@ def compute_rmsf(universe, selection: str = "name CA"):
     """
     from MDAnalysis.analysis import align, rms
 
-    average = align.AverageStructure(universe, universe, select=selection, ref_frame=0).run()
-    align.AlignTraj(universe, average.results.universe, select=selection, in_memory=True).run()
+    average = align.AverageStructure(
+        universe, universe, select=selection, ref_frame=0
+    ).run()
+    align.AlignTraj(
+        universe, average.results.universe, select=selection, in_memory=True
+    ).run()
     atoms = universe.select_atoms(selection)
     rmsf = rms.RMSF(atoms).run()
     return atoms.resids, np.asarray(rmsf.results.rmsf)
 
 
 def local_minima(values, *, order: int = 1) -> list[int]:
-    """Indices of local minima of ``values`` (strictly below neighbours within ``order``)."""
+    """Indices of local minima of ``values`` (strictly below neighbours within
+    ``order``)."""
     values = np.asarray(values, float)
     minima: list[int] = []
     for i in range(order, len(values) - order):
         window = values[i - order : i + order + 1]
-        if values[i] == window.min() and values[i] < values[i - 1] and values[i] < values[i + 1]:
+        if (
+            values[i] == window.min()
+            and values[i] < values[i - 1]
+            and values[i] < values[i + 1]
+        ):
             minima.append(i)
     return minima
 

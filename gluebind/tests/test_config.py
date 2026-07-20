@@ -48,7 +48,7 @@ def test_sampling_override_resolves_per_stage():
 def test_bad_override_key_rejected():
     s = SamplingConfig()
     s.rmsd.overrides = {"BD1_bulk": {"not_a_field": 1}}
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         s.for_cv("rmsd", "BD1_bulk")
 
 
@@ -60,12 +60,12 @@ def test_default_force_constants():
 
 
 def test_extra_top_level_key_forbidden():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         CalculationConfig.model_validate({"inputs": MIN_INPUTS, "bogus": 1})
 
 
 def test_duplicate_rmsd_cv_names_rejected():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         CalculationConfig.model_validate(
             {
                 "inputs": MIN_INPUTS,
@@ -80,7 +80,7 @@ def test_duplicate_rmsd_cv_names_rejected():
 
 
 def test_rmsd_order_unknown_name_rejected():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         CalculationConfig.model_validate(
             {
                 "inputs": MIN_INPUTS,

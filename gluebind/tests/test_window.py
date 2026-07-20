@@ -48,5 +48,5 @@ def test_run_window_bad_topology_raises(tmp_path):
 
 def test_windowspec_extra_field_forbidden():
     data = {**_spec().model_dump(), "bogus": 1}
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         WindowSpec.model_validate(data)

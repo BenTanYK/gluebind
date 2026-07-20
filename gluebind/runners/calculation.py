@@ -172,7 +172,10 @@ class Calculation(SimulationRunner):
         hook from a prepared system, and construct the group tree. Driver-side only
         (reads the trajectory; runs no MD) — shared by :meth:`prepare` and the
         re-wiring :meth:`analyse` does in a fresh process."""
-        from gluebind.simulation.steered_md import make_steered_md_runner, smd_snapshot_targets
+        from gluebind.simulation.steered_md import (
+            make_steered_md_runner,
+            smd_snapshot_targets,
+        )
         from gluebind.spec_builder import SpecBuilder, build_restraint_context
         from gluebind.stage_centres import compute_stage_centres
 
@@ -185,7 +188,9 @@ class Calculation(SimulationRunner):
         )
 
         smd_frames_dir = self.base_dir / "smd_frames"
-        self.spec_builder = SpecBuilder(context, self.config, smd_frames_dir=smd_frames_dir)
+        self.spec_builder = SpecBuilder(
+            context, self.config, smd_frames_dir=smd_frames_dir
+        )
         self.steered_md_runner = make_steered_md_runner(
             backend=self.backend,
             scheduler_factory=self._default_scheduler,
@@ -223,7 +228,9 @@ class Calculation(SimulationRunner):
                 )
                 for name, dof, centres in stage_specs
             ]
-            groups.append(Group(self.base_dir / cv_type, cv_type=cv_type, stages=stages))
+            groups.append(
+                Group(self.base_dir / cv_type, cv_type=cv_type, stages=stages)
+            )
         return groups
 
     def _stage_layout(self) -> dict[str, list[tuple[str, str | None, list[float]]]]:
@@ -292,17 +299,22 @@ class Calculation(SimulationRunner):
             )
         if state.config_hash != self.config.config_hash:
             raise ValueError(
-                "config_hash mismatch: the config changed since this run was submitted; "
-                "resume aborted. Start a fresh run directory or restore the original config."
+                "config_hash mismatch: the config changed since this run was "
+                "submitted; resume aborted. Start a fresh run directory or restore "
+                "the original config."
             )
         return state
 
     def _default_scheduler(self) -> Scheduler:
         return Scheduler(
             self.backend,
-            queue_len_lim=self.slurm_config.queue_len_lim if self.slurm_config else 2000,
+            queue_len_lim=self.slurm_config.queue_len_lim
+            if self.slurm_config
+            else 2000,
             poll_interval=(
-                self.slurm_config.queue_check_interval if self.slurm_config else self.poll_interval
+                self.slurm_config.queue_check_interval
+                if self.slurm_config
+                else self.poll_interval
             ),
         )
 
@@ -328,7 +340,11 @@ class Calculation(SimulationRunner):
         if self.spec_builder is None:
             raise RuntimeError("wire the calculation first (call prepare()/run())")
         group = self._group(cv_type)
-        stage = next((s for s in group.stages if s.name == stage_name), None) if group else None
+        stage = (
+            next((s for s in group.stages if s.name == stage_name), None)
+            if group
+            else None
+        )
         if stage is None:
             raise ValueError(f"no {cv_type!r} stage named {stage_name!r}")
 
@@ -341,7 +357,8 @@ class Calculation(SimulationRunner):
                     raise ValueError(
                         f"no SMD snapshot for a separation window at {centre} nm "
                         f"({frame.name}). Snapshots are saved on a "
-                        f"{sep.smd_snapshot_spacing} nm grid up to {sep.smd_capture_max} nm; "
+                        f"{sep.smd_snapshot_spacing} nm grid up to "
+                        f"{sep.smd_capture_max} nm; "
                         "to sample a separation off that grid or beyond it, rerun SMD "
                         "with bespoke spacing/range."
                     )
@@ -384,7 +401,9 @@ class Calculation(SimulationRunner):
         # 2. Boresch stages — sequential, feeding each PMF minimum forward.
         boresch_group = self._group("boresch")
         if boresch_group:
-            unanalysed = [s for s in boresch_group.stages if s.dof not in state.boresch_eq_values]
+            unanalysed = [
+                s for s in boresch_group.stages if s.dof not in state.boresch_eq_values
+            ]
             if unanalysed and pmf_provider is None:
                 # Self-default so a from_config calculation runs end to end from a
                 # single run() (symmetric with analyse()); the Boresch feedback
@@ -404,7 +423,10 @@ class Calculation(SimulationRunner):
         # 3. Steered MD then separation — both need every Boresch equilibrium value.
         separation_group = self._group("separation")
         if separation_group:
-            if self.steered_md_runner is not None and state.stage_status.get("steered_md") != "done":
+            if (
+                self.steered_md_runner is not None
+                and state.stage_status.get("steered_md") != "done"
+            ):
                 # Generate the separation-window starting frames with the resolved
                 # Boresch restraints in place. Recorded in state so a resumed run
                 # doesn't repeat the (expensive) steering.
@@ -418,7 +440,11 @@ class Calculation(SimulationRunner):
         return state
 
     def _run_stage(
-        self, stage: Stage, boresch_eq_values: dict, state: RunState, scheduler: Scheduler
+        self,
+        stage: Stage,
+        boresch_eq_values: dict,
+        state: RunState,
+        scheduler: Scheduler,
     ) -> None:
         """Write a stage's specs (with the given Boresch eq values), submit the
         not-yet-complete replicates, and record handles/status in the state."""
@@ -453,7 +479,9 @@ class Calculation(SimulationRunner):
         ]
 
         if all(
-            window.is_replicate_complete(r) for window in stage.windows for r in window.replicates()
+            window.is_replicate_complete(r)
+            for window in stage.windows
+            for r in window.replicates()
         ):
             state.stage_status[stage.name] = "done"
         elif failures:
@@ -462,8 +490,8 @@ class Calculation(SimulationRunner):
 
         if failures:
             raise RuntimeError(
-                f"stage {stage.name!r}: {len(failures)} window replicate(s) produced no "
-                f"result: {', '.join(failures)}. Inspect the job logs "
+                f"stage {stage.name!r}: {len(failures)} window replicate(s) "
+                f"produced no result: {', '.join(failures)}. Inspect the job logs "
                 "(<window>/run_NN/*.out, or the SLURM job output) under the stage "
                 "directory, then re-run to resume the remaining work."
             )
@@ -495,8 +523,8 @@ class Calculation(SimulationRunner):
             prepared = self._load_prepared()
             if prepared is None:
                 raise RuntimeError(
-                    "cannot analyse: the system is not prepared (no prep/prepared.json); "
-                    "run() first"
+                    "cannot analyse: the system is not prepared "
+                    "(no prep/prepared.json); run() first"
                 )
             self._wire(prepared)
 
@@ -518,19 +546,24 @@ class Calculation(SimulationRunner):
             if r_star_nm is None:
                 sep = self.stage_centres.get("separation")
                 if not sep:  # e.g. constructed directly with empty stage_centres
-                    sep = enumerate_centres(self.config.sampling.for_cv("separation", "separation"))
+                    sep = enumerate_centres(
+                        self.config.sampling.for_cv("separation", "separation")
+                    )
                 r_star_nm = max(sep)
 
         k_boresch = self.config.sampling.boresch.force_constant  # kcal/mol/rad^2
-        k_rmsd = self.config.sampling.rmsd.force_constant * _A2_TO_NM2  # -> kcal/mol/nm^2
+        k_rmsd = (
+            self.config.sampling.rmsd.force_constant * _A2_TO_NM2
+        )  # -> kcal/mol/nm^2
         totals = {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
 
         def _warn_unconverged(stage: Stage, converged: bool) -> None:
             if not converged:
                 warnings.warn(
                     f"contribution for stage {stage.name!r} may be unconverged: the "
-                    "integrand does not decay to <1% of its maximum at the CV extremes "
-                    "(<98% captured). Add windows at the offending extreme and re-analyse.",
+                    "integrand does not decay to <1% of its maximum at the CV "
+                    "extremes (<98% captured). Add windows at the offending extreme "
+                    "and re-analyse.",
                     stacklevel=2,
                 )
 
@@ -541,16 +574,24 @@ class Calculation(SimulationRunner):
                 _warn_unconverged(
                     stage,
                     contribution_converged(
-                        cv, pmf, cv_type="boresch", force_constant=k_boresch, theta_0=theta_0
+                        cv,
+                        pmf,
+                        cv_type="boresch",
+                        force_constant=k_boresch,
+                        theta_0=theta_0,
                     ),
                 )
                 totals["boresch"] += boresch_contribution(cv, pmf, theta_0, k_boresch)
             elif group.cv_type == "rmsd":
                 _warn_unconverged(
                     stage,
-                    contribution_converged(cv, pmf, cv_type="rmsd", force_constant=k_rmsd),
+                    contribution_converged(
+                        cv, pmf, cv_type="rmsd", force_constant=k_rmsd
+                    ),
                 )
-                totals["rmsd"] += rmsd_contribution(cv, pmf, k_rmsd, unbound=stage.is_bulk)
+                totals["rmsd"] += rmsd_contribution(
+                    cv, pmf, k_rmsd, unbound=stage.is_bulk
+                )
             elif group.cv_type == "separation":
                 reached, gradient = separation_plateau_reached(cv, pmf)
                 if not reached:
@@ -564,12 +605,18 @@ class Calculation(SimulationRunner):
                 _warn_unconverged(
                     stage,
                     contribution_converged(
-                        cv, pmf, cv_type="separation", force_constant=0.0, r_star=r_star_nm
+                        cv,
+                        pmf,
+                        cv_type="separation",
+                        force_constant=0.0,
+                        r_star=r_star_nm,
                     ),
                 )
                 totals["separation"] += separation_contribution(cv, pmf, r_star_nm)
 
-        dg_corr = standard_state_correction(r_star_nm, theta_a_min, theta_b_min, k_boresch)
+        dg_corr = standard_state_correction(
+            r_star_nm, theta_a_min, theta_b_min, k_boresch
+        )
         dg_bind = binding_free_energy(
             totals["rmsd"], totals["boresch"], totals["separation"], dg_corr
         )

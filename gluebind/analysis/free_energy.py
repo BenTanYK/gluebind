@@ -53,7 +53,12 @@ def _finite_pmf(pmf: np.ndarray) -> np.ndarray:
 
 
 def rmsd_contribution(
-    x, pmf, force_constant: float, *, unbound: bool = False, temperature: float = TEMPERATURE
+    x,
+    pmf,
+    force_constant: float,
+    *,
+    unbound: bool = False,
+    temperature: float = TEMPERATURE,
 ) -> float:
     """Free-energy contribution of an RMSD restraint (centre 0).
 
@@ -78,11 +83,15 @@ def boresch_contribution(
     x = np.asarray(x, dtype=float)
     pmf = _finite_pmf(np.asarray(pmf, dtype=float))
     numerator = float(np.sum(np.exp(-beta * pmf)))
-    denominator = float(np.sum(np.exp(-beta * (pmf + 0.5 * force_constant * (x - theta_0) ** 2))))
+    denominator = float(
+        np.sum(np.exp(-beta * (pmf + 0.5 * force_constant * (x - theta_0) ** 2)))
+    )
     return -math.log(numerator / denominator) / beta
 
 
-def separation_contribution(x, pmf, r_star: float, *, temperature: float = TEMPERATURE) -> float:
+def separation_contribution(
+    x, pmf, r_star: float, *, temperature: float = TEMPERATURE
+) -> float:
     """Integrate the separation PMF out to ``r_star`` (all lengths in nm)."""
     beta = _beta(temperature)
     x = np.asarray(x, dtype=float)
@@ -92,14 +101,14 @@ def separation_contribution(x, pmf, r_star: float, *, temperature: float = TEMPE
 
     # W(r*): the PMF at the first point beyond r_star.
     w_r_star = pmf[0]
-    for xi, yi in zip(x, pmf):
+    for xi, yi in zip(x, pmf, strict=False):
         if xi >= r_star:
             w_r_star = yi
             break
 
     width = float(x[1] - x[0])
     integral = 0.0
-    for xi, yi in zip(x, pmf):
+    for xi, yi in zip(x, pmf, strict=False):
         integral += width * math.exp(-beta * (yi - w_r_star))
         if xi >= r_star:
             break
@@ -125,7 +134,12 @@ def standard_state_correction(
         * math.sin(theta_a_min)
         * math.sin(theta_b_min)
         * (2 * math.pi / beta) ** 2.5
-        / (8 * (math.pi**2) * (4 * math.pi * RADIUS_SPHERE_NM**2) * (force_constant**2.5))
+        / (
+            8
+            * (math.pi**2)
+            * (4 * math.pi * RADIUS_SPHERE_NM**2)
+            * (force_constant**2.5)
+        )
     )
     return -1.0 / beta * math.log(corr)
 
@@ -210,7 +224,7 @@ def contribution_converged(
         if r_star is None:
             r_star = float(cv[-1])
         w_star = float(pmf[0])
-        for xi, yi in zip(cv, pmf):
+        for xi, yi in zip(cv, pmf, strict=False):
             if xi >= r_star:
                 w_star = float(yi)
                 break
