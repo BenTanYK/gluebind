@@ -39,7 +39,7 @@ from gluebind.analysis.free_energy import (
 from gluebind.analysis.pmf import pmf_minimum
 from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.backend.base import Backend
-from gluebind.backend.scheduler import Scheduler
+from gluebind.backend.scheduler import Scheduler, SlotPool
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.slurm import SlurmConfig
 from gluebind.logutil import add_file_handler, get_logger
@@ -315,7 +315,7 @@ class Calculation(SimulationRunner):
             )
         return state
 
-    def _default_scheduler(self) -> Scheduler:
+    def _default_scheduler(self, job_slots: SlotPool | None = None) -> Scheduler:
         return Scheduler(
             self.backend,
             queue_len_lim=self.slurm_config.queue_len_lim
@@ -326,6 +326,7 @@ class Calculation(SimulationRunner):
                 if self.slurm_config
                 else self.poll_interval
             ),
+            slots=job_slots,
         )
 
     def _group(self, cv_type: str) -> Group | None:
@@ -381,6 +382,7 @@ class Calculation(SimulationRunner):
         *,
         scheduler: Scheduler | None = None,
         pmf_provider: PmfProvider | None = None,
+        job_slots: SlotPool | None = None,
     ) -> RunState:
         """Run the whole calculation, honouring the stage dependencies.
 
@@ -393,6 +395,8 @@ class Calculation(SimulationRunner):
 
         ``pmf_provider(stage) -> (cv, pmf)`` is required whenever there are Boresch
         stages still to analyse (their equilibrium values are their PMF minima).
+        ``job_slots`` is a shared :class:`SlotPool` used when several calculations
+        run concurrently (a parallel ``CalcSet``) to cap total in-flight jobs.
         """
         add_file_handler(self.base_dir, logger_name=self._log.name)
         self._log.info(
@@ -406,7 +410,7 @@ class Calculation(SimulationRunner):
             self.prepare()
         self.setup()
         state = self._load_or_init_state()
-        scheduler = scheduler or self._default_scheduler()
+        scheduler = scheduler or self._default_scheduler(job_slots)
 
         # 1. RMSD stages — independent of the Boresch equilibrium values.
         rmsd_group = self._group("rmsd")

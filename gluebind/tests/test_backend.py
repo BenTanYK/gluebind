@@ -1,11 +1,20 @@
 """Tests for the backend seam: LocalBackend, Scheduler, SlurmBackend helpers."""
 
 import sys
+import threading
 import time
 
 import pytest
 
-from gluebind.backend import JobSpec, JobState, LocalBackend, Scheduler, SlurmBackend
+from gluebind.backend import (
+    Backend,
+    JobSpec,
+    JobState,
+    LocalBackend,
+    Scheduler,
+    SlotPool,
+    SlurmBackend,
+)
 
 
 def _spec(work_dir, code, name="job"):
@@ -115,6 +124,83 @@ def test_local_gpu_pinning_round_robin(tmp_path):
         _wait(backend, h)
     pinned = {(tmp_path / f"w{i}" / "gpu.txt").read_text() for i in range(2)}
     assert pinned == {"0", "1"}
+
+
+def test_slot_pool_caps_and_releases():
+    pool = SlotPool(2)
+    assert pool.acquire() and pool.acquire()
+    assert not pool.acquire()  # exhausted
+    pool.release()
+    assert pool.acquire()  # a freed slot is reusable
+
+
+def test_slot_pool_rejects_bad_size():
+    with pytest.raises(ValueError, match="SlotPool"):
+        SlotPool(0)
+
+
+class _CountingBackend(Backend):
+    """Fake backend that tracks peak in-flight jobs; jobs finish after one poll."""
+
+    detached = False
+
+    def __init__(self):
+        self.live = 0
+        self.max_live = 0
+        self._polls: dict[str, int] = {}
+        self._n = 0
+        self._lock = threading.Lock()
+
+    def submit(self, spec):
+        with self._lock:
+            self._n += 1
+            handle = f"j{self._n}"
+            self._polls[handle] = 0
+            self.live += 1
+            self.max_live = max(self.max_live, self.live)
+            return handle
+
+    def poll(self, handles):
+        with self._lock:
+            out = {}
+            for h in handles:
+                self._polls[h] += 1
+                if self._polls[h] >= 2:  # stay live across one poll, then finish
+                    out[h] = JobState.FINISHED
+                    self.live -= 1
+                else:
+                    out[h] = JobState.RUNNING
+            return out
+
+    def cancel(self, handle):  # pragma: no cover
+        pass
+
+
+def test_scheduler_respects_slot_pool(tmp_path):
+    backend = _CountingBackend()
+    pool = SlotPool(2)
+    specs = [JobSpec(command=["x"], work_dir=str(tmp_path)) for _ in range(6)]
+    states = Scheduler(backend, poll_interval=0.0, slots=pool).run(specs)
+    assert states == [JobState.FINISHED] * 6
+    assert backend.max_live <= 2  # the shared cap was never exceeded
+
+
+def test_two_schedulers_share_one_slot_pool(tmp_path):
+    # Two schedulers on separate threads sharing a pool of 2 must never, between
+    # them, have more than 2 jobs in flight — the CalcSet-parallel invariant.
+    backend = _CountingBackend()
+    pool = SlotPool(2)
+
+    def drive(n):
+        specs = [JobSpec(command=["x"], work_dir=str(tmp_path)) for _ in range(n)]
+        Scheduler(backend, poll_interval=0.0, slots=pool).run(specs)
+
+    threads = [threading.Thread(target=drive, args=(5,)) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert backend.max_live <= 2
 
 
 def test_detached_flags():

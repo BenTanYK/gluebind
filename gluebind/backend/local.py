@@ -19,6 +19,7 @@ import itertools
 import os
 import pathlib
 import subprocess
+import threading
 from collections.abc import Sequence
 
 from gluebind.backend.base import Backend, JobHandle, JobSpec, JobState
@@ -51,6 +52,7 @@ class LocalBackend(Backend):
         self._free_gpus: list[int] | None = (
             list(self._gpu_ids) if self._gpu_ids else None
         )
+        self._lock = threading.Lock()  # a parallel CalcSet shares one backend
 
     def _has_capacity(self) -> bool:
         return self._max_concurrent is None or len(self._running) < self._max_concurrent
@@ -74,12 +76,13 @@ class LocalBackend(Backend):
         self._running[token] = (proc, out, gpu)
 
     def submit(self, spec: JobSpec) -> JobHandle:
-        token = f"local-{next(self._counter)}"
-        if self._has_capacity():
-            self._start(token, spec)
-        else:
-            self._pending.append((token, spec))
-        return token
+        with self._lock:
+            token = f"local-{next(self._counter)}"
+            if self._has_capacity():
+                self._start(token, spec)
+            else:
+                self._pending.append((token, spec))
+            return token
 
     def _reap(self) -> None:
         """Move finished processes to terminal state, freeing their GPU."""
@@ -101,23 +104,25 @@ class LocalBackend(Backend):
             self._start(token, spec)
 
     def poll(self, handles: list[JobHandle]) -> dict[JobHandle, JobState]:
-        self._reap()
-        self._pump()
-        pending_tokens = {token for token, _ in self._pending}
-        result: dict[JobHandle, JobState] = {}
-        for handle in handles:
-            if handle in self._terminal:
-                result[handle] = self._terminal[handle]
-            elif handle in self._running:
-                result[handle] = JobState.RUNNING
-            elif handle in pending_tokens:
-                result[handle] = JobState.PENDING
-            else:
-                result[handle] = JobState.FAILED
-        return result
+        with self._lock:
+            self._reap()
+            self._pump()
+            pending_tokens = {token for token, _ in self._pending}
+            result: dict[JobHandle, JobState] = {}
+            for handle in handles:
+                if handle in self._terminal:
+                    result[handle] = self._terminal[handle]
+                elif handle in self._running:
+                    result[handle] = JobState.RUNNING
+                elif handle in pending_tokens:
+                    result[handle] = JobState.PENDING
+                else:
+                    result[handle] = JobState.FAILED
+            return result
 
     def cancel(self, handle: JobHandle) -> None:
-        job = self._running.get(handle)
-        if job is not None and job[0].poll() is None:
-            job[0].terminate()
-        self._pending = [(t, s) for t, s in self._pending if t != handle]
+        with self._lock:
+            job = self._running.get(handle)
+            if job is not None and job[0].poll() is None:
+                job[0].terminate()
+            self._pending = [(t, s) for t, s in self._pending if t != handle]

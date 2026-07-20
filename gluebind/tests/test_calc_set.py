@@ -286,3 +286,70 @@ def test_calc_set_run_continues_past_failed_system(tmp_path, monkeypatch):
 
     # A completed despite B failing (both remain independently resumable).
     assert RunState.load(cset.calcs["A"].base_dir).stage_status.get("thetaA") == "done"
+
+
+def _wire_trivial(calc):
+    def fake_prepare():
+        calc.spec_builder = _run_spec_builder
+        calc.command_factory = _run_trivial_cmd
+        calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+        calc.groups = calc._build_groups()
+        calc.sub_runners = list(calc.groups)
+
+    calc.prepare = fake_prepare
+
+
+def test_calc_set_run_parallel_completes_all(tmp_path, monkeypatch):
+    # Systems run concurrently (threads) under a shared job cap; all must finish.
+    import gluebind.analysis.provider as provider_mod
+
+    monkeypatch.setattr(provider_mod, "WhamPmfProvider", _RunFakeProvider)
+
+    for name in ("A", "B", "C"):
+        _system(tmp_path, name, RUN_CONFIG_YAML)
+    cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.0)
+    for calc in cset.calcs.values():
+        _wire_trivial(calc)
+
+    cset.run(max_parallel_systems=3, max_concurrent_jobs=4)
+
+    for name in ("A", "B", "C"):
+        state = RunState.load(cset.calcs[name].base_dir)
+        assert state.stage_status.get("thetaA") == "done"
+        # each system keeps its own isolated log
+        assert (cset.calcs[name].base_dir / "gluebind.log").exists()
+
+
+def test_calc_set_run_parallel_surfaces_failures(tmp_path, monkeypatch):
+    # A failing system under parallel execution is still collected and re-raised,
+    # while the healthy system completes.
+    import gluebind.analysis.provider as provider_mod
+
+    monkeypatch.setattr(provider_mod, "WhamPmfProvider", _RunFakeProvider)
+
+    _system(tmp_path, "A", RUN_CONFIG_YAML)
+    _system(tmp_path, "B", RUN_CONFIG_YAML)
+    cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.0)
+    _wire_trivial(cset.calcs["A"])
+
+    def fake_prepare_b():
+        calc = cset.calcs["B"]
+        calc.spec_builder = _run_spec_builder
+        calc.command_factory = lambda: [sys.executable, "-c", "raise SystemExit(1)"]
+        calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+        calc.groups = calc._build_groups()
+        calc.sub_runners = list(calc.groups)
+
+    cset.calcs["B"].prepare = fake_prepare_b
+
+    with pytest.raises(RuntimeError, match="1/2 system"):
+        cset.run(max_parallel_systems=2)
+
+    assert RunState.load(cset.calcs["A"].base_dir).stage_status.get("thetaA") == "done"
+
+
+def test_calc_set_run_rejects_bad_parallelism(tmp_path):
+    _system(tmp_path, "A", RUN_CONFIG_YAML)
+    cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.0)
+    with pytest.raises(ValueError, match="max_parallel_systems"):
+        cset.run(max_parallel_systems=0)

@@ -27,6 +27,7 @@ import pathlib
 import yaml
 
 from gluebind.backend.base import Backend
+from gluebind.backend.scheduler import SlotPool
 from gluebind.logutil import add_file_handler, get_logger
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.calculation import Calculation
@@ -91,36 +92,93 @@ class CalcSet(SimulationRunner):
         for calc in self.calcs.values():
             calc.prepare()
 
-    def run(self) -> None:
-        """Run every system to completion, one after another.
+    def run(
+        self,
+        *,
+        max_parallel_systems: int = 1,
+        max_concurrent_jobs: int | None = None,
+    ) -> None:
+        """Run every system, sequentially or several at once.
 
-        **Sequential across systems:** each system's full pipeline (prep → RMSD →
-        sequential Boresch → SMD → separation) completes before the next begins, so
-        on SLURM the queue is filled by only one system at a time. Each calc is
-        independently resumable, so re-running skips completed work. (Cross-system
-        concurrency — submitting/polling all systems at once to fill the cluster —
-        is a deliberate future enhancement, not yet implemented.)
+        ``max_parallel_systems=1`` (default) runs each system's full pipeline (prep
+        → RMSD → sequential Boresch → SMD → separation) to completion before the
+        next begins. ``>1`` runs that many systems concurrently, each on its own
+        thread — so one system's serial phases (the Boresch chain, prep/SMD waits)
+        overlap with another's active windows, and the cluster stays fuller. The
+        backend does the real work distribution across nodes; the threads just keep
+        the queue fed.
 
-        One system's failure does not abort the benchmark: its error is collected
-        and re-raised in a summary once every system has been attempted, so a single
-        bad input does not discard the runs that did complete (all are resumable).
+        ``max_concurrent_jobs`` caps the *total* in-flight jobs across all
+        concurrent systems (via a shared :class:`SlotPool`) so parallel submission
+        stays within the cluster's per-user limit; leave it ``None`` to let each
+        system use its own scheduler limit. Ignored when running sequentially.
+
+        Each calc is independently resumable, so re-running skips completed work.
+        One system's failure does not abort the benchmark: errors are collected and
+        re-raised in a summary once every system has been attempted.
         """
         add_file_handler(self.base_dir)
-        failures: dict[str, Exception] = {}
-        total = len(self.calcs)
-        for i, (name, calc) in enumerate(self.calcs.items(), start=1):
-            logger.info("system %d/%d: running %s", i, total, name)
-            try:
-                calc.run()
-            except Exception as exc:  # noqa: BLE001 - surface per system, keep going
-                logger.error("system %s failed: %s", name, exc)
-                failures[name] = exc
+        if max_parallel_systems < 1:
+            raise ValueError("max_parallel_systems must be >= 1")
+
+        if max_parallel_systems == 1:
+            failures = self._run_sequential()
+        else:
+            failures = self._run_parallel(max_parallel_systems, max_concurrent_jobs)
+
         if failures:
             summary = "; ".join(f"{name}: {exc}" for name, exc in failures.items())
             raise RuntimeError(
                 f"{len(failures)}/{len(self.calcs)} system(s) failed to run: {summary}"
             )
-        logger.info("all %d system(s) complete", total)
+        logger.info("all %d system(s) complete", len(self.calcs))
+
+    def _run_one(
+        self, name: str, calc: Calculation, job_slots=None
+    ) -> Exception | None:
+        """Run one system, returning its exception (surfaced, not raised) or None."""
+        try:
+            calc.run(job_slots=job_slots)
+            return None
+        except Exception as exc:  # noqa: BLE001 - surface per system, keep going
+            logger.error("system %s failed: %s", name, exc)
+            return exc
+
+    def _run_sequential(self) -> dict[str, Exception]:
+        failures: dict[str, Exception] = {}
+        total = len(self.calcs)
+        for i, (name, calc) in enumerate(self.calcs.items(), start=1):
+            logger.info("system %d/%d: running %s", i, total, name)
+            exc = self._run_one(name, calc)
+            if exc is not None:
+                failures[name] = exc
+        return failures
+
+    def _run_parallel(
+        self, max_parallel_systems: int, max_concurrent_jobs: int | None
+    ) -> dict[str, Exception]:
+        from concurrent.futures import ThreadPoolExecutor
+
+        slots = SlotPool(max_concurrent_jobs) if max_concurrent_jobs else None
+        workers = min(max_parallel_systems, len(self.calcs))
+        logger.info(
+            "running %d system(s), up to %d at once%s",
+            len(self.calcs),
+            workers,
+            f" (<= {max_concurrent_jobs} jobs in flight)" if slots else "",
+        )
+        failures: dict[str, Exception] = {}
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(self._run_one, name, calc, slots): name
+                for name, calc in self.calcs.items()
+            }
+            for future in futures:
+                name = futures[future]
+                exc = future.result()  # _run_one never raises; it returns the error
+                if exc is not None:
+                    failures[name] = exc
+        return failures
 
     def analyse(self, *, save_csv: bool = True) -> dict:
         """Aggregate every system's ΔG° into a table (+ ``results.csv``) and stats.

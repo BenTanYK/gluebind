@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from gluebind.backend.base import Backend, JobHandle, JobSpec, JobState, Resources
 from gluebind.backend.local import LocalBackend
-from gluebind.backend.scheduler import Scheduler
+from gluebind.backend.scheduler import Scheduler, SlotPool
 from gluebind.backend.slurm import SlurmBackend
 
 __all__ = [
@@ -23,4 +23,5 @@ __all__ = [
     "LocalBackend",
     "SlurmBackend",
     "Scheduler",
+    "SlotPool",
 ]
