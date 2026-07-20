@@ -57,6 +57,42 @@ _A2_TO_NM2 = 100.0
 PmfProvider = Callable[[Stage], "tuple"]
 
 
+def _sem(values) -> float:
+    """Standard error of the mean (ddof=1); 0 for fewer than two samples."""
+    import numpy as np
+
+    a = np.asarray(values, dtype=float)
+    n = a.size
+    return float(a.std(ddof=1) / np.sqrt(n)) if n > 1 else 0.0
+
+
+def _repeat_dg_sem(per_repeat: dict, dg_corr: float) -> float | None:
+    """SEM of ΔG° over independent repeats.
+
+    ``per_repeat`` maps stage name → ``(cv_type, [contribution per repeat])``. Each
+    repeat's contributions are combined into a full ΔG° (same sign convention as
+    the point estimate; the analytical ``dg_corr`` is constant across repeats), and
+    the SEM is taken over those totals. Returns ``None`` when there are fewer than
+    two repeats or the stages disagree on repeat count.
+    """
+    if not per_repeat:
+        return None
+    n = len(next(iter(per_repeat.values()))[1])
+    if n < 2 or not all(len(vals) == n for _cv, vals in per_repeat.values()):
+        return None
+    totals = []
+    for r in range(n):
+        comp = {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
+        for _name, (cv_type, vals) in per_repeat.items():
+            comp[cv_type] += vals[r]
+        totals.append(
+            binding_free_energy(
+                comp["rmsd"], comp["boresch"], comp["separation"], dg_corr
+            )
+        )
+    return _sem(totals)
+
+
 class Calculation(SimulationRunner):
     """Drive one binding-free-energy calculation end to end."""
 
@@ -436,7 +472,7 @@ class Calculation(SimulationRunner):
                 if stage.dof in state.boresch_eq_values:
                     continue  # already determined on a previous run (resume)
                 self._run_stage(stage, dict(state.boresch_eq_values), state, scheduler)
-                cv, pmf = pmf_provider(stage)
+                cv, pmf, *_ = pmf_provider(stage)  # ignore per-replicate PMFs here
                 state.boresch_eq_values[stage.dof] = pmf_minimum(cv, pmf)
                 state.save(self.base_dir)
 
@@ -546,7 +582,15 @@ class Calculation(SimulationRunner):
         defaults to a local WHAM provider, the ``theta_*`` minima come from the
         Boresch equilibrium values in the run state, and ``r_star_nm`` is the
         outermost separation window centre. Any of them may be passed explicitly
-        to override. ``pmf_provider(stage)`` returns ``(cv, pmf)`` for a stage.
+        to override.
+
+        ``pmf_provider(stage)`` returns ``(cv, mean_pmf)`` or, to enable the
+        uncertainty estimate, ``(cv, mean_pmf, [pmf_per_repeat, ...])``. The
+        returned dict carries the point-estimate ΔG° (``dg_bind`` and its
+        components) plus, when per-repeat PMFs are available, ``dg_bind_sem`` (the
+        SEM over the independent repeats' total ΔG°) and ``stage_sems`` (per-CV
+        SEMs that flag the least-converged stage). ``dg_bind_sem`` is ``None`` and
+        ``stage_sems`` empty for a single repeat.
 
         Works in a fresh process (the detached submit → come back later → analyse
         workflow): if the calculation isn't wired, it re-wires from the on-disk
@@ -604,10 +648,29 @@ class Calculation(SimulationRunner):
                     stacklevel=2,
                 )
 
+        def _stage_contribution(cv_type, stage, cv, fe, theta_0):
+            """One stage's contribution for a given PMF (mean or a single repeat)."""
+            if cv_type == "boresch":
+                return boresch_contribution(
+                    cv, fe, theta_0, k_boresch, temperature=temp
+                )
+            if cv_type == "rmsd":
+                return rmsd_contribution(
+                    cv, fe, k_rmsd, unbound=stage.is_bulk, temperature=temp
+                )
+            return separation_contribution(cv, fe, r_star_nm, temperature=temp)
+
+        # stage name -> (cv_type, [contribution for each independent repeat])
+        per_repeat: dict[str, tuple[str, list[float]]] = {}
+
         for group, stage in self._iter_stages():
-            cv, pmf = pmf_provider(stage)
+            cv, pmf, *rest = pmf_provider(stage)
+            replicate_pmfs = rest[0] if rest else None
+            # theta_0 is a fixed protocol value (the mean-PMF minimum), reused for
+            # every repeat so the repeat spread reflects sampling noise alone.
+            theta_0 = pmf_minimum(cv, pmf) if group.cv_type == "boresch" else 0.0
+
             if group.cv_type == "boresch":
-                theta_0 = pmf_minimum(cv, pmf)
                 _warn_unconverged(
                     stage,
                     contribution_converged(
@@ -619,18 +682,12 @@ class Calculation(SimulationRunner):
                         temperature=temp,
                     ),
                 )
-                totals["boresch"] += boresch_contribution(
-                    cv, pmf, theta_0, k_boresch, temperature=temp
-                )
             elif group.cv_type == "rmsd":
                 _warn_unconverged(
                     stage,
                     contribution_converged(
                         cv, pmf, cv_type="rmsd", force_constant=k_rmsd, temperature=temp
                     ),
-                )
-                totals["rmsd"] += rmsd_contribution(
-                    cv, pmf, k_rmsd, unbound=stage.is_bulk, temperature=temp
                 )
             elif group.cv_type == "separation":
                 reached, gradient = separation_plateau_reached(cv, pmf)
@@ -653,8 +710,17 @@ class Calculation(SimulationRunner):
                         temperature=temp,
                     ),
                 )
-                totals["separation"] += separation_contribution(
-                    cv, pmf, r_star_nm, temperature=temp
+
+            totals[group.cv_type] += _stage_contribution(
+                group.cv_type, stage, cv, pmf, theta_0
+            )
+            if replicate_pmfs:
+                per_repeat[stage.name] = (
+                    group.cv_type,
+                    [
+                        _stage_contribution(group.cv_type, stage, cv, fe, theta_0)
+                        for fe in replicate_pmfs
+                    ],
                 )
 
         dg_corr = standard_state_correction(
@@ -663,13 +729,23 @@ class Calculation(SimulationRunner):
         dg_bind = binding_free_energy(
             totals["rmsd"], totals["boresch"], totals["separation"], dg_corr
         )
+        # Per-stage SEM flags the least-converged CV; the overall SEM is taken over
+        # the independent repeats' full ΔG° (not a quadrature of per-stage SEMs).
+        stage_sems = {name: _sem(vals) for name, (_cv, vals) in per_repeat.items()}
+        dg_bind_sem = _repeat_dg_sem(per_repeat, dg_corr)
+
         self._log.info(
-            "analyse %s: dG_bind = %.2f kcal/mol", self.base_dir.name, dg_bind
+            "analyse %s: dG_bind = %.2f%s kcal/mol",
+            self.base_dir.name,
+            dg_bind,
+            f" +/- {dg_bind_sem:.2f}" if dg_bind_sem is not None else "",
         )
         return {
             "dg_bind": dg_bind,
+            "dg_bind_sem": dg_bind_sem,  # over independent repeats; None if < 2
             "dg_rmsd": totals["rmsd"],
             "dg_boresch": totals["boresch"],
             "dg_sep": totals["separation"],
             "dg_corr": dg_corr,
+            "stage_sems": stage_sems,  # {stage: SEM} — flags the least-converged CV
         }

@@ -190,7 +190,11 @@ class CalcSet(SimulationRunner):
         """
         rows: list[dict] = []
         for name, calc in self.calcs.items():
-            row = {"system": name, **calc.analyse()}
+            # Keep only scalar fields in the CSV row (drop e.g. the stage_sems dict).
+            result = {
+                k: v for k, v in calc.analyse().items() if not isinstance(v, dict)
+            }
+            row = {"system": name, **result}
             if name in self.experimental:
                 row["experimental_dg"] = self.experimental[name]
             rows.append(row)

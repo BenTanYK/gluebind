@@ -125,7 +125,9 @@ class WhamPmfProvider:
             replicate_pmfs.append(load_pmf(pmf_out))
 
         cv, mean, _sem = average_pmfs(replicate_pmfs)
-        return cv, mean
+        # Return the per-replicate free energies too, so analyse() can propagate the
+        # spread across independent repeats into a ΔG uncertainty.
+        return cv, mean, [fe for _, fe in replicate_pmfs]
 
     def _num_bins(self, cv_type: str) -> int:
         """WHAM histogram bins for a stage's CV type — per-stage by default, or a

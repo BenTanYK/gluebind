@@ -79,9 +79,10 @@ def test_provider_local_run_with_fake_binary(tmp_path):
     provider = WhamPmfProvider(
         cfg, wham_binary=str(_fake_wham(tmp_path)), location="local"
     )
-    cv, pmf = provider(stage)
+    cv, pmf, replicate_pmfs = provider(stage)
 
     assert len(cv) == 3 and len(pmf) == 3
+    assert len(replicate_pmfs) == 2  # one PMF per replicate, for the SEM estimate
     assert np.allclose(cv, [0.0, 0.5, 1.0])
     # two replicate metafiles + PMFs were produced
     assert (stage.base_dir / "metafile_run01.txt").exists()

@@ -327,11 +327,47 @@ def test_analyse_aggregates(tmp_path):
         return x, np.zeros_like(x)
 
     result = calc.analyse(fake_pmf, r_star_nm=0.8, theta_a_min=1.2, theta_b_min=1.4)
-    assert set(result) == {"dg_bind", "dg_rmsd", "dg_boresch", "dg_sep", "dg_corr"}
+    assert set(result) == {
+        "dg_bind",
+        "dg_bind_sem",
+        "dg_rmsd",
+        "dg_boresch",
+        "dg_sep",
+        "dg_corr",
+        "stage_sems",
+    }
     assert math.isfinite(result["dg_bind"])
     assert result["dg_bind"] == pytest.approx(
         result["dg_rmsd"] + result["dg_boresch"] + result["dg_sep"] + result["dg_corr"]
     )
+
+
+def test_analyse_reports_sem_over_repeats(tmp_path):
+    # A provider that exposes per-replicate PMFs yields an overall SEM (over the
+    # repeats' total ΔG) plus per-stage SEM diagnostics.
+    calc = _calc(tmp_path)
+
+    def provider_with_repeats(stage):
+        x = np.linspace(0.0, 2.0, 21)
+        mean = (x - 1.0) ** 2
+        # Repeats must differ in *shape*, not by a constant offset — a constant
+        # cancels in the free-energy ratio, so it would leave the SEM at zero.
+        return x, mean, [0.8 * mean, 1.2 * mean]
+
+    result = calc.analyse(
+        provider_with_repeats, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0
+    )
+    assert result["dg_bind_sem"] is not None and result["dg_bind_sem"] > 0
+    assert result["stage_sems"]  # per-CV diagnostics present
+    assert all(v >= 0 for v in result["stage_sems"].values())
+
+
+def test_analyse_sem_none_without_repeats(tmp_path):
+    # A 2-tuple provider (no per-replicate PMFs) cannot report an uncertainty.
+    calc = _calc(tmp_path)
+    result = calc.analyse(_fake_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0)
+    assert result["dg_bind_sem"] is None
+    assert result["stage_sems"] == {}
 
 
 def test_analyse_threads_sampling_temperature(tmp_path):
@@ -400,7 +436,15 @@ def test_analyse_derives_theta_and_r_star_from_state(tmp_path):
     # No r_star/theta passed: theta minima from the run state, r_star from the
     # outermost separation centre (1.5).
     result = calc.analyse(_fake_pmf)
-    assert set(result) == {"dg_bind", "dg_rmsd", "dg_boresch", "dg_sep", "dg_corr"}
+    assert set(result) == {
+        "dg_bind",
+        "dg_bind_sem",
+        "dg_rmsd",
+        "dg_boresch",
+        "dg_sep",
+        "dg_corr",
+        "stage_sems",
+    }
     assert math.isfinite(result["dg_bind"])
 
 
@@ -472,7 +516,15 @@ def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
     assert (
         calc.spec_builder is not None and len(calc.groups) > 0
     )  # re-wired, tree rebuilt
-    assert set(result) == {"dg_bind", "dg_rmsd", "dg_boresch", "dg_sep", "dg_corr"}
+    assert set(result) == {
+        "dg_bind",
+        "dg_bind_sem",
+        "dg_rmsd",
+        "dg_boresch",
+        "dg_sep",
+        "dg_corr",
+        "stage_sems",
+    }
     assert math.isfinite(result["dg_bind"])
 
 
