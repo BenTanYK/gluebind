@@ -27,8 +27,11 @@ import pathlib
 import yaml
 
 from gluebind.backend.base import Backend
+from gluebind.logutil import add_file_handler, get_logger
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.calculation import Calculation
+
+logger = get_logger("calc_set")
 
 
 class CalcSet(SimulationRunner):
@@ -102,17 +105,22 @@ class CalcSet(SimulationRunner):
         and re-raised in a summary once every system has been attempted, so a single
         bad input does not discard the runs that did complete (all are resumable).
         """
+        add_file_handler(self.base_dir)
         failures: dict[str, Exception] = {}
-        for name, calc in self.calcs.items():
+        total = len(self.calcs)
+        for i, (name, calc) in enumerate(self.calcs.items(), start=1):
+            logger.info("system %d/%d: running %s", i, total, name)
             try:
                 calc.run()
             except Exception as exc:  # noqa: BLE001 - surface per system, keep going
+                logger.error("system %s failed: %s", name, exc)
                 failures[name] = exc
         if failures:
             summary = "; ".join(f"{name}: {exc}" for name, exc in failures.items())
             raise RuntimeError(
                 f"{len(failures)}/{len(self.calcs)} system(s) failed to run: {summary}"
             )
+        logger.info("all %d system(s) complete", total)
 
     def analyse(self, *, save_csv: bool = True) -> dict:
         """Aggregate every system's ΔG° into a table (+ ``results.csv``) and stats.

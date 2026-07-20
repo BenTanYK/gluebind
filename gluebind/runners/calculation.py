@@ -42,6 +42,7 @@ from gluebind.backend.base import Backend
 from gluebind.backend.scheduler import Scheduler
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.slurm import SlurmConfig
+from gluebind.logutil import add_file_handler, get_logger
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.group import Group
 from gluebind.runners.stage import Stage
@@ -86,6 +87,9 @@ class Calculation(SimulationRunner):
         self.platform = platform
         self.poll_interval = poll_interval
         self.prepared = None
+        # Per-calculation child logger: keeps each run's gluebind.log isolated while
+        # still propagating up to any root handler (e.g. a CalcSet aggregate log).
+        self._log = get_logger(f"calc.{self.base_dir.name}")
         # When built via from_config the wiring is deferred to prepare(); with a
         # spec_builder supplied directly (tests / advanced use) the tree is built now.
         self.groups = self._build_groups() if spec_builder is not None else []
@@ -147,7 +151,13 @@ class Calculation(SimulationRunner):
         prep_dir = self.base_dir / "prep"
         try:
             prepared = PreparedSystem.load(prep_dir)  # resume: prep already complete
+            self._log.info(
+                "prepare %s: reusing existing prepared system", self.base_dir.name
+            )
         except FileNotFoundError:
+            self._log.info(
+                "prepare %s: building and equilibrating system", self.base_dir.name
+            )
             prepared = prepare_system(
                 self.config,
                 prep_dir,
@@ -384,6 +394,12 @@ class Calculation(SimulationRunner):
         ``pmf_provider(stage) -> (cv, pmf)`` is required whenever there are Boresch
         stages still to analyse (their equilibrium values are their PMF minima).
         """
+        add_file_handler(self.base_dir, logger_name=self._log.name)
+        self._log.info(
+            "run %s: starting (backend=%s)",
+            self.base_dir.name,
+            type(self.backend).__name__,
+        )
         if self.spec_builder is None:
             # Auto-prepare (idempotent): a from_config calculation runs end to end
             # from run() alone; prep is skipped if already complete on disk.
@@ -437,6 +453,7 @@ class Calculation(SimulationRunner):
                 self._run_stage(stage, dict(state.boresch_eq_values), state, scheduler)
 
         state.save(self.base_dir)
+        self._log.info("run %s: all stages complete", self.base_dir.name)
         return state
 
     def _run_stage(
@@ -456,6 +473,15 @@ class Calculation(SimulationRunner):
             if not window.is_replicate_complete(replicate)
         ]
         specs = [window.job_spec(replicate) for window, replicate in pending]
+        if pending:
+            self._log.info(
+                "stage %s: submitting %d replicate(s) across %d window(s)",
+                stage.name,
+                len(pending),
+                len(stage.windows),
+            )
+        else:
+            self._log.info("stage %s: already complete, skipping", stage.name)
 
         def on_submit(index: int, handle: str) -> None:
             window, replicate = pending[index]
@@ -484,8 +510,12 @@ class Calculation(SimulationRunner):
             for r in window.replicates()
         ):
             state.stage_status[stage.name] = "done"
+            self._log.info("stage %s: complete", stage.name)
         elif failures:
             state.stage_status[stage.name] = "failed"
+            self._log.error(
+                "stage %s: %d replicate(s) failed", stage.name, len(failures)
+            )
         state.save(self.base_dir)
 
         if failures:
@@ -619,6 +649,9 @@ class Calculation(SimulationRunner):
         )
         dg_bind = binding_free_energy(
             totals["rmsd"], totals["boresch"], totals["separation"], dg_corr
+        )
+        self._log.info(
+            "analyse %s: dG_bind = %.2f kcal/mol", self.base_dir.name, dg_bind
         )
         return {
             "dg_bind": dg_bind,
