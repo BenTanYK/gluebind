@@ -589,6 +589,9 @@ class Calculation(SimulationRunner):
         k_rmsd = (
             self.config.sampling.rmsd.force_constant * _A2_TO_NM2
         )  # -> kcal/mol/nm^2
+        # The WHAM PMFs are produced at the sampling temperature, so the β in every
+        # free-energy integral must use the same temperature (not the 300 K default).
+        temp = self.config.sampling.temperature_K
         totals = {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
 
         def _warn_unconverged(stage: Stage, converged: bool) -> None:
@@ -613,18 +616,21 @@ class Calculation(SimulationRunner):
                         cv_type="boresch",
                         force_constant=k_boresch,
                         theta_0=theta_0,
+                        temperature=temp,
                     ),
                 )
-                totals["boresch"] += boresch_contribution(cv, pmf, theta_0, k_boresch)
+                totals["boresch"] += boresch_contribution(
+                    cv, pmf, theta_0, k_boresch, temperature=temp
+                )
             elif group.cv_type == "rmsd":
                 _warn_unconverged(
                     stage,
                     contribution_converged(
-                        cv, pmf, cv_type="rmsd", force_constant=k_rmsd
+                        cv, pmf, cv_type="rmsd", force_constant=k_rmsd, temperature=temp
                     ),
                 )
                 totals["rmsd"] += rmsd_contribution(
-                    cv, pmf, k_rmsd, unbound=stage.is_bulk
+                    cv, pmf, k_rmsd, unbound=stage.is_bulk, temperature=temp
                 )
             elif group.cv_type == "separation":
                 reached, gradient = separation_plateau_reached(cv, pmf)
@@ -644,12 +650,15 @@ class Calculation(SimulationRunner):
                         cv_type="separation",
                         force_constant=0.0,
                         r_star=r_star_nm,
+                        temperature=temp,
                     ),
                 )
-                totals["separation"] += separation_contribution(cv, pmf, r_star_nm)
+                totals["separation"] += separation_contribution(
+                    cv, pmf, r_star_nm, temperature=temp
+                )
 
         dg_corr = standard_state_correction(
-            r_star_nm, theta_a_min, theta_b_min, k_boresch
+            r_star_nm, theta_a_min, theta_b_min, k_boresch, temperature=temp
         )
         dg_bind = binding_free_energy(
             totals["rmsd"], totals["boresch"], totals["separation"], dg_corr

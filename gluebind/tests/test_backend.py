@@ -109,6 +109,13 @@ def test_local_invalid_max_concurrent():
         LocalBackend(max_concurrent=0)
 
 
+def test_local_max_concurrent_cannot_exceed_gpu_count():
+    # More concurrent jobs than GPUs would exhaust the GPU pool and IndexError in
+    # _start; reject it up front instead.
+    with pytest.raises(ValueError, match="cannot exceed"):
+        LocalBackend(gpu_ids=[0, 1], max_concurrent=4)
+
+
 def test_local_gpu_pinning_round_robin(tmp_path):
     # Each job records the CUDA_VISIBLE_DEVICES it was pinned to; with two GPUs
     # the two concurrent jobs land on different devices.
@@ -206,6 +213,32 @@ def test_two_schedulers_share_one_slot_pool(tmp_path):
 def test_detached_flags():
     assert SlurmBackend.detached is True
     assert LocalBackend.detached is False
+
+
+def test_slurm_poll_grace_period_and_resume(monkeypatch):
+    from gluebind.config.slurm import SlurmConfig
+
+    cfg = SlurmConfig(job_submission_wait=100)
+    clock = [1000.0]
+    backend = SlurmBackend(cfg, clock=lambda: clock[0])
+    monkeypatch.setattr(backend, "_running_job_ids", lambda: set())
+
+    # freshly submitted, not yet visible in squeue, within the grace window -> RUNNING
+    backend._submitted_at["j1"] = 1000.0
+    assert backend.poll(["j1"])["j1"] is JobState.RUNNING
+    # grace elapsed without ever appearing -> FINISHED (caller's file gate decides)
+    clock[0] = 1000.0 + cfg.job_submission_wait + 1
+    assert backend.poll(["j1"])["j1"] is JobState.FINISHED
+
+    # a job seen in the queue, then gone, is FINISHED (normal completion)
+    monkeypatch.setattr(backend, "_running_job_ids", lambda: {"j2"})
+    backend._submitted_at["j2"] = clock[0]
+    assert backend.poll(["j2"])["j2"] is JobState.RUNNING  # seen now
+    monkeypatch.setattr(backend, "_running_job_ids", lambda: set())
+    assert backend.poll(["j2"])["j2"] is JobState.FINISHED  # left the queue
+
+    # a handle from a prior process (resume) has no grace basis -> FINISHED, not stuck
+    assert backend.poll(["old"])["old"] is JobState.FINISHED
 
 
 def test_slurm_parse_job_id():

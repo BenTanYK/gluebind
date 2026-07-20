@@ -40,6 +40,12 @@ class LocalBackend(Backend):
         if max_concurrent is not None:
             if max_concurrent < 1:
                 raise ValueError("max_concurrent must be >= 1")
+            if self._gpu_ids is not None and max_concurrent > len(self._gpu_ids):
+                raise ValueError(
+                    f"max_concurrent ({max_concurrent}) cannot exceed the number of "
+                    f"gpu_ids ({len(self._gpu_ids)}) when pinning GPUs — each running "
+                    "job needs its own GPU"
+                )
             self._max_concurrent: int | None = max_concurrent
         elif self._gpu_ids is not None:
             self._max_concurrent = len(self._gpu_ids)

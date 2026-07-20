@@ -334,6 +334,20 @@ def test_analyse_aggregates(tmp_path):
     )
 
 
+def test_analyse_threads_sampling_temperature(tmp_path):
+    # The FE integrals must use sampling.temperature_K (the temperature WHAM ran
+    # at), not a fixed 300 K — otherwise a non-300 K run silently integrates at the
+    # wrong beta and returns a quantitatively wrong dG.
+    cfg300 = _config()
+    cfg300.sampling.temperature_K = 300.0
+    cfg350 = _config()
+    cfg350.sampling.temperature_K = 350.0
+    kw = {"r_star_nm": 1.5, "theta_a_min": 1.0, "theta_b_min": 1.0}
+    r300 = _calc(tmp_path / "t300", config=cfg300).analyse(_fake_pmf, **kw)
+    r350 = _calc(tmp_path / "t350", config=cfg350).analyse(_fake_pmf, **kw)
+    assert r300["dg_bind"] != pytest.approx(r350["dg_bind"])
+
+
 # ---- facade (from_config / deferred wiring / analyse-from-state) -----------
 
 
