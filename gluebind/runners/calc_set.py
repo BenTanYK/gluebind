@@ -91,9 +91,22 @@ class CalcSet(SimulationRunner):
         independently resumable, so re-running skips completed work. (Cross-system
         concurrency — submitting/polling all systems at once to fill the cluster —
         is a deliberate future enhancement, not yet implemented.)
+
+        One system's failure does not abort the benchmark: its error is collected
+        and re-raised in a summary once every system has been attempted, so a single
+        bad input does not discard the runs that did complete (all are resumable).
         """
-        for calc in self.calcs.values():
-            calc.run()
+        failures: dict[str, Exception] = {}
+        for name, calc in self.calcs.items():
+            try:
+                calc.run()
+            except Exception as exc:  # noqa: BLE001 - surface per system, keep going
+                failures[name] = exc
+        if failures:
+            summary = "; ".join(f"{name}: {exc}" for name, exc in failures.items())
+            raise RuntimeError(
+                f"{len(failures)}/{len(self.calcs)} system(s) failed to run: {summary}"
+            )
 
     def analyse(self, *, save_csv: bool = True) -> dict:
         """Aggregate every system's ΔG° into a table (+ ``results.csv``) and stats.

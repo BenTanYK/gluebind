@@ -27,8 +27,11 @@ def average_pmfs(
     stack = np.vstack([np.asarray(w, dtype=float) for _, w in pmfs])
     if stack.shape[1] != cv.size:
         raise ValueError("replicate PMFs have inconsistent lengths")
+    n = stack.shape[0]
     mean = stack.mean(axis=0)
-    sem = stack.std(axis=0, ddof=0) / math.sqrt(stack.shape[0])
+    # ddof=1 (sample standard deviation) matches the reference us_analysis.py; for
+    # a single replicate the SEM is undefined, so report 0.
+    sem = stack.std(axis=0, ddof=1) / math.sqrt(n) if n > 1 else np.zeros_like(mean)
     return cv, mean, sem
 
 
@@ -40,6 +43,8 @@ def pmf_minimum(cv, pmf) -> float:
     """
     cv = np.asarray(cv, dtype=float)
     pmf = np.asarray(pmf, dtype=float)
+    # Map non-finite bins to +inf so a nan can't hijack argmin (inf never wins).
+    pmf = np.where(np.isfinite(pmf), pmf, np.inf)
     return float(cv[int(np.argmin(pmf))])
 
 

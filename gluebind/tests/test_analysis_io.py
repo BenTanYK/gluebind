@@ -53,6 +53,28 @@ def test_average_pmfs_mean_and_sem():
     assert np.all(sem > 0)
 
 
+def test_average_pmfs_sem_uses_ddof1():
+    # replicates [0,0] and [2,4]: mean [1,2]; sample-std (ddof=1)/sqrt(2) = [1,2]
+    x = np.array([0.0, 1.0])
+    _, _, sem = average_pmfs([(x, [0.0, 0.0]), (x, [2.0, 4.0])])
+    assert np.allclose(sem, [1.0, 2.0])
+
+
+def test_average_pmfs_single_replicate_zero_sem():
+    x = np.array([0.0, 1.0])
+    _, mean, sem = average_pmfs([(x, [1.0, 2.0])])
+    assert np.allclose(mean, [1.0, 2.0])
+    assert np.allclose(sem, 0.0)
+
+
+def test_pmf_minimum_ignores_nonfinite():
+    from gluebind.analysis.pmf import pmf_minimum
+
+    cv = np.array([0.0, 0.5, 1.0, 1.5])
+    pmf = np.array([np.nan, 2.0, -1.0, np.inf])  # true minimum at cv = 1.0
+    assert pmf_minimum(cv, pmf) == 1.0
+
+
 def test_average_pmfs_inconsistent_length():
     x = np.array([0.0, 0.1, 0.2])
     with pytest.raises(ValueError):

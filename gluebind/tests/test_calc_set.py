@@ -232,3 +232,34 @@ def test_calc_set_run_completes_boresch_without_explicit_provider(tmp_path, monk
 
     state = RunState.load(calc.base_dir)
     assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
+
+
+def test_calc_set_run_continues_past_failed_system(tmp_path, monkeypatch):
+    # A failed system must not abort the benchmark: the others still run, and the
+    # failure is re-raised in a summary once every system has been attempted.
+    import gluebind.analysis.provider as provider_mod
+
+    monkeypatch.setattr(provider_mod, "WhamPmfProvider", _RunFakeProvider)
+
+    _system(tmp_path, "A", RUN_CONFIG_YAML)
+    _system(tmp_path, "B", RUN_CONFIG_YAML)
+    cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.01)
+
+    def wire(calc, cmd):
+        def fake_prepare():
+            calc.spec_builder = _run_spec_builder
+            calc.command_factory = cmd
+            calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+            calc.groups = calc._build_groups()
+            calc.sub_runners = list(calc.groups)
+
+        calc.prepare = fake_prepare
+
+    wire(cset.calcs["A"], _run_trivial_cmd)
+    wire(cset.calcs["B"], lambda: [sys.executable, "-c", "raise SystemExit(1)"])
+
+    with pytest.raises(RuntimeError, match="1/2 system"):
+        cset.run()
+
+    # A completed despite B failing (both remain independently resumable).
+    assert RunState.load(cset.calcs["A"].base_dir).stage_status.get("thetaA") == "done"

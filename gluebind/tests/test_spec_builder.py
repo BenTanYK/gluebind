@@ -103,6 +103,103 @@ def test_rmsd_bulk_uses_isolated_topology():
     assert r["name"] == "target" and r["sampled"] is True and r["atoms"] == [0, 1, 2]
 
 
+# ---- always-on restraints --------------------------------------------------
+
+
+def _builder_with_always_on():
+    import dataclasses as dc
+
+    from gluebind.spec_builder import AlwaysOn
+
+    ctx = dc.replace(_context(), always_on=[AlwaysOn("ddb1", [7, 8], 100.0)])
+    return SpecBuilder(ctx, _config())
+
+
+_DDB1_ENTRY = {
+    "name": "ddb1",
+    "atoms": [7, 8],
+    "force_constant": 100.0,
+    "centre": None,  # fixed about zero
+    "sampled": False,
+}
+
+
+def test_always_on_in_bound_rmsd_stage():
+    spec = _builder_with_always_on()(
+        cv_type="rmsd", stage_name="receptor_bound", dof=None, cv_centre=0.4,
+        replicate=1, boresch_eq_values={},
+    )
+    assert _DDB1_ENTRY in spec.restraints["rmsd"]
+
+
+def test_always_on_in_boresch_and_separation(tmp_path):
+    b = _builder_with_always_on()
+    bores = b(
+        cv_type="boresch", stage_name="thetaA", dof="thetaA", cv_centre=1.0,
+        replicate=1, boresch_eq_values={},
+    )
+    sep = b(
+        cv_type="separation", stage_name="separation", dof=None, cv_centre=1.5,
+        replicate=1, boresch_eq_values={"thetaA": 1.0},
+    )
+    assert _DDB1_ENTRY in bores.restraints["rmsd"]
+    assert _DDB1_ENTRY in sep.restraints["rmsd"]
+
+
+def test_always_on_absent_from_bulk_stage():
+    # Complex-resolved always-on atoms do not exist in an isolated bulk topology,
+    # so they must not leak into a bulk stage (bulk always-on is resolved separately).
+    spec = _builder_with_always_on()(
+        cv_type="rmsd", stage_name="target_bulk", dof=None, cv_centre=0.6,
+        replicate=1, boresch_eq_values={},
+    )
+    assert all(r["name"] != "ddb1" for r in spec.restraints["rmsd"])
+
+
+# ---- multi-domain bulk (held partners + always-on) -------------------------
+
+
+def test_rmsd_bulk_applies_held_and_always_on():
+    import dataclasses as dc
+
+    from gluebind.spec_builder import AlwaysOn, BulkTarget
+
+    ctx = dc.replace(
+        _context(),
+        rmsd_order=["BD1", "BD2"],
+        rmsd_atoms_bound={"BD1": [1, 2], "BD2": [3, 4]},
+        rmsd_bulk={
+            "BD2": BulkTarget(
+                "target_bulk.prm7", "target_bulk.rst7", atoms=[30, 31],
+                held=[("BD1", [10, 11])],  # earlier same-protein region held fixed
+                always_on=[AlwaysOn("ddb1", [50], 100.0)],
+            )
+        },
+    )
+    spec = SpecBuilder(ctx, _config())(
+        cv_type="rmsd", stage_name="BD2_bulk", dof=None, cv_centre=0.6,
+        replicate=1, boresch_eq_values={},
+    )
+    assert spec.topology == "target_bulk.prm7"
+    entries = [(r["name"], r["sampled"], r["centre"], r["atoms"]) for r in spec.restraints["rmsd"]]
+    assert entries == [
+        ("BD1", False, None, [10, 11]),  # held partner first
+        ("BD2", True, 0.6, [30, 31]),  # sampled region
+        ("ddb1", False, None, [50]),  # always-on last
+    ]
+
+
+def test_infer_protein_ranges():
+    from gluebind.spec_builder import _infer_protein
+
+    assert _infer_protein([0, 5, 9], 10, 20) == "target"
+    assert _infer_protein([10, 15, 29], 10, 20) == "receptor"
+    with pytest.raises(ValueError, match="span both proteins"):
+        _infer_protein([8, 12], 10, 20)
+    with pytest.raises(ValueError):
+        _infer_protein([35], 10, 20)  # outside both proteins
+
+
 # ---- separation ------------------------------------------------------------
 
 

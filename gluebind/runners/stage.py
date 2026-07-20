@@ -34,20 +34,44 @@ class Stage(SimulationRunner):
         self.cv_type = cv_type
         self.name = name
         self.dof = dof
-        self.windows = [
-            Window(
-                self.base_dir / format_label(cv_type, centre),
-                cv_type=cv_type,
-                stage_name=name,
-                dof=dof,
-                centre=centre,
-                ensemble_size=ensemble_size,
-                spec_builder=spec_builder,
-                command_factory=command_factory,
-            )
-            for centre in centres
-        ]
+        self.ensemble_size = ensemble_size
+        self.spec_builder = spec_builder
+        self.command_factory = command_factory
+        self.windows: list[Window] = []
+        self.add_windows(centres)
+
+    def _make_window(self, centre: float) -> Window:
+        return Window(
+            self.base_dir / format_label(self.cv_type, centre),
+            cv_type=self.cv_type,
+            stage_name=self.name,
+            dof=self.dof,
+            centre=centre,
+            ensemble_size=self.ensemble_size,
+            spec_builder=self.spec_builder,
+            command_factory=self.command_factory,
+        )
+
+    def add_windows(self, centres: Sequence[float]) -> list[Window]:
+        """Add windows at ``centres`` (skipping any already present), keeping the
+        set sorted by centre. Returns the windows actually added.
+
+        Enables the umbrella-sampling extensibility workflow: add intermediate or
+        extended windows to a stage, then ``run`` (which resumes, submitting only
+        the new windows) and re-``analyse`` (which includes them).
+        """
+        existing = {w.label for w in self.windows}
+        added = []
+        for centre in centres:
+            window = self._make_window(centre)
+            if window.label in existing:
+                continue
+            self.windows.append(window)
+            existing.add(window.label)
+            added.append(window)
+        self.windows.sort(key=lambda w: w.centre)
         self.sub_runners = list(self.windows)
+        return added
 
     def write_specs(self, boresch_eq_values: dict | None = None) -> None:
         """Write every window's replicate specs with the given Boresch eq values."""

@@ -36,6 +36,23 @@ class WindowSampling(pydantic.BaseModel):
     distribution, separation from steered-MD save points)."""
     window_min: float | None = None
     window_max: float | None = None
+    coarse_from: float | None = None
+    """Transition point beyond which ``coarse_spacing`` replaces ``window_spacing``
+    (the separation CV's two-phase schedule: fine near contact, coarse further
+    out)."""
+    coarse_spacing: float | None = None
+    """Wider window spacing applied beyond ``coarse_from``."""
+    smd_snapshot_spacing: float | None = None
+    """(separation) Spacing (nm) of the SMD snapshot grid. Saved densely — finer
+    than the US window schedule — so windows can be added later (up to
+    ``smd_capture_max``) without re-running steered MD. US window centres must fall
+    on this grid."""
+    smd_capture_max: float | None = None
+    """(separation) Largest separation (nm) SMD captures snapshots for (US windows
+    can then be extended out to here on demand)."""
+    smd_pull_margin: float | None = None
+    """(separation) Extra distance (nm) SMD steers past ``smd_capture_max`` to
+    guarantee the final snapshot is reached."""
     centres: list[float] | None = None
     """Explicit window centres — an escape hatch overriding spacing/range."""
     auto_extend: bool = False
@@ -57,6 +74,19 @@ class WindowSampling(pydantic.BaseModel):
             raise ValueError("equil_discard_ns must be >= 0")
         return v
 
+    @pydantic.field_validator(
+        "window_spacing",
+        "coarse_spacing",
+        "smd_snapshot_spacing",
+        "smd_capture_max",
+        "smd_pull_margin",
+    )
+    @classmethod
+    def _positive_optional(cls, v: float | None) -> float | None:
+        if v is not None and v <= 0:
+            raise ValueError("must be > 0 when set")
+        return v
+
     def resolved(self, stage_name: str) -> "WindowSampling":
         """Return this schedule with any per-stage override merged in.
 
@@ -74,8 +104,10 @@ class WindowSampling(pydantic.BaseModel):
 
 
 def _boresch_default() -> WindowSampling:
+    # 1 ns unrecorded equilibration + 5 ns recorded sampling (the paper protocol);
+    # RED is not applied to Boresch — this fixed discard is used instead.
     return WindowSampling(
-        force_constant=100.0, window_spacing=0.1, sampling_time_ns=6.0, equil_discard_ns=1.0
+        force_constant=100.0, window_spacing=0.1, sampling_time_ns=5.0, equil_discard_ns=1.0
     )
 
 
@@ -91,7 +123,23 @@ def _rmsd_default() -> WindowSampling:
 
 
 def _separation_default() -> WindowSampling:
-    return WindowSampling(force_constant=10.0, window_spacing=0.5, sampling_time_ns=30.0)
+    # Two-phase schedule (nm): 0.05 nm windows over 0.90-2.10 nm (fine, near
+    # contact), then 0.10 nm beyond up to window_max. These fall on the 0.05 nm
+    # SMD snapshot grid, so windows can be added later without re-running SMD.
+    # window_max defaults to 3.0 nm (compute-saving); the plateau check flags if
+    # more windows (up to the 4.0 nm SMD capture range) are needed.
+    return WindowSampling(
+        force_constant=10.0,
+        window_min=0.90,
+        window_max=3.0,
+        window_spacing=0.05,
+        coarse_from=2.10,
+        coarse_spacing=0.10,
+        smd_snapshot_spacing=0.05,
+        smd_capture_max=4.0,
+        smd_pull_margin=0.5,
+        sampling_time_ns=30.0,
+    )
 
 
 class SamplingConfig(pydantic.BaseModel):
@@ -102,7 +150,9 @@ class SamplingConfig(pydantic.BaseModel):
     timestep_fs: float = 4.0
     hmr_factor: float = 1.5
     pme_cutoff_nm: float = 1.0
-    temperature_K: float = 298.15
+    temperature_K: float = 300.0
+    """Uniform production temperature (K) used for the MD, WHAM and the
+    free-energy integrals — kept consistent throughout (the paper protocol)."""
     sample_interval_steps: int = 125
     ensemble_size: int = 3
     """Number of independent replicate simulations per window."""

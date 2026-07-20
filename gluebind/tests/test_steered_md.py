@@ -24,6 +24,23 @@ def test_separation_window_targets_rounds():
     assert separation_window_targets([0.90001, 0.9]) == [0.9]
 
 
+def test_smd_snapshot_targets_dense_grid_and_windows_subset():
+    import pytest
+
+    from gluebind.config.sampling import SamplingConfig
+    from gluebind.runners.window import enumerate_centres
+    from gluebind.simulation.steered_md import smd_snapshot_targets
+
+    sep = SamplingConfig().for_cv("separation", "separation")
+    targets = smd_snapshot_targets(sep)
+    assert targets[0] == 0.9
+    assert targets[-1] == 4.0  # smd_capture_max, denser than the US schedule
+    assert targets[1] == pytest.approx(0.95)  # 0.05 nm spacing
+    # every US window centre must land on the snapshot grid (so it has a seed frame)
+    grid = set(targets)
+    assert all(round(c, 4) in grid for c in enumerate_centres(sep))
+
+
 def _smd_spec(tmp_path):
     return SmdSpec(
         topology="t.prm7",
@@ -83,6 +100,9 @@ class _Sampling:
     timestep_fs = 4.0
     temperature_K = 298.15
 
+    class separation:
+        smd_pull_margin = 0.5
+
 
 def test_make_steered_md_runner_submits_backend_job(tmp_path):
     backend = _FakeSmdBackend()
@@ -97,7 +117,7 @@ def test_make_steered_md_runner_submits_backend_job(tmp_path):
         lig_group=[3, 4],
         anchors={"b": 1, "c": 2, "B": 3, "C": 4},
         rmsd_atoms_bound={"receptor": [1, 2]},
-        window_centres=[2.0, 1.5, 1.5],
+        snapshot_centres=[2.0, 1.5, 1.5],
         sampling=_Sampling(),
     )
 

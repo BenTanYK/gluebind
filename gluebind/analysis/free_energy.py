@@ -32,13 +32,24 @@ import math
 import numpy as np
 
 BOLTZMANN = 0.0019872041  # kcal/mol/K
-TEMPERATURE = 298.15  # K
+TEMPERATURE = 300.0  # K — uniform production temperature (matches config.sampling)
 STANDARD_VOLUME_NM3 = 1660.0 * 0.001  # 1660 Angstrom^3 expressed in nm^3
 RADIUS_SPHERE_NM = (3.0 * STANDARD_VOLUME_NM3 / (4.0 * math.pi)) ** (1.0 / 3.0)
 
 
 def _beta(temperature: float) -> float:
     return 1.0 / (BOLTZMANN * temperature)
+
+
+def _finite_pmf(pmf: np.ndarray) -> np.ndarray:
+    """Replace non-finite PMF bins with ``+inf`` so they contribute
+    ``exp(-beta*inf) = 0`` to the integrals, without disturbing the CV grid.
+
+    WHAM emits ``inf`` for unsampled bins (which already self-zero) and can emit
+    ``nan`` on failures (which would otherwise poison the sum); this maps both,
+    and ``-inf``, to a zero-weight bin.
+    """
+    return np.where(np.isfinite(pmf), pmf, np.inf)
 
 
 def rmsd_contribution(
@@ -52,7 +63,7 @@ def rmsd_contribution(
     """
     beta = _beta(temperature)
     x = np.asarray(x, dtype=float)
-    pmf = np.asarray(pmf, dtype=float)
+    pmf = _finite_pmf(np.asarray(pmf, dtype=float))
     numerator = float(np.sum(np.exp(-beta * pmf)))
     denominator = float(np.sum(np.exp(-beta * (pmf + 0.5 * force_constant * x**2))))
     contribution = math.log(numerator / denominator) / beta
@@ -65,7 +76,7 @@ def boresch_contribution(
     """Negative free-energy cost of applying a Boresch restraint about ``theta_0``."""
     beta = _beta(temperature)
     x = np.asarray(x, dtype=float)
-    pmf = np.asarray(pmf, dtype=float)
+    pmf = _finite_pmf(np.asarray(pmf, dtype=float))
     numerator = float(np.sum(np.exp(-beta * pmf)))
     denominator = float(np.sum(np.exp(-beta * (pmf + 0.5 * force_constant * (x - theta_0) ** 2))))
     return -math.log(numerator / denominator) / beta
@@ -75,7 +86,7 @@ def separation_contribution(x, pmf, r_star: float, *, temperature: float = TEMPE
     """Integrate the separation PMF out to ``r_star`` (all lengths in nm)."""
     beta = _beta(temperature)
     x = np.asarray(x, dtype=float)
-    pmf = np.asarray(pmf, dtype=float)
+    pmf = _finite_pmf(np.asarray(pmf, dtype=float))
     if x.size < 2:
         raise ValueError("separation PMF needs at least two points")
 
@@ -133,6 +144,84 @@ def integrands(x, pmf, force_constant: float, *, temperature: float = TEMPERATUR
     numerator = np.exp(-beta * pmf)
     denominator = np.exp(-beta * (pmf + 0.5 * force_constant * x**2))
     return x, numerator, denominator
+
+
+def separation_plateau_reached(
+    cv, pmf, *, window_nm: float = 0.4, tol: float = 0.1
+) -> tuple[bool, float]:
+    """Whether the separation PMF has flattened at large separation.
+
+    Returns ``(reached, gradient)`` where ``gradient`` (kcal/mol/nm) is the
+    least-squares slope of the PMF over the final ``window_nm`` of finite data;
+    ``reached`` is ``|gradient| <= tol``. A non-flat tail means the unbound state
+    was not reached — run windows to larger separation.
+    """
+    cv = np.asarray(cv, dtype=float)
+    pmf = np.asarray(pmf, dtype=float)
+    mask = np.isfinite(pmf)
+    cv, pmf = cv[mask], pmf[mask]
+    if cv.size < 2:
+        return False, float("nan")
+    tail = cv >= (cv[-1] - window_nm)
+    if int(tail.sum()) >= 2:
+        gradient = float(np.polyfit(cv[tail], pmf[tail], 1)[0])
+    else:  # window too narrow for the grid — use the last two points
+        gradient = float((pmf[-1] - pmf[-2]) / (cv[-1] - cv[-2]))
+    return abs(gradient) <= tol, gradient
+
+
+def _ends_decayed(values: np.ndarray, tol: float) -> bool:
+    """Whether a normalised integrand has decayed to ``<= tol`` of its peak at both
+    ends (finite entries only)."""
+    finite = values[np.isfinite(values)]
+    if finite.size < 2:
+        return False
+    peak = float(finite.max())
+    if peak <= 0.0:
+        return False
+    return bool(finite[0] <= tol * peak and finite[-1] <= tol * peak)
+
+
+def contribution_converged(
+    cv,
+    pmf,
+    *,
+    cv_type: str,
+    force_constant: float,
+    theta_0: float = 0.0,
+    r_star: float | None = None,
+    temperature: float = TEMPERATURE,
+    tol: float = 0.01,
+) -> bool:
+    """Whether a stage's contribution integrand is bracketed by its windows.
+
+    Applies the paper's convergence criterion (SI): the integrand(s) must decay to
+    ``< tol`` (1%) of their maximum at both CV extremes, so ``> 98 %`` of the
+    contribution is captured. For RMSD/Boresch this checks the numerator
+    ``exp(-b W)`` and denominator ``exp(-b (W + ½k(η-η₀)²))``; for separation, the
+    ``exp(-b (W(r)-W(r*)))`` integrand up to ``r_star``. Poor decay means windows
+    should be added at the offending extreme.
+    """
+    beta = _beta(temperature)
+    cv = np.asarray(cv, dtype=float)
+    pmf = _finite_pmf(np.asarray(pmf, dtype=float))
+
+    if cv_type == "separation":
+        if r_star is None:
+            r_star = float(cv[-1])
+        w_star = float(pmf[0])
+        for xi, yi in zip(cv, pmf):
+            if xi >= r_star:
+                w_star = float(yi)
+                break
+        selection = cv <= r_star
+        checks = [np.exp(-beta * (pmf[selection] - w_star))]
+    else:
+        numerator = np.exp(-beta * pmf)
+        denominator = np.exp(-beta * (pmf + 0.5 * force_constant * (cv - theta_0) ** 2))
+        checks = [numerator, denominator]
+
+    return all(_ends_decayed(arr, tol) for arr in checks)
 
 
 def binding_free_energy(

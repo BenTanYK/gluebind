@@ -24,13 +24,16 @@ window centres come from the sampling schedule.
 from __future__ import annotations
 
 import pathlib
+import warnings
 from collections.abc import Callable, Iterator
 
 from gluebind.analysis.free_energy import (
     binding_free_energy,
     boresch_contribution,
+    contribution_converged,
     rmsd_contribution,
     separation_contribution,
+    separation_plateau_reached,
     standard_state_correction,
 )
 from gluebind.analysis.pmf import pmf_minimum
@@ -169,12 +172,17 @@ class Calculation(SimulationRunner):
         hook from a prepared system, and construct the group tree. Driver-side only
         (reads the trajectory; runs no MD) — shared by :meth:`prepare` and the
         re-wiring :meth:`analyse` does in a fresh process."""
-        from gluebind.simulation.steered_md import make_steered_md_runner
+        from gluebind.simulation.steered_md import make_steered_md_runner, smd_snapshot_targets
         from gluebind.spec_builder import SpecBuilder, build_restraint_context
         from gluebind.stage_centres import compute_stage_centres
 
         context = build_restraint_context(prepared, self.config)
         self.stage_centres = compute_stage_centres(prepared, context, self.config)
+        # SMD saves a dense snapshot grid (decoupled from — and finer than — the US
+        # window schedule), so windows can be added later without re-running SMD.
+        snapshot_centres = smd_snapshot_targets(
+            self.config.sampling.for_cv("separation", "separation")
+        )
 
         smd_frames_dir = self.base_dir / "smd_frames"
         self.spec_builder = SpecBuilder(context, self.config, smd_frames_dir=smd_frames_dir)
@@ -189,7 +197,7 @@ class Calculation(SimulationRunner):
             lig_group=context.lig_group,
             anchors=context.anchors,
             rmsd_atoms_bound=context.rmsd_atoms_bound,
-            window_centres=self.stage_centres["separation"],
+            snapshot_centres=snapshot_centres,
             sampling=self.config.sampling,
             platform=self.platform,
         )
@@ -245,12 +253,12 @@ class Calculation(SimulationRunner):
     def _rmsd_stage_names(self) -> list[str]:
         restraints = self.config.restraints
         if restraints.uses_default_all_ca:
-            regions = ["receptor", "target"]
+            regions = [("receptor", ("bound", "bulk")), ("target", ("bound", "bulk"))]
         else:
-            regions = [cv.name for cv in restraints.rmsd_cvs]
+            regions = [(cv.name, tuple(cv.states)) for cv in restraints.rmsd_cvs]
         names: list[str] = []
-        for region in regions:
-            names += [f"{region}_bound", f"{region}_bulk"]
+        for region, states in regions:
+            names += [f"{region}_{state}" for state in states]
         return names
 
     # ---- iteration helpers -------------------------------------------------
@@ -303,6 +311,43 @@ class Calculation(SimulationRunner):
             if group.cv_type == cv_type:
                 return group
         return None
+
+    def add_windows(self, cv_type: str, stage_name: str, centres) -> Stage:
+        """Add umbrella-sampling windows to a stage, then re-``run``/re-``analyse``.
+
+        For the extensibility workflow: after analysing, if a stage has poor
+        overlap (or a separation PMF that has not plateaued), add intermediate or
+        extended ``centres`` here, call :meth:`run` (which resumes — only the new
+        windows are submitted), then :meth:`analyse` (which now includes them).
+
+        For **separation**, each centre must already have an SMD snapshot frame
+        (snapshots are saved on a dense grid up to ``smd_capture_max``); a centre
+        off that grid raises, since it has no starting structure — rerun SMD with
+        bespoke spacing/range for that.
+        """
+        if self.spec_builder is None:
+            raise RuntimeError("wire the calculation first (call prepare()/run())")
+        group = self._group(cv_type)
+        stage = next((s for s in group.stages if s.name == stage_name), None) if group else None
+        if stage is None:
+            raise ValueError(f"no {cv_type!r} stage named {stage_name!r}")
+
+        if cv_type == "separation":
+            sep = self.config.sampling.for_cv("separation", "separation")
+            frames_dir = self.base_dir / "smd_frames"
+            for centre in centres:
+                frame = frames_dir / f"{float(centre):.4g}nm.rst7"
+                if not frame.exists():
+                    raise ValueError(
+                        f"no SMD snapshot for a separation window at {centre} nm "
+                        f"({frame.name}). Snapshots are saved on a "
+                        f"{sep.smd_snapshot_spacing} nm grid up to {sep.smd_capture_max} nm; "
+                        "to sample a separation off that grid or beyond it, rerun SMD "
+                        "with bespoke spacing/range."
+                    )
+
+        stage.add_windows(centres)
+        return stage
 
     def run(
         self,
@@ -394,13 +439,34 @@ class Calculation(SimulationRunner):
             per_window[replicate - 1] = handle
             state.stage_status[stage.name] = "running"
 
-        scheduler.run(specs, on_submit=on_submit)
+        states = scheduler.run(specs, on_submit=on_submit)
+
+        # Surface failures here, with a pointer to the dead window/replicate, rather
+        # than letting them resurface downstream as a cryptic missing-file crash in
+        # WHAM or the PMF provider. A submitted replicate that produced no result is
+        # a failure whatever the scheduler reported (a crash, or a job that exited 0
+        # without writing its result) — the scheduler state is carried for context.
+        failures = [
+            f"{window.label}/run_{replicate:02d} (job {states[i].value})"
+            for i, (window, replicate) in enumerate(pending)
+            if not window.is_replicate_complete(replicate)
+        ]
 
         if all(
             window.is_replicate_complete(r) for window in stage.windows for r in window.replicates()
         ):
             state.stage_status[stage.name] = "done"
+        elif failures:
+            state.stage_status[stage.name] = "failed"
         state.save(self.base_dir)
+
+        if failures:
+            raise RuntimeError(
+                f"stage {stage.name!r}: {len(failures)} window replicate(s) produced no "
+                f"result: {', '.join(failures)}. Inspect the job logs "
+                "(<window>/run_NN/*.out, or the SLURM job output) under the stage "
+                "directory, then re-run to resume the remaining work."
+            )
 
     # ---- analyse -----------------------------------------------------------
 
@@ -459,14 +525,48 @@ class Calculation(SimulationRunner):
         k_rmsd = self.config.sampling.rmsd.force_constant * _A2_TO_NM2  # -> kcal/mol/nm^2
         totals = {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
 
+        def _warn_unconverged(stage: Stage, converged: bool) -> None:
+            if not converged:
+                warnings.warn(
+                    f"contribution for stage {stage.name!r} may be unconverged: the "
+                    "integrand does not decay to <1% of its maximum at the CV extremes "
+                    "(<98% captured). Add windows at the offending extreme and re-analyse.",
+                    stacklevel=2,
+                )
+
         for group, stage in self._iter_stages():
             cv, pmf = pmf_provider(stage)
             if group.cv_type == "boresch":
                 theta_0 = pmf_minimum(cv, pmf)
+                _warn_unconverged(
+                    stage,
+                    contribution_converged(
+                        cv, pmf, cv_type="boresch", force_constant=k_boresch, theta_0=theta_0
+                    ),
+                )
                 totals["boresch"] += boresch_contribution(cv, pmf, theta_0, k_boresch)
             elif group.cv_type == "rmsd":
+                _warn_unconverged(
+                    stage,
+                    contribution_converged(cv, pmf, cv_type="rmsd", force_constant=k_rmsd),
+                )
                 totals["rmsd"] += rmsd_contribution(cv, pmf, k_rmsd, unbound=stage.is_bulk)
             elif group.cv_type == "separation":
+                reached, gradient = separation_plateau_reached(cv, pmf)
+                if not reached:
+                    warnings.warn(
+                        f"separation PMF for stage {stage.name!r} has not plateaued "
+                        f"(gradient {gradient:.2f} kcal/mol/nm over the final 0.4 nm); "
+                        "run windows to larger separation (the SMD snapshots extend to "
+                        "the capture range) — or extend the SMD capture beyond it.",
+                        stacklevel=2,
+                    )
+                _warn_unconverged(
+                    stage,
+                    contribution_converged(
+                        cv, pmf, cv_type="separation", force_constant=0.0, r_star=r_star_nm
+                    ),
+                )
                 totals["separation"] += separation_contribution(cv, pmf, r_star_nm)
 
         dg_corr = standard_state_correction(r_star_nm, theta_a_min, theta_b_min, k_boresch)

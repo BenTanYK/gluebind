@@ -93,6 +93,35 @@ def test_enumerate_requires_info():
         enumerate_centres(WindowSampling(force_constant=5.0, sampling_time_ns=1.0))
 
 
+def test_enumerate_two_phase_separation():
+    # fine 0.9->2.10 @0.05, then coarse @0.11 up to window_max (the separation CV)
+    s = WindowSampling(
+        force_constant=10.0,
+        sampling_time_ns=30.0,
+        window_min=0.9,
+        window_max=3.0,
+        window_spacing=0.05,
+        coarse_from=2.10,
+        coarse_spacing=0.10,
+    )
+    centres = enumerate_centres(s)
+    assert centres[0] == 0.9
+    assert 2.1 in centres  # transition point included
+    # fine region is 0.05-spaced up to 2.10
+    assert centres[1] == pytest.approx(0.95)
+    # coarse region beyond 2.10 is 0.10-spaced and stays within window_max
+    assert centres[centres.index(2.1) + 1] == pytest.approx(2.2)
+    assert max(centres) <= 3.0
+
+
+def test_separation_default_enumerates():
+    # regression: the separation default must be enumerable (previously raised)
+    from gluebind.config.sampling import SamplingConfig
+
+    centres = enumerate_centres(SamplingConfig().for_cv("separation", "separation"))
+    assert centres[0] == 0.9 and max(centres) <= 3.0
+
+
 def test_format_label():
     assert format_label("boresch", 0.85) == "0.85rad"
     assert format_label("separation", 1.5) == "1.5nm"
@@ -139,6 +168,20 @@ def test_run_completes_and_records_state(tmp_path):
     assert (tmp_path / ".gluebind-state.json").exists()
     assert state.handles  # handles recorded via on_submit
     assert state.stage_status.get("thetaA") == "done"
+
+
+def test_run_surfaces_failed_windows(tmp_path):
+    # A job that exits without writing result.json is a failure; it must be
+    # surfaced here (naming the window) rather than downstream as a WHAM crash.
+    from gluebind import RunState
+
+    calc = _calc(
+        tmp_path,
+        command_factory=lambda: [sys.executable, "-c", "raise SystemExit(1)"],
+    )
+    with pytest.raises(RuntimeError, match="produced no result"):
+        calc.run(scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf)
+    assert "failed" in RunState.load(tmp_path).stage_status.values()
 
 
 def test_run_is_idempotent(tmp_path):
@@ -403,6 +446,84 @@ def test_analyse_r_star_falls_back_to_config(tmp_path):
     calc.stage_centres = {}  # groups already built at construction; centres now gone
     result = calc.analyse(_fake_pmf, theta_a_min=1.0, theta_b_min=1.0)
     assert math.isfinite(result["dg_bind"])
+
+
+def test_rmsd_stage_names_respect_states(tmp_path):
+    # A custom CV sampled only in the bound state must not spawn a _bulk stage.
+    cfg = CalculationConfig.model_validate(
+        {
+            "inputs": INPUTS,
+            "restraints": {
+                "rmsd_cvs": [
+                    {"name": "domainA", "selection": "resid 1-10", "states": ["bound", "bulk"]},
+                    {"name": "domainB", "selection": "resid 11-20", "states": ["bound"]},
+                ]
+            },
+        }
+    )
+    cfg.sampling.ensemble_size = 1
+    cfg.sampling.rmsd.window_min = 0.0
+    cfg.sampling.rmsd.window_max = 0.2
+    cfg.sampling.rmsd.window_spacing = 0.2
+    calc = Calculation(
+        tmp_path, cfg, LocalBackend(), _spec_builder, command_factory=_trivial_command,
+        stage_centres={"thetaA": [1.0], "separation": [1.5]},
+    )
+    names = calc._rmsd_stage_names()
+    assert names == ["domainA_bound", "domainA_bulk", "domainB_bound"]
+
+
+def test_stage_add_windows_dedup_and_sort(tmp_path):
+    from gluebind.runners.stage import Stage
+
+    stage = Stage(
+        tmp_path / "rmsd" / "s",
+        cv_type="rmsd",
+        name="s",
+        dof=None,
+        centres=[0.2, 0.0],
+        ensemble_size=1,
+        spec_builder=_spec_builder,
+        command_factory=_trivial_command,
+    )
+    added = stage.add_windows([0.1, 0.2])  # 0.2 is a duplicate, 0.1 is new
+    assert len(added) == 1
+    assert [w.centre for w in stage.windows] == [0.0, 0.1, 0.2]  # kept sorted
+
+
+def _wired_calc(tmp_path, **stage_centres):
+    return Calculation(
+        tmp_path,
+        _config(),
+        LocalBackend(),
+        _spec_builder,
+        command_factory=_trivial_command,
+        stage_centres={"thetaA": [1.0], "separation": [1.5], **stage_centres},
+    )
+
+
+def test_add_windows_extends_rmsd_stage(tmp_path):
+    calc = _wired_calc(tmp_path)
+    stage = calc._group("rmsd").stages[0]
+    before = len(stage.windows)
+    calc.add_windows("rmsd", stage.name, [stage.windows[0].centre, 99.0])  # one dup, one new
+    assert len(stage.windows) == before + 1
+    assert any(w.centre == 99.0 for w in stage.windows)
+
+
+def test_add_windows_separation_requires_snapshot(tmp_path):
+    calc = _wired_calc(tmp_path)
+    with pytest.raises(ValueError, match="no SMD snapshot"):
+        calc.add_windows("separation", "separation", [2.17])  # off the 0.05 nm grid
+
+
+def test_add_windows_separation_with_snapshot(tmp_path):
+    calc = _wired_calc(tmp_path)
+    frames = tmp_path / "smd_frames"
+    frames.mkdir(parents=True)
+    (frames / "2nm.rst7").write_text("frame")  # {2.0:.4g}nm.rst7
+    stage = calc.add_windows("separation", "separation", [2.0])
+    assert any(w.centre == 2.0 for w in stage.windows)
 
 
 # ---- design invariant ------------------------------------------------------

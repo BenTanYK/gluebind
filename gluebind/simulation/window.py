@@ -61,7 +61,7 @@ class WindowSpec(pydantic.BaseModel):
     timestep_fs: float = 4.0
     hmr_factor: float = 1.5
     pme_cutoff_nm: float = 1.0
-    temperature_K: float = 298.15
+    temperature_K: float = 300.0
     sample_interval_steps: int = 125
 
     restraints: dict = pydantic.Field(default_factory=dict)

@@ -36,20 +36,34 @@ def format_label(cv_type: str, centre: float) -> str:
 def enumerate_centres(schedule) -> list[float]:
     """Window centres from a :class:`WindowSampling` schedule.
 
-    Uses explicit ``centres`` if given, else ``[window_min, window_max]`` at
-    ``window_spacing``. Boresch and separation stages, whose ranges come from the
-    MD distribution / SMD frames, must supply explicit centres.
+    Uses explicit ``centres`` if given, else a grid over
+    ``[window_min, window_max]`` at ``window_spacing``. When ``coarse_from`` /
+    ``coarse_spacing`` are set (the separation CV's two-phase schedule), the grid
+    is fine (``window_spacing``) up to ``coarse_from`` and coarse
+    (``coarse_spacing``) beyond it.
     """
     if schedule.centres is not None:
         return [round(c, 4) for c in schedule.centres]
     if (
-        schedule.window_spacing
-        and schedule.window_min is not None
-        and schedule.window_max is not None
+        not schedule.window_spacing
+        or schedule.window_min is None
+        or schedule.window_max is None
     ):
-        n = int(round((schedule.window_max - schedule.window_min) / schedule.window_spacing))
-        return [round(schedule.window_min + i * schedule.window_spacing, 4) for i in range(n + 1)]
-    raise ValueError("cannot enumerate windows: provide centres or (window_min, window_max, window_spacing)")
+        raise ValueError(
+            "cannot enumerate windows: provide centres or (window_min, window_max, window_spacing)"
+        )
+
+    two_phase = schedule.coarse_from is not None and schedule.coarse_spacing
+    fine_end = schedule.coarse_from if two_phase else schedule.window_max
+    n_fine = int(round((fine_end - schedule.window_min) / schedule.window_spacing))
+    centres = [round(schedule.window_min + i * schedule.window_spacing, 4) for i in range(n_fine + 1)]
+
+    if two_phase:
+        c = fine_end + schedule.coarse_spacing
+        while c <= schedule.window_max + 1e-9:
+            centres.append(round(c, 4))
+            c += schedule.coarse_spacing
+    return centres
 
 
 class Window(SimulationRunner):

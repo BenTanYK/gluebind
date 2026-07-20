@@ -83,6 +83,56 @@ def test_provider_local_run_with_fake_binary(tmp_path):
     assert (stage.base_dir / "metafile_run02.txt").exists()
 
 
+def test_resolve_timeseries_red_truncates_rmsd(tmp_path):
+    # RMSD timeseries are RED-truncated into a RED/ subdir before WHAM.
+    cfg = CalculationConfig.model_validate({"inputs": INPUTS})
+    stage = Stage(
+        tmp_path / "rmsd" / "receptor_bound",
+        cv_type="rmsd",
+        name="receptor_bound",
+        dof=None,
+        centres=[0.0],
+        ensemble_size=1,
+        spec_builder=lambda **kwargs: None,
+    )
+    window = stage.windows[0]
+    run_dir = window.replicate_dir(1)
+    run_dir.mkdir(parents=True)
+    np.savetxt(run_dir / "cv_timeseries.dat", np.column_stack([np.arange(100), np.linspace(0, 1, 100)]))
+
+    provider = WhamPmfProvider(cfg, wham_binary=str(_fake_wham(tmp_path)), apply_red=True)
+    path = provider._resolve_timeseries(stage, window, 1)
+
+    assert path.endswith("RED/cv_timeseries.dat")
+    assert (run_dir / "RED" / "cv_timeseries.dat").exists()
+    assert np.loadtxt(path).shape[0] <= 100  # truncated (RED or the fixed fallback)
+
+
+def test_resolve_timeseries_boresch_uses_raw(tmp_path):
+    # Boresch keeps the raw timeseries (its 1 ns equilibration is already dropped).
+    cfg = CalculationConfig.model_validate({"inputs": INPUTS})
+    stage = Stage(
+        tmp_path / "boresch" / "thetaA",
+        cv_type="boresch",
+        name="thetaA",
+        dof="thetaA",
+        centres=[1.0],
+        ensemble_size=1,
+        spec_builder=lambda **kwargs: None,
+    )
+    window = stage.windows[0]
+    run_dir = window.replicate_dir(1)
+    run_dir.mkdir(parents=True)
+    ts = run_dir / "cv_timeseries.dat"
+    np.savetxt(ts, np.column_stack([np.arange(10), np.linspace(1.0, 1.1, 10)]))
+
+    provider = WhamPmfProvider(cfg, wham_binary=str(_fake_wham(tmp_path)), apply_red=True)
+    path = provider._resolve_timeseries(stage, window, 1)
+
+    assert path == str(ts)
+    assert not (run_dir / "RED").exists()
+
+
 def test_provider_metafile_has_converted_units(tmp_path):
     cfg = CalculationConfig.model_validate({"inputs": INPUTS})
     cfg.sampling.ensemble_size = 1

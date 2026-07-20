@@ -113,8 +113,8 @@ def test_equilibration_stage_plan_structure():
     by = {s["stage"]: s for s in plan}
     assert by["minimisation"]["kind"] == "minimisation"
     assert all(by[s]["kind"] == "equilibration" for s in ["nvt_heat", "npt", "equilibration"])
-    # NVT heating: ramp 0 K -> production T, backbone-restrained, no barostat
-    assert by["nvt_heat"]["temperature_start_K"] == 0.0
+    # NVT heating: ramp 10 K -> production T, backbone-restrained, no barostat
+    assert by["nvt_heat"]["temperature_start_K"] == 10.0
     assert by["nvt_heat"]["restraint"] == "backbone"
     assert by["nvt_heat"]["pressure"] is False
     # NPT: barostat on, backbone-restrained

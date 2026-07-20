@@ -33,7 +33,7 @@ class PrepConfig(pydantic.BaseModel):
     """Short NVT temperature ramp (0 K -> production temperature)."""
     npt_ns: float = 0.4
     """Short NPT equilibration to relax the box volume."""
-    equilibration_ns: float = 5.0
+    equilibration_ns: float = 50.0
     """Long NVT production equilibration at the production temperature. Single run
     (no ensemble): the paper found triplicate equilibration trajectories to be
     essentially identical. Source of the RMSF/anchor-selection trajectory, the

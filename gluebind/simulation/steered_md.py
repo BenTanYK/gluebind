@@ -30,6 +30,28 @@ def separation_window_targets(centres) -> list[float]:
     return sorted({round(float(c), 4) for c in centres})
 
 
+def smd_snapshot_targets(schedule) -> list[float]:
+    """Dense SMD snapshot grid (nm) from a separation :class:`WindowSampling`.
+
+    Snapshots are saved from ``window_min`` to ``smd_capture_max`` at
+    ``smd_snapshot_spacing`` — finer than, and independent of, the US window
+    schedule. The US windows are a subset of this grid, so windows can be added
+    later (up to ``smd_capture_max``) without re-running steered MD.
+    """
+    if (
+        schedule.window_min is None
+        or schedule.smd_snapshot_spacing is None
+        or schedule.smd_capture_max is None
+    ):
+        raise ValueError(
+            "separation schedule needs window_min, smd_snapshot_spacing and "
+            "smd_capture_max to build the SMD snapshot grid"
+        )
+    lo, hi, step = schedule.window_min, schedule.smd_capture_max, schedule.smd_snapshot_spacing
+    n = int(round((hi - lo) / step))
+    return [round(lo + i * step, 4) for i in range(n + 1)]
+
+
 class SmdSpec(pydantic.BaseModel):
     """Everything one steered-MD run needs, self-contained (serialisable to JSON).
 
@@ -66,6 +88,8 @@ class SmdSpec(pydantic.BaseModel):
     k_rmsd: float = 50.0
     k_boresch: float = 250.0
     initial_r0_nm: float = 1.15
+    smd_pull_margin: float = 0.5
+    """Distance (nm) to steer past the furthest snapshot target so it is reached."""
     total_steps: int = 750_000
     increment_steps: int = 100
     platform: str = "CUDA"
@@ -99,17 +123,19 @@ def make_steered_md_runner(
     lig_group: list[int],
     anchors: dict[str, int],
     rmsd_atoms_bound: dict[str, list[int]],
-    window_centres,
+    snapshot_centres,
     sampling,
     platform: str = "CUDA",
 ):
     """Return the ``callable(boresch_eq_values)`` the runner invokes between the
     Boresch and separation stages.
 
-    The callable writes an :class:`SmdSpec` into ``work_dir`` and submits a single
-    backend job (so the pull runs on a compute node, not the driver); the job
-    writes the per-centre frames into ``out_dir``, which the spec builder then
-    reads for the separation windows.
+    ``snapshot_centres`` is the dense SMD snapshot grid (from
+    :func:`smd_snapshot_targets`) — saved independently of, and finer than, the US
+    window schedule. The callable writes an :class:`SmdSpec` into ``work_dir`` and
+    submits a single backend job (so the pull runs on a compute node, not the
+    driver); the job writes the per-centre frames into ``out_dir``, which the spec
+    builder then reads for the separation windows.
     """
     from gluebind.backend.base import JobSpec, JobState
 
@@ -127,11 +153,12 @@ def make_steered_md_runner(
             anchors=anchors,
             rmsd_atoms_bound=rmsd_atoms_bound,
             boresch_eq_values=dict(boresch_eq_values),
-            window_centres=separation_window_targets(window_centres),
+            window_centres=separation_window_targets(snapshot_centres),
             hmr_factor=sampling.hmr_factor,
             pme_cutoff_nm=sampling.pme_cutoff_nm,
             timestep_fs=sampling.timestep_fs,
             temperature_K=sampling.temperature_K,
+            smd_pull_margin=sampling.separation.smd_pull_margin or 0.5,
             platform=platform,
         )
         spec.dump(work_dir / SMD_SPEC_FILENAME)
@@ -183,6 +210,7 @@ def run_smd(work_dir: str | pathlib.Path) -> None:
         k_rmsd=spec.k_rmsd,
         k_boresch=spec.k_boresch,
         initial_r0_nm=spec.initial_r0_nm,
+        smd_pull_margin=spec.smd_pull_margin,
         total_steps=spec.total_steps,
         increment_steps=spec.increment_steps,
         platform=spec.platform,
@@ -209,6 +237,7 @@ def run_steered_md(
     k_rmsd: float = 50.0,
     k_boresch: float = 250.0,
     initial_r0_nm: float = 1.15,
+    smd_pull_margin: float = 0.5,
     total_steps: int = 750_000,
     increment_steps: int = 100,
     platform=None,
@@ -259,7 +288,7 @@ def run_steered_md(
     # Pull r0 from the initial value out past the furthest target, snapshotting
     # each target the first time the measured distance reaches it.
     r0 = initial_r0_nm
-    span = max(targets) - initial_r0_nm + 0.2
+    span = max(targets) - initial_r0_nm + smd_pull_margin
     per_increment = span / (total_steps // increment_steps)
     frames: dict[float, str] = {}
     remaining = list(targets)

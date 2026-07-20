@@ -45,6 +45,11 @@ def wham_units(cv_type: str, centre: float, force_constant: float) -> tuple[floa
 class WhamPmfProvider:
     """Callable ``stage -> (cv, pmf)`` via WHAM over the stage's windows."""
 
+    # Per-stage WHAM histogram bins (matching the reference us_analysis.py):
+    # Boresch PMFs use far less data (fewer, tighter windows) so need fewer bins;
+    # separation spans the widest range and uses the most.
+    _DEFAULT_NUM_BINS = {"boresch": 50, "rmsd": 100, "separation": 200}
+
     def __init__(
         self,
         config: CalculationConfig,
@@ -52,10 +57,12 @@ class WhamPmfProvider:
         wham_binary: str | pathlib.Path = "wham",
         location: str = "local",
         backend=None,
-        num_bins: int = 200,
+        num_bins: int | dict | None = None,
         tol: float = 1e-6,
         numpad: int = 0,
         hist_margin: float = 0.1,
+        apply_red: bool = True,
+        red_fallback_ns: float = 3.5,
     ) -> None:
         if location not in ("local", "slurm"):
             raise ValueError("location must be 'local' or 'slurm'")
@@ -78,6 +85,8 @@ class WhamPmfProvider:
         self.tol = tol
         self.numpad = numpad
         self.hist_margin = hist_margin
+        self.apply_red = apply_red
+        self.red_fallback_ns = red_fallback_ns
 
     def __call__(self, stage):
         schedule = self.config.sampling.for_cv(stage.cv_type, stage.name)
@@ -88,7 +97,7 @@ class WhamPmfProvider:
         params = [
             min(centres) - self.hist_margin,
             max(centres) + self.hist_margin,
-            self.num_bins,
+            self._num_bins(stage.cv_type),
             self.tol,
             self.config.sampling.temperature_K,
             self.numpad,
@@ -98,9 +107,9 @@ class WhamPmfProvider:
         for replicate in range(1, ensemble_size + 1):
             entries = []
             for window in stage.windows:
-                timeseries = window.replicate_dir(replicate) / CV_TIMESERIES_FILENAME
+                timeseries = self._resolve_timeseries(stage, window, replicate)
                 centre, k_wham = wham_units(stage.cv_type, window.centre, k)
-                entries.append((str(timeseries), centre, k_wham))
+                entries.append((timeseries, centre, k_wham))
             metafile = write_metafile(entries, stage.base_dir / f"metafile_run{replicate:02d}.txt")
             pmf_out = stage.base_dir / f"pmf_run{replicate:02d}.txt"
             self._run_wham(metafile, pmf_out, params)
@@ -108,6 +117,51 @@ class WhamPmfProvider:
 
         cv, mean, _sem = average_pmfs(replicate_pmfs)
         return cv, mean
+
+    def _num_bins(self, cv_type: str) -> int:
+        """WHAM histogram bins for a stage's CV type — per-stage by default, or a
+        uniform int / explicit per-type dict if the caller supplied one."""
+        if self.num_bins is None:
+            return self._DEFAULT_NUM_BINS[cv_type]
+        if isinstance(self.num_bins, dict):
+            return self.num_bins.get(cv_type, self._DEFAULT_NUM_BINS[cv_type])
+        return self.num_bins
+
+    def _resolve_timeseries(self, stage, window, replicate) -> str:
+        """Path to the CV timeseries WHAM should read for this window.
+
+        RMSD and separation timeseries are RED-truncated (equilibration removed)
+        into a ``RED/`` subdirectory; Boresch uses the raw file (its fixed 1 ns
+        equilibration is already discarded during sampling). If RED finds no
+        equilibration (or is unavailable), a fixed fraction — the first
+        ``red_fallback_ns`` of the window's sampling time — is discarded instead,
+        matching the reference us_analysis.py. RED runs on the driver (cheap,
+        CPU-only text analysis; no MD).
+        """
+        import numpy as np
+
+        raw = window.replicate_dir(replicate) / CV_TIMESERIES_FILENAME
+        if stage.cv_type == "boresch" or not self.apply_red:
+            return str(raw)
+
+        data = np.loadtxt(raw)
+        if data.ndim != 2 or data.shape[0] < 2:
+            return str(raw)  # too short to truncate
+
+        try:
+            from gluebind.analysis.pmf import detect_equilibration
+
+            idx = detect_equilibration(data[:, 1])
+        except Exception:  # noqa: BLE001 - RED found no equilibration or is unavailable
+            schedule = self.config.sampling.for_cv(stage.cv_type, stage.name)
+            frac = min(self.red_fallback_ns / schedule.sampling_time_ns, 0.9)
+            idx = int(frac * data.shape[0])
+        idx = max(0, min(idx, data.shape[0] - 1))
+
+        out = raw.parent / "RED" / raw.name
+        out.parent.mkdir(parents=True, exist_ok=True)
+        np.savetxt(out, data[idx:])
+        return str(out)
 
     def _run_wham(self, metafile, pmf_out, params) -> None:
         if self.location == "local":

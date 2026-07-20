@@ -71,6 +71,74 @@ def test_integrands_drops_nonfinite():
     assert xs.size == 2
 
 
+def test_rmsd_contribution_drops_nonfinite_bins():
+    # A nan/inf bin (WHAM emits these) must contribute 0, not poison the sum; for
+    # the sum-based integral this equals removing those bins entirely.
+    x = np.linspace(0.0, 0.3, 61)
+    pmf = np.linspace(0.0, 2.0, 61)
+    bad = pmf.copy()
+    bad[10] = np.nan
+    bad[40] = np.inf
+    keep = np.ones(61, dtype=bool)
+    keep[[10, 40]] = False
+    got = fe.rmsd_contribution(x, bad, 3000.0, unbound=True)
+    ref = fe.rmsd_contribution(x[keep], pmf[keep], 3000.0, unbound=True)
+    assert math.isfinite(got)
+    assert got == pytest.approx(ref)
+
+
+def test_boresch_contribution_drops_nonfinite_bins():
+    x = np.linspace(0.5, 1.5, 101)
+    pmf = np.linspace(0.0, 1.0, 101)
+    bad = pmf.copy()
+    bad[5] = np.nan
+    bad[50] = np.inf
+    keep = np.ones(101, dtype=bool)
+    keep[[5, 50]] = False
+    got = fe.boresch_contribution(x, bad, theta_0=1.0, force_constant=100.0)
+    ref = fe.boresch_contribution(x[keep], pmf[keep], theta_0=1.0, force_constant=100.0)
+    assert math.isfinite(got)
+    assert got == pytest.approx(ref)
+
+
+def test_separation_contribution_finite_with_nan():
+    x = np.linspace(0.9, 3.0, 211)
+    pmf = np.zeros_like(x)
+    pmf[5] = np.nan  # a failed bin must not poison the integral
+    assert math.isfinite(fe.separation_contribution(x, pmf, r_star=2.5))
+
+
+def test_separation_plateau_reached():
+    x = np.linspace(0.9, 3.0, 43)
+    flat_tail = -5.0 * np.maximum(0.0, 2.6 - x)  # rises to 0 by 2.6 nm, then flat
+    reached, grad = fe.separation_plateau_reached(x, flat_tail)
+    assert reached and abs(grad) < 0.1
+
+    sloped = -2.0 * x  # never flattens
+    reached2, grad2 = fe.separation_plateau_reached(x, sloped)
+    assert not reached2 and abs(grad2) > 0.1
+
+
+def test_contribution_converged_bracketed_well():
+    # integrand exp(-bW) peaks mid-range and decays to <1% at both ends -> converged
+    x = np.linspace(-1.0, 1.0, 101)
+    pmf = 100.0 * x**2
+    assert fe.contribution_converged(x, pmf, cv_type="rmsd", force_constant=0.0)
+
+
+def test_contribution_unconverged_edge_peak():
+    # integrand rises monotonically -> peaks at the high edge -> not bracketed
+    x = np.linspace(0.0, 1.0, 101)
+    pmf = -50.0 * x
+    assert not fe.contribution_converged(x, pmf, cv_type="rmsd", force_constant=0.0)
+
+
+def test_contribution_converged_separation():
+    x = np.linspace(0.9, 3.0, 43)
+    pmf = 20.0 * (x - 1.8) ** 2 - 20.0  # well with rising edges within the range
+    assert fe.contribution_converged(x, pmf, cv_type="separation", force_constant=0.0, r_star=3.0)
+
+
 def test_binding_free_energy_is_sum():
     assert fe.binding_free_energy(-8.7, -0.5, -19.4, 7.9) == pytest.approx(-8.7 - 0.5 - 19.4 + 7.9)
 

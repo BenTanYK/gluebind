@@ -161,7 +161,7 @@ def equilibration_stage_plan(prep_config: PrepConfig) -> list[dict]:
             "stage": "nvt_heat",
             "kind": "equilibration",
             "runtime_ns": prep_config.nvt_heat_ns,
-            "temperature_start_K": 0.0,
+            "temperature_start_K": 10.0,
             "temperature_end_K": t,
             "pressure": False,
             "restraint": "backbone",

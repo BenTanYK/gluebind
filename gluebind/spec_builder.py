@@ -34,12 +34,30 @@ from gluebind.simulation.window import WindowSpec
 
 
 @dataclasses.dataclass(frozen=True)
+class AlwaysOn:
+    """A harmonic RMSD-to-reference restraint present in every stage whose topology
+    contains its atoms (e.g. the DDB1-binding helix of DCAF16). Held about zero, so
+    it cancels between the restrained and released states and does not enter ΔG."""
+
+    name: str
+    atoms: list[int]
+    force_constant: float
+
+
+@dataclasses.dataclass(frozen=True)
 class BulkTarget:
-    """The isolated-species topology/coordinates + atom indices for a bulk RMSD stage."""
+    """The isolated-species topology/coordinates + atom indices for a bulk RMSD stage.
+
+    ``atoms`` is the sampled region (bulk-topology numbering). ``held`` are the
+    earlier same-protein regions held fixed in this bulk state (sequential
+    application, mirroring the bound state). ``always_on`` are the always-on
+    restraints whose atoms live in this bulk topology (so they still cancel)."""
 
     topology: str
     coordinates: str
     atoms: list[int]
+    held: list[tuple[str, list[int]]] = dataclasses.field(default_factory=list)
+    always_on: list[AlwaysOn] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -60,6 +78,9 @@ class RestraintContext:
     """Region name → atom indices in the complex topology (bound state)."""
     rmsd_bulk: dict[str, BulkTarget]
     """Region name → its isolated bulk topology/coords/atoms."""
+    always_on: list[AlwaysOn] = dataclasses.field(default_factory=list)
+    """Always-on restraints resolved against the *complex* topology (present in
+    every complex stage — RMSD-bound, Boresch, separation)."""
 
 
 class SpecBuilder:
@@ -111,9 +132,22 @@ class SpecBuilder:
             "sample_interval_steps": s.sample_interval_steps,
         }
 
+    def _always_on_entries(self, always_ons: list[AlwaysOn]) -> list[dict]:
+        """Fixed-about-zero RMSD entries for always-on restraints (centre=None)."""
+        return [
+            {
+                "name": ao.name,
+                "atoms": ao.atoms,
+                "force_constant": ao.force_constant,
+                "centre": None,
+                "sampled": False,
+            }
+            for ao in always_ons
+        ]
+
     def _fixed_rmsd_list(self) -> list[dict]:
         k = self.config.sampling.rmsd.force_constant
-        return [
+        entries = [
             {
                 "name": region,
                 "atoms": self.ctx.rmsd_atoms_bound[region],
@@ -123,6 +157,7 @@ class SpecBuilder:
             }
             for region in self.ctx.rmsd_order
         ]
+        return entries + self._always_on_entries(self.ctx.always_on)
 
     def _boresch_block(self, boresch_eq_values: dict) -> dict:
         return {
@@ -171,11 +206,22 @@ class SpecBuilder:
                 )
                 if sampled:
                     break  # regions after this one are not yet applied
+            rmsd += self._always_on_entries(self.ctx.always_on)
         else:  # bulk
             bulk = self.ctx.rmsd_bulk[region]
             topology = bulk.topology
             coordinates = bulk.coordinates
             rmsd = [
+                {
+                    "name": name,
+                    "atoms": atoms,
+                    "force_constant": k,
+                    "centre": None,
+                    "sampled": False,
+                }
+                for name, atoms in bulk.held  # earlier same-protein regions held fixed
+            ]
+            rmsd.append(
                 {
                     "name": region,
                     "atoms": bulk.atoms,
@@ -183,7 +229,8 @@ class SpecBuilder:
                     "centre": cv_centre,
                     "sampled": True,
                 }
-            ]
+            )
+            rmsd += self._always_on_entries(bulk.always_on)
 
         return WindowSpec(
             cv_type="rmsd",
@@ -265,8 +312,18 @@ def build_restraint_context(
     )
 
     rmsd_order, rmsd_atoms_bound, rmsd_bulk = _resolve_rmsd_regions(
-        config, prepared, universe, receptor_ca, target_ca, glue_indices, assign
+        config, prepared, universe, receptor_ca, target_ca, glue_indices, assign, n_target,
+        n_receptor,
     )
+
+    always_on = [
+        AlwaysOn(
+            name=f"always_on_{i}",
+            atoms=[int(a) for a in universe.select_atoms(r.selection).indices],
+            force_constant=r.force_constant,
+        )
+        for i, r in enumerate(config.restraints.always_on)
+    ]
 
     return RestraintContext(
         complex_topology=prepared.complex_prm7,
@@ -277,6 +334,7 @@ def build_restraint_context(
         rmsd_order=rmsd_order,
         rmsd_atoms_bound=rmsd_atoms_bound,
         rmsd_bulk=rmsd_bulk,
+        always_on=always_on,
     )
 
 
@@ -341,7 +399,10 @@ def _collect_series(traj, rec_group, lig_group, atom_indices, np):
     return result
 
 
-def _resolve_rmsd_regions(config, prepared, universe, receptor_ca, target_ca, glue_indices, assign):
+def _resolve_rmsd_regions(
+    config, prepared, universe, receptor_ca, target_ca, glue_indices, assign, n_target,
+    n_receptor,
+):
     """RMSD region atom indices for bound (complex) and bulk (isolated) topologies."""
     import MDAnalysis as mda
 
@@ -368,13 +429,104 @@ def _resolve_rmsd_regions(config, prepared, universe, receptor_ca, target_ca, gl
         }
         return order, bound, bulk
 
-    # Custom RMSD CVs from selection strings.
+    # Custom RMSD CVs from selection strings (bound = complex numbering).
     for cv in restraints.rmsd_cvs:
         order.append(cv.name)
-        bound[cv.name] = [int(i) for i in universe.select_atoms(cv.selection).indices]
+        atoms = [int(i) for i in universe.select_atoms(cv.selection).indices]
+        if cv.include_glue:
+            atoms += glue_indices
+        bound[cv.name] = atoms
     if restraints.rmsd_order:
         order = list(restraints.rmsd_order)
+
+    # Bulk = each region re-resolved against its protein's isolated topology, with
+    # earlier same-protein regions held and any always-on restraint that lives there.
+    bulk = _resolve_custom_bulk(
+        config, prepared, universe, receptor_bulk, target_bulk, order, assign, n_target, n_receptor
+    )
     return order, bound, bulk
+
+
+def _infer_protein(resindices: list[int], n_target: int, n_receptor: int) -> str:
+    """'target' | 'receptor' from a CV's complex residue indices (target precedes
+    receptor), raising if the CV spans both proteins or falls outside them."""
+    lo, hi = min(resindices), max(resindices)
+    if hi < n_target:
+        return "target"
+    if lo >= n_target and hi < n_target + n_receptor:
+        return "receptor"
+    raise ValueError(
+        f"RMSD/always-on selection resolves to complex residues {lo}-{hi}, which span "
+        f"both proteins or fall outside them (target=[0,{n_target}), "
+        f"receptor=[{n_target},{n_target + n_receptor})); each region must lie within "
+        "a single protein so its bulk state can be resolved."
+    )
+
+
+def _remap_to_bulk(complex_sel, bulk_universe, offset: int) -> list[int]:
+    """Map a complex-topology selection onto the isolated bulk topology: same
+    residues (shifted by ``offset``), same atom names, bulk atom indices."""
+    resindices = [int(r) - offset for r in complex_sel.residues.resindices]
+    names = sorted({str(n) for n in complex_sel.names})
+    residues = bulk_universe.residues[resindices]
+    return [int(i) for i in residues.atoms.select_atoms("name " + " ".join(names)).indices]
+
+
+def _resolve_custom_bulk(
+    config, prepared, universe, receptor_bulk, target_bulk, order, assign, n_target, n_receptor
+) -> dict[str, BulkTarget]:
+    """Per-region bulk targets: isolated topology, remapped sampled atoms, held
+    same-protein partners (sequential), and the always-on restraints present there."""
+    restraints = config.restraints
+    cvs = {cv.name: cv for cv in restraints.rmsd_cvs}
+    bulk_universe = {"target": target_bulk, "receptor": receptor_bulk}
+    bulk_files = {
+        "target": (prepared.target_bulk_prm7, prepared.target_bulk_rst7),
+        "receptor": (prepared.receptor_bulk_prm7, prepared.receptor_bulk_rst7),
+    }
+    offset = {"target": 0, "receptor": n_target}
+
+    # Resolve every region's protein + bulk atoms once (held partners reuse these).
+    region_protein: dict[str, str] = {}
+    region_atoms: dict[str, list[int]] = {}
+    for name in order:
+        cv = cvs[name]
+        sel = universe.select_atoms(cv.selection)
+        protein = _infer_protein([int(r) for r in sel.residues.resindices], n_target, n_receptor)
+        buni = bulk_universe[protein]
+        atoms = _remap_to_bulk(sel, buni, offset[protein])
+        if cv.include_glue and assign == protein:
+            atoms += [int(i) for i in buni.select_atoms("resname MOL and not name H*").indices]
+        region_protein[name] = protein
+        region_atoms[name] = atoms
+
+    # Always-on restraints, grouped by the bulk topology their atoms live in.
+    always_on_by_protein: dict[str, list[AlwaysOn]] = {"target": [], "receptor": []}
+    for i, r in enumerate(restraints.always_on):
+        sel = universe.select_atoms(r.selection)
+        protein = _infer_protein([int(x) for x in sel.residues.resindices], n_target, n_receptor)
+        atoms = _remap_to_bulk(sel, bulk_universe[protein], offset[protein])
+        always_on_by_protein[protein].append(AlwaysOn(f"always_on_{i}", atoms, r.force_constant))
+
+    bulk: dict[str, BulkTarget] = {}
+    for idx, name in enumerate(order):
+        if "bulk" not in cvs[name].states:
+            continue
+        protein = region_protein[name]
+        held = [
+            (other, region_atoms[other])
+            for other in order[:idx]
+            if region_protein[other] == protein
+        ]
+        prm7, rst7 = bulk_files[protein]
+        bulk[name] = BulkTarget(
+            topology=prm7,
+            coordinates=rst7,
+            atoms=region_atoms[name],
+            held=held,
+            always_on=always_on_by_protein[protein],
+        )
+    return bulk
 
 
 def _bulk_target(prm7, rst7, bulk_universe, include_glue) -> BulkTarget:
