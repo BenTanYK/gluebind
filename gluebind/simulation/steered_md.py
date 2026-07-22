@@ -180,16 +180,6 @@ def make_steered_md_runner(
     return _generate
 
 
-def _save_frame_rst7(prmtop_path, positions, box_vectors, out_path) -> None:
-    """Write an AMBER rst7 (positions + box) that run_window can reload."""
-    import parmed
-
-    structure = parmed.load_file(str(prmtop_path))
-    structure.positions = positions
-    structure.box_vectors = box_vectors
-    structure.save(str(out_path), format="rst7", overwrite=True)
-
-
 def run_smd(work_dir: str | pathlib.Path) -> None:
     """Run the steered MD whose spec is at ``work_dir/smd.json`` (backend entry point).
 
@@ -316,7 +306,7 @@ def run_steered_md(
             target = remaining.pop(0)
             state = simulation.context.getState(getPositions=True)
             out_path = out_dir / f"{target:.4g}nm.rst7"
-            _save_frame_rst7(
+            sb.save_rst7(
                 topology, state.getPositions(), state.getPeriodicBoxVectors(), out_path
             )
             frames[target] = str(out_path)

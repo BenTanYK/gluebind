@@ -108,3 +108,13 @@ def load_coordinates(path):
     """Load an AMBER rst7/inpcrd; return ``(positions, box_vectors)``."""
     inpcrd = app.AmberInpcrdFile(str(pathlib.Path(path)))
     return inpcrd.positions, inpcrd.boxVectors
+
+
+def save_rst7(prmtop_path, positions, box_vectors, out_path) -> None:
+    """Write an AMBER rst7 (positions + box) that a later run can reload."""
+    import parmed
+
+    structure = parmed.load_file(str(prmtop_path))
+    structure.positions = positions
+    structure.box_vectors = box_vectors
+    structure.save(str(out_path), format="rst7", overwrite=True)

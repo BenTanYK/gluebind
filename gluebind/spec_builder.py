@@ -332,6 +332,21 @@ class _ComplexMap:
         return map_indices(idx, self._offset[protein])
 
 
+def resolve_always_on(config: CalculationConfig, cmap: "_ComplexMap") -> list[AlwaysOn]:
+    """Resolve the always-on restraints to atom indices via ``cmap`` (the
+    ``always_on_atoms`` mode is appended to each residue-only selection). Shared by
+    the US resolver and the production run so both hold the same atoms."""
+    mode = config.restraints.always_on_atoms
+    return [
+        AlwaysOn(
+            name=f"always_on_{i}",
+            atoms=cmap.resolve(r.protein, _with_atoms(r.selection, mode)),
+            force_constant=r.force_constant,
+        )
+        for i, r in enumerate(config.restraints.always_on)
+    ]
+
+
 def build_restraint_context(
     prepared, config: CalculationConfig, *, interface_cutoff_angstrom: float = 12.0
 ) -> RestraintContext:
@@ -389,15 +404,7 @@ def build_restraint_context(
         config, prepared, cmap, glue_indices, assign
     )
 
-    always_on_atoms = config.restraints.always_on_atoms
-    always_on = [
-        AlwaysOn(
-            name=f"always_on_{i}",
-            atoms=cmap.resolve(r.protein, _with_atoms(r.selection, always_on_atoms)),
-            force_constant=r.force_constant,
-        )
-        for i, r in enumerate(config.restraints.always_on)
-    ]
+    always_on = resolve_always_on(config, cmap)
 
     return RestraintContext(
         complex_topology=prepared.complex_prm7,

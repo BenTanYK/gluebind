@@ -149,9 +149,13 @@ def equilibration_stage_plan(prep_config: PrepConfig) -> list[dict]:
     2. **nvt_heat** — NVT ramp 0 K -> production T, backbone-restrained
     3. **npt** — NPT equilibration at production T, backbone-restrained (relaxes
        the box volume)
-    4. **equilibration** — long NVT production equilibration at production T,
-       unrestrained (the trajectory used for RMSF/anchor selection and Boresch
-       distributions, and the source of the bound-state structure)
+    4. **equilibration** — long NVT production run at production T (the trajectory
+       used for RMSF/anchor selection and Boresch distributions, and the source of
+       the bound-state structure). Run unrestrained via BSS, *unless* the config
+       defines always-on restraints, in which case :func:`prepare` runs this stage
+       in OpenMM instead so those constant restraints are applied (see
+       :mod:`gluebind.simulation.production`); this dict then supplies its
+       runtime/temperature.
 
     Pure and unit-testable; the keys match :class:`PrepStageSpec`'s fields.
     """
@@ -263,6 +267,83 @@ def run_equilibration_stages(
             trajectory = str(prefix.with_suffix(".dcd"))
 
     return input_prm7, input_rst7, trajectory
+
+
+def _resolve_always_on_for_production(
+    config: CalculationConfig, complex_prm7: str
+) -> list[dict]:
+    """Resolve the always-on restraints to atom indices in ``complex_prm7`` for the
+    production run (via the same verified map + mode the US windows use)."""
+    import MDAnalysis as mda
+
+    from gluebind.spec_builder import _ComplexMap, resolve_always_on
+
+    cmap = _ComplexMap(
+        mda.Universe(complex_prm7),
+        mda.Universe(config.inputs.target.prm7),
+        mda.Universe(config.inputs.receptor.prm7),
+        has_glue=config.inputs.glue is not None,
+    )
+    return [
+        {"name": ao.name, "atoms": ao.atoms, "force_constant": ao.force_constant}
+        for ao in resolve_always_on(config, cmap)
+    ]
+
+
+def _run_production_stage(
+    config: CalculationConfig,
+    input_prm7,
+    input_rst7,
+    stage: dict,
+    out_dir,
+    backend,
+    *,
+    platform: str,
+    poll_interval: float,
+) -> tuple[str, str, str | None]:
+    """Run the OpenMM production stage (with constant restraints) as a backend job.
+
+    Resumable: if the output structures already exist the stage is skipped.
+    """
+    from gluebind.backend.base import JobSpec, JobState
+    from gluebind.backend.scheduler import Scheduler
+    from gluebind.simulation.production import (
+        PRODUCTION_OUTPUT_PREFIX,
+        PRODUCTION_SPEC_FILENAME,
+        ProductionSpec,
+        production_launch_command,
+    )
+
+    out_dir = pathlib.Path(out_dir)
+    prefix = out_dir / PRODUCTION_OUTPUT_PREFIX
+    out_prm7, out_rst7 = f"{prefix}.prm7", f"{prefix}.rst7"
+
+    if not (pathlib.Path(out_prm7).exists() and pathlib.Path(out_rst7).exists()):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        spec = ProductionSpec(
+            topology=input_prm7,
+            coordinates=input_rst7,
+            restraints=_resolve_always_on_for_production(config, input_prm7),
+            runtime_ns=stage["runtime_ns"],
+            timestep_fs=config.sampling.timestep_fs,
+            hmr_factor=config.sampling.hmr_factor,
+            pme_cutoff_nm=config.sampling.pme_cutoff_nm,
+            temperature_K=stage["temperature_end_K"],
+            platform=platform,
+        )
+        spec.dump(out_dir / PRODUCTION_SPEC_FILENAME)
+        job = JobSpec(
+            command=production_launch_command(),
+            work_dir=str(out_dir),
+            name="prep_production",
+        )
+        (state,) = Scheduler(backend, poll_interval=poll_interval).run([job])
+        if state is not JobState.FINISHED:
+            raise RuntimeError(f"production stage did not finish (state={state})")
+
+    dcd = f"{prefix}.dcd"
+    trajectory = dcd if pathlib.Path(dcd).exists() else None
+    return out_prm7, out_rst7, trajectory
 
 
 def _save(system, prefix: pathlib.Path) -> tuple[str, str]:
@@ -381,15 +462,42 @@ def prepare(
     solvated = assemble_and_solvate(target, receptor, glue, config.prep)
     solvated_prm7, solvated_rst7 = _save(solvated, work_dir / "solvated")
 
-    complex_prm7, complex_rst7, trajectory = run_equilibration_stages(
-        solvated_prm7,
-        solvated_rst7,
-        equilibration_stage_plan(config.prep),
-        work_dir / "equilibration",
-        backend,
-        platform=platform,
-        poll_interval=poll_interval,
-    )
+    plan = equilibration_stage_plan(config.prep)
+    if config.restraints.always_on:
+        # Constant restraints (e.g. the DDB1 surrogate) must be present during the
+        # production run, so run min/heat/NPT in BSS and the production stage in
+        # OpenMM — where the restraint is applied on verified-mapped indices, the
+        # same way the US windows resolve it (BSS's assembly re-indexing never
+        # touches the restrained run).
+        npt_prm7, npt_rst7, _ = run_equilibration_stages(
+            solvated_prm7,
+            solvated_rst7,
+            plan[:3],
+            work_dir / "equilibration",
+            backend,
+            platform=platform,
+            poll_interval=poll_interval,
+        )
+        complex_prm7, complex_rst7, trajectory = _run_production_stage(
+            config,
+            npt_prm7,
+            npt_rst7,
+            plan[3],
+            work_dir / "equilibration" / "04_production",
+            backend,
+            platform=platform,
+            poll_interval=poll_interval,
+        )
+    else:
+        complex_prm7, complex_rst7, trajectory = run_equilibration_stages(
+            solvated_prm7,
+            solvated_rst7,
+            plan,
+            work_dir / "equilibration",
+            backend,
+            platform=platform,
+            poll_interval=poll_interval,
+        )
 
     # Bulk reference species: isolate + re-solvate on the driver (cheap), then
     # equilibrate through the backend — no MD runs on the driver.
