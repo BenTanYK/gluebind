@@ -159,6 +159,13 @@ class SamplingConfig(pydantic.BaseModel):
     sample_interval_steps: int = 125
     ensemble_size: int = 3
     """Number of independent replicate simulations per window."""
+    run_rmsd_us: bool = True
+    """Whether to run the RMSD umbrella-sampling stages (ΔG_c^bound/ΔG_c^bulk). Set
+    ``False`` for the restrained-separation-PMF-only mode: the RMSD restraints are
+    still applied (held fixed) in the Boresch/SMD/separation windows, but their US
+    stages are skipped, giving the cheaper ranking estimate
+    ΔG_sep + ΔG_o^bound + ΔG_corr° (a stability discriminator, not a rigorous
+    ΔG_bind° — see the analyse() ``rmsd_included`` flag)."""
 
     boresch: WindowSampling = pydantic.Field(default_factory=_boresch_default)
     rmsd: WindowSampling = pydantic.Field(default_factory=_rmsd_default)

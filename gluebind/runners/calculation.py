@@ -304,6 +304,12 @@ class Calculation(SimulationRunner):
         return {cv: stages for cv, stages in layout.items() if stages}
 
     def _rmsd_stage_names(self) -> list[str]:
+        # Separation-PMF-only mode: skip the RMSD US *stages* only. The RMSD atom
+        # groups are still resolved by build_restraint_context, so the fixed RMSD
+        # restraints remain in the Boresch/SMD/separation windows — we just don't
+        # sample (or score) ΔG_c^bound/ΔG_c^bulk.
+        if not self.config.sampling.run_rmsd_us:
+            return []
         restraints = self.config.restraints
         if restraints.uses_default_all_ca:
             regions = [("receptor", ("bound", "bulk")), ("target", ("bound", "bulk"))]
@@ -592,6 +598,11 @@ class Calculation(SimulationRunner):
         SEMs that flag the least-converged stage). ``dg_bind_sem`` is ``None`` and
         ``stage_sems`` empty for a single repeat.
 
+        In separation-PMF-only mode (``sampling.run_rmsd_us=False``) there are no
+        RMSD stages, so ``dg_bind`` is ``ΔG_sep + ΔG_boresch + ΔG_corr`` — a ranking
+        estimate that omits ΔG_c^bound/ΔG_c^bulk. This is signalled by
+        ``rmsd_included=False`` in the returned dict.
+
         Works in a fresh process (the detached submit → come back later → analyse
         workflow): if the calculation isn't wired, it re-wires from the on-disk
         prepared system (rebuilding the stage tree + centres, no MD) so the stages
@@ -735,8 +746,9 @@ class Calculation(SimulationRunner):
         dg_bind_sem = _repeat_dg_sem(per_repeat, dg_corr)
 
         self._log.info(
-            "analyse %s: dG_bind = %.2f%s kcal/mol",
+            "analyse %s: dG_bind%s = %.2f%s kcal/mol",
             self.base_dir.name,
+            "" if self._group("rmsd") is not None else " (partial: no RMSD US)",
             dg_bind,
             f" +/- {dg_bind_sem:.2f}" if dg_bind_sem is not None else "",
         )
@@ -748,4 +760,7 @@ class Calculation(SimulationRunner):
             "dg_sep": totals["separation"],
             "dg_corr": dg_corr,
             "stage_sems": stage_sems,  # {stage: SEM} — flags the least-converged CV
+            # False in separation-PMF-only mode: dg_bind then omits ΔG_c^bound/bulk
+            # and is a ranking estimate, not a rigorous standard-state ΔG_bind°.
+            "rmsd_included": self._group("rmsd") is not None,
         }

@@ -335,6 +335,7 @@ def test_analyse_aggregates(tmp_path):
         "dg_sep",
         "dg_corr",
         "stage_sems",
+        "rmsd_included",
     }
     assert math.isfinite(result["dg_bind"])
     assert result["dg_bind"] == pytest.approx(
@@ -444,6 +445,7 @@ def test_analyse_derives_theta_and_r_star_from_state(tmp_path):
         "dg_sep",
         "dg_corr",
         "stage_sems",
+        "rmsd_included",
     }
     assert math.isfinite(result["dg_bind"])
 
@@ -524,6 +526,7 @@ def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
         "dg_sep",
         "dg_corr",
         "stage_sems",
+        "rmsd_included",
     }
     assert math.isfinite(result["dg_bind"])
 
@@ -552,6 +555,36 @@ def test_analyse_r_star_falls_back_to_config(tmp_path):
     calc.stage_centres = {}  # groups already built at construction; centres now gone
     result = calc.analyse(_fake_pmf, theta_a_min=1.0, theta_b_min=1.0)
     assert math.isfinite(result["dg_bind"])
+
+
+def test_separation_only_mode_skips_rmsd_stages(tmp_path):
+    # run_rmsd_us=False: no RMSD group is built, but Boresch + separation still run,
+    # and analyse returns a partial ΔG (sep + boresch + corr) flagged rmsd_included.
+    cfg = _config()
+    cfg.sampling.run_rmsd_us = False
+    calc = _calc(tmp_path, config=cfg)
+
+    assert calc._rmsd_stage_names() == []
+    assert calc._group("rmsd") is None
+    assert {g.cv_type for g in calc.groups} == {"boresch", "separation"}
+
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    result = calc.analyse(_fake_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0)
+
+    assert result["rmsd_included"] is False
+    assert result["dg_rmsd"] == pytest.approx(0.0)
+    assert result["dg_bind"] == pytest.approx(
+        result["dg_boresch"] + result["dg_sep"] + result["dg_corr"]
+    )
+
+
+def test_rmsd_included_true_by_default(tmp_path):
+    result = _calc(tmp_path).analyse(
+        _fake_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0
+    )
+    assert result["rmsd_included"] is True
 
 
 def test_rmsd_stage_names_respect_states(tmp_path):

@@ -250,6 +250,25 @@ def test_validate_include_glue():
         _validate_include_glue("BD2", on_target, assign=None, protein="target")
 
 
+def test_separation_keeps_fixed_rmsd_when_rmsd_us_disabled():
+    # Separation-PMF-only mode skips the RMSD *US stages*, but the separation
+    # window must still apply the fixed RMSD restraints (resolved from context) —
+    # the flag gates stage-building in the runner, not the SpecBuilder assembly.
+    cfg = _config()
+    cfg.sampling.run_rmsd_us = False
+    spec = SpecBuilder(_context(), cfg)(
+        cv_type="separation",
+        stage_name="separation",
+        dof=None,
+        cv_centre=1.5,
+        replicate=1,
+        boresch_eq_values={"thetaA": 1.0},
+    )
+    names = {r["name"] for r in spec.restraints["rmsd"]}
+    assert names == {"receptor", "target"}  # RMSD restraints still present and fixed
+    assert all(r["sampled"] is False for r in spec.restraints["rmsd"])
+
+
 def test_infer_protein_ranges():
     from gluebind.spec_builder import _infer_protein
 
