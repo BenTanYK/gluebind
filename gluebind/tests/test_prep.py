@@ -59,6 +59,21 @@ def test_validate_forcefield_unknown_raises():
         )
 
 
+def test_validate_glue_resname_accepts_mol():
+    from gluebind.system.inputs import validate_glue_resname
+
+    validate_glue_resname(["MOL"])  # single MOL residue: fine
+
+
+def test_validate_glue_resname_rejects_other():
+    from gluebind.system.inputs import validate_glue_resname
+
+    with pytest.raises(ValueError, match="must be named 'MOL'"):
+        validate_glue_resname(["LIG"])
+    with pytest.raises(ValueError, match="must be named 'MOL'"):
+        validate_glue_resname([])  # no residues
+
+
 def test_compute_layout_single_chain():
     layout = compute_layout(1, 1, has_glue=True)
     assert layout.target == [0]

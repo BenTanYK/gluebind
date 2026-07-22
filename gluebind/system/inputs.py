@@ -12,6 +12,22 @@ from __future__ import annotations
 import dataclasses
 import pathlib
 
+GLUE_RESNAME = "MOL"
+"""The glue/ligand residue must carry this name. gluebind resolves the glue by
+residue name throughout (e.g. ``resname MOL``), so a different name would silently
+miss it — hence :func:`validate_glue_resname` rejects anything else."""
+
+
+def validate_glue_resname(resnames) -> None:
+    """Raise unless every glue residue is named :data:`GLUE_RESNAME` (``MOL``)."""
+    names = {str(r) for r in resnames}
+    if names != {GLUE_RESNAME}:
+        raise ValueError(
+            f"the glue residue must be named {GLUE_RESNAME!r}, but found "
+            f"{sorted(names) or 'no residues'}. Rename the residue to "
+            f"{GLUE_RESNAME!r} in the input SDF."
+        )
+
 
 @dataclasses.dataclass(frozen=True)
 class ComponentLayout:
@@ -49,10 +65,17 @@ def load_system(prm7: str | pathlib.Path, rst7: str | pathlib.Path):
 
 
 def load_glue(sdf: str | pathlib.Path):
-    """Load the glue small molecule from an SDF (unparameterised BSS molecule)."""
+    """Load the glue small molecule from an SDF (unparameterised BSS molecule).
+
+    Enforces the :data:`GLUE_RESNAME` (``MOL``) convention up front, so a
+    mis-named glue residue fails at load rather than silently disappearing from
+    every ``resname MOL`` selection downstream.
+    """
     import BioSimSpace as BSS
 
-    return BSS.IO.readMolecules(str(sdf))[0]
+    molecule = BSS.IO.readMolecules(str(sdf))[0]
+    validate_glue_resname([res.name() for res in molecule.getResidues()])
+    return molecule
 
 
 def count_molecules(system) -> int:
