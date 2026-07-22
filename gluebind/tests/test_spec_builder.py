@@ -334,6 +334,27 @@ def test_complex_map_resolves_through_verified_offset():
     assert cmap.resolve("target", "resid 10") == [4, 5]  # input resid 10 -> complex 4,5
 
 
+def test_atom_mode_filters_ca_vs_backbone():
+    from gluebind.spec_builder import _ATOM_FILTER, _ComplexMap, _with_atoms
+
+    assert _ATOM_FILTER == {"CA": "name CA", "backbone": "name C N CA"}
+    assert _with_atoms("resid 5", "backbone") == "(resid 5) and name C N CA"
+
+    # receptor residue 5 has full backbone; CA picks 1 atom, backbone picks N/CA/C.
+    receptor_in = _fake_universe(
+        names=["N", "CA", "C", "O"], resids=[5, 5, 5, 5], resnames=["ALA"] * 4
+    )
+    target_in = _fake_universe(names=["CA"], resids=[1], resnames=["GLY"])
+    complex_u = _fake_universe(
+        names=["N", "CA", "C", "O", "CA"],
+        resids=[1, 1, 1, 1, 2],
+        resnames=["ALA", "ALA", "ALA", "ALA", "GLY"],
+    )
+    cmap = _ComplexMap(complex_u, target_in, receptor_in, has_glue=False)
+    assert cmap.resolve("receptor", _with_atoms("resid 5", "CA")) == [1]
+    assert cmap.resolve("receptor", _with_atoms("resid 5", "backbone")) == [0, 1, 2]
+
+
 def test_complex_map_raises_on_reordered_atoms():
     from gluebind.spec_builder import _ComplexMap
 

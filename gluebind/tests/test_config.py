@@ -64,6 +64,17 @@ def test_extra_top_level_key_forbidden():
         CalculationConfig.model_validate({"inputs": MIN_INPUTS, "bogus": 1})
 
 
+def test_restraint_atoms_modes_default_and_independent():
+    from gluebind.config.restraints import RestraintsConfig
+
+    r = RestraintsConfig()
+    assert r.rmsd_atoms == "CA" and r.always_on_atoms == "CA"  # defaults
+    r2 = RestraintsConfig(rmsd_atoms="CA", always_on_atoms="backbone")
+    assert r2.rmsd_atoms == "CA" and r2.always_on_atoms == "backbone"  # independent
+    with pytest.raises(ValueError):
+        RestraintsConfig(rmsd_atoms="sidechain")  # only CA | backbone
+
+
 def test_duplicate_rmsd_cv_names_rejected():
     with pytest.raises(ValueError):
         CalculationConfig.model_validate(

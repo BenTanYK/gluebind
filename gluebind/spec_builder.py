@@ -272,6 +272,16 @@ class SpecBuilder:
         )
 
 
+_ATOM_FILTER = {"CA": "name CA", "backbone": "name C N CA"}
+"""MDAnalysis atom-name filter for each restraint-atom mode (backbone = C, N, Cα,
+matching the reference ``restraint_type`` scheme)."""
+
+
+def _with_atoms(selection: str, mode: str) -> str:
+    """Append the CA/backbone atom-name filter to a residue-only selection."""
+    return f"({selection}) and {_ATOM_FILTER[mode]}"
+
+
 def _atom_keys(universe) -> list[tuple[str, str]]:
     """Per-atom ``(name, mass)`` identity keys in topology order, for verifying an
     input molecule appears verbatim in a BSS-assembled topology (mass is preserved
@@ -376,13 +386,14 @@ def build_restraint_context(
     )
 
     rmsd_order, rmsd_atoms_bound, rmsd_bulk = _resolve_rmsd_regions(
-        config, prepared, cmap, receptor_ca, target_ca, glue_indices, assign
+        config, prepared, cmap, glue_indices, assign
     )
 
+    always_on_atoms = config.restraints.always_on_atoms
     always_on = [
         AlwaysOn(
             name=f"always_on_{i}",
-            atoms=cmap.resolve(r.protein, r.selection),
+            atoms=cmap.resolve(r.protein, _with_atoms(r.selection, always_on_atoms)),
             force_constant=r.force_constant,
         )
         for i, r in enumerate(config.restraints.always_on)
@@ -468,9 +479,7 @@ def _collect_series(traj, rec_group, lig_group, atom_indices, np):
     return result
 
 
-def _resolve_rmsd_regions(
-    config, prepared, cmap, receptor_ca, target_ca, glue_indices, assign
-):
+def _resolve_rmsd_regions(config, prepared, cmap, glue_indices, assign):
     """RMSD region atom indices for bound (complex) and bulk (isolated) topologies.
 
     Custom CV selections are resolved against their protein's *input* topology and
@@ -479,6 +488,7 @@ def _resolve_rmsd_regions(
     import MDAnalysis as mda
 
     restraints = config.restraints
+    atoms_mode = restraints.rmsd_atoms  # CA vs backbone for the US RMSD restraints
     order: list[str] = []
     bound: dict[str, list[int]] = {}
 
@@ -488,8 +498,10 @@ def _resolve_rmsd_regions(
     target_bulk = mda.Universe(prepared.target_bulk_prm7, prepared.target_bulk_rst7)
 
     if restraints.uses_default_all_ca:
-        rec_bound = [int(i) for i in receptor_ca.indices]
-        lig_bound = [int(i) for i in target_ca.indices]
+        # Whole-protein default: every residue's CA (or backbone) via the mode.
+        whole = _ATOM_FILTER[atoms_mode]
+        rec_bound = cmap.resolve("receptor", whole)
+        lig_bound = cmap.resolve("target", whole)
         if assign == "receptor":
             rec_bound += glue_indices
         elif assign == "target":
@@ -502,20 +514,23 @@ def _resolve_rmsd_regions(
                 prepared.receptor_bulk_rst7,
                 receptor_bulk,
                 assign == "receptor",
+                atom_selection=whole,
             ),
             "target": _bulk_target(
                 prepared.target_bulk_prm7,
                 prepared.target_bulk_rst7,
                 target_bulk,
                 assign == "target",
+                atom_selection=whole,
             ),
         }
         return order, bound, bulk
 
-    # Custom RMSD CVs: resolve on the input topology (cv.protein) and map to complex.
+    # Custom RMSD CVs: resolve the residue-only selection (+ atom mode) on the input
+    # topology (cv.protein) and map to the complex.
     for cv in restraints.rmsd_cvs:
         order.append(cv.name)
-        atoms = cmap.resolve(cv.protein, cv.selection)
+        atoms = cmap.resolve(cv.protein, _with_atoms(cv.selection, atoms_mode))
         if cv.include_glue:
             atoms += glue_indices
         bound[cv.name] = atoms
@@ -563,6 +578,8 @@ def _resolve_custom_bulk(
     verified), held same-protein partners (sequential), and the always-on
     restraints present there."""
     restraints = config.restraints
+    rmsd_mode = restraints.rmsd_atoms
+    always_on_mode = restraints.always_on_atoms
     cvs = {cv.name: cv for cv in restraints.rmsd_cvs}
     bulk_universe = {"target": target_bulk, "receptor": receptor_bulk}
     bulk_files = {
@@ -593,7 +610,7 @@ def _resolve_custom_bulk(
     for name in order:
         cv = cvs[name]
         _validate_include_glue(name, cv, assign, cv.protein)
-        atoms = _map_into_bulk(cv.protein, cv.selection)
+        atoms = _map_into_bulk(cv.protein, _with_atoms(cv.selection, rmsd_mode))
         if cv.include_glue and assign == cv.protein:
             atoms += [
                 int(i)
@@ -607,7 +624,7 @@ def _resolve_custom_bulk(
     # Always-on restraints, grouped by the bulk topology their atoms live in.
     always_on_by_protein: dict[str, list[AlwaysOn]] = {"target": [], "receptor": []}
     for i, r in enumerate(restraints.always_on):
-        atoms = _map_into_bulk(r.protein, r.selection)
+        atoms = _map_into_bulk(r.protein, _with_atoms(r.selection, always_on_mode))
         always_on_by_protein[r.protein].append(
             AlwaysOn(f"always_on_{i}", atoms, r.force_constant)
         )
@@ -633,8 +650,10 @@ def _resolve_custom_bulk(
     return bulk
 
 
-def _bulk_target(prm7, rst7, bulk_universe, include_glue) -> BulkTarget:
-    selection = "name CA"
+def _bulk_target(
+    prm7, rst7, bulk_universe, include_glue, atom_selection: str = "name CA"
+) -> BulkTarget:
+    selection = atom_selection
     if include_glue:
         selection = f"({selection}) or (resname MOL and not name H*)"
     atoms = [int(i) for i in bulk_universe.select_atoms(selection).indices]

@@ -27,6 +27,7 @@ import pydantic
 
 State = Literal["bound", "bulk"]
 Protein = Literal["target", "receptor"]
+Atoms = Literal["CA", "backbone"]
 
 _CONFIG = pydantic.ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -48,9 +49,10 @@ class RmsdCVSpec(pydantic.BaseModel):
     assembled complex, so it is immune to any re-indexing BioSimSpace applies
     during assembly (see :mod:`gluebind.system.atom_map`)."""
     selection: str
-    """MDAnalysis selection, resolved against the ``protein``'s **input**
-    ``.prm7`` (the numbering the user authored against), then mapped to the
-    complex."""
+    """Residue-only MDAnalysis selection (e.g. ``"resid 174-280"``), resolved
+    against the ``protein``'s **input** ``.prm7`` (the numbering the user authored
+    against) and mapped to the complex. The atom filter (Cα vs backbone) is *not*
+    part of the selection — it comes from ``RestraintsConfig.rmsd_atoms``."""
     states: list[State] = ["bound", "bulk"]
     """Which thermodynamic states this CV is sampled in."""
     include_glue: bool = False
@@ -126,11 +128,18 @@ class RestraintsConfig(pydantic.BaseModel):
     model_config = _CONFIG
 
     rmsd_cvs: list[RmsdCVSpec] = pydantic.Field(default_factory=list)
-    """RMSD CV regions. Empty ⇒ all-Cα default (see module docstring)."""
+    """RMSD CV regions. Empty ⇒ all-protein default (see module docstring)."""
     rmsd_order: list[str] = pydantic.Field(default_factory=list)
     """Sequential bound-state application order, by CV name. Empty ⇒ the order
     of ``rmsd_cvs``."""
+    rmsd_atoms: Atoms = "CA"
+    """Which atoms the US RMSD restraints act on — ``CA`` (Cα only) or ``backbone``
+    (C, N, Cα). Applied to every RMSD CV and to the all-protein default; CV
+    selections are therefore residue-only (the atom filter comes from here)."""
     always_on: list[AlwaysOnRestraint] = pydantic.Field(default_factory=list)
+    always_on_atoms: Atoms = "CA"
+    """Which atoms the constant (always-on) restraints act on — ``CA`` or
+    ``backbone``; set independently of ``rmsd_atoms``."""
     boresch: BoreschSpec = pydantic.Field(default_factory=BoreschSpec)
 
     @pydantic.model_validator(mode="after")
