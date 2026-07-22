@@ -33,9 +33,9 @@ def validate_glue_resname(resnames) -> None:
 class ComponentLayout:
     """Which molecule indices in the assembled system belong to each component.
 
-    Assembly order is target molecules, then receptor molecules, then the glue
-    (if present). ``target``/``receptor`` are lists because a chain-split protein
-    contributes multiple molecules.
+    Assembly order is **glue (if present), then receptor, then target** — so the
+    glue (residue ``MOL``) is always molecule 0. ``target``/``receptor`` are lists
+    because a chain-split protein contributes multiple molecules.
     """
 
     target: list[int]
@@ -48,12 +48,13 @@ class ComponentLayout:
 
 
 def compute_layout(n_target: int, n_receptor: int, has_glue: bool) -> ComponentLayout:
-    """Molecule-index layout for ``target + receptor + [glue]`` assembly order."""
+    """Molecule-index layout for ``[glue] + receptor + target`` assembly order."""
     if n_target < 1 or n_receptor < 1:
         raise ValueError("target and receptor must each contribute >= 1 molecule")
-    target = list(range(0, n_target))
-    receptor = list(range(n_target, n_target + n_receptor))
-    glue = (n_target + n_receptor) if has_glue else None
+    glue_count = 1 if has_glue else 0
+    glue = 0 if has_glue else None
+    receptor = list(range(glue_count, glue_count + n_receptor))
+    target = list(range(glue_count + n_receptor, glue_count + n_receptor + n_target))
     return ComponentLayout(target=target, receptor=receptor, glue=glue)
 
 

@@ -75,19 +75,20 @@ def test_validate_glue_resname_rejects_other():
 
 
 def test_compute_layout_single_chain():
+    # assembly order: glue (MOL) first, then receptor, then target
     layout = compute_layout(1, 1, has_glue=True)
-    assert layout.target == [0]
+    assert layout.glue == 0
     assert layout.receptor == [1]
-    assert layout.glue == 2
+    assert layout.target == [2]
     assert layout.n_molecules == 3
 
 
 def test_compute_layout_multichain_target():
     # a chain-split target (e.g. BRD4 tandem bromodomains -> 2 molecules)
     layout = compute_layout(2, 1, has_glue=True)
-    assert layout.target == [0, 1]
-    assert layout.receptor == [2]
-    assert layout.glue == 3
+    assert layout.glue == 0
+    assert layout.receptor == [1]
+    assert layout.target == [2, 3]
 
 
 def test_compute_layout_no_glue():

@@ -31,6 +31,7 @@ import pathlib
 
 from gluebind.config.calculation import CalculationConfig
 from gluebind.simulation.window import WindowSpec
+from gluebind.system.atom_map import map_indices, verify_block
 
 
 @dataclasses.dataclass(frozen=True)
@@ -271,20 +272,72 @@ class SpecBuilder:
         )
 
 
+def _atom_keys(universe) -> list[tuple[str, str]]:
+    """Per-atom ``(name, mass)`` identity keys in topology order, for verifying an
+    input molecule appears verbatim in a BSS-assembled topology (mass is preserved
+    across assembly; residue numbers — which BSS may change — are excluded)."""
+    return [
+        (str(n), f"{float(m):.3f}")
+        for n, m in zip(universe.atoms.names, universe.atoms.masses, strict=True)
+    ]
+
+
+class _ComplexMap:
+    """Verified map from input-topology atom indices to assembled-complex indices.
+
+    Assembly order is glue (residue ``MOL``, if present), then receptor, then
+    target, so the glue occupies the first atoms and each protein is a contiguous
+    block. Each block's offset is verified atom-for-atom against the complex (via
+    :func:`gluebind.system.atom_map.verify_block`), so a selection resolved on an
+    input topology maps to exactly the intended complex atoms — immune to any
+    residue renumbering BSS applies, and a hard error if it reorders atoms.
+    """
+
+    def __init__(self, complex_u, target_u, receptor_u, *, has_glue: bool) -> None:
+        self._inputs = {"target": target_u, "receptor": receptor_u}
+        complex_keys = _atom_keys(complex_u)
+        n_glue = complex_u.select_atoms("resname MOL").n_atoms if has_glue else 0
+        self._offset = {
+            "receptor": n_glue,
+            "target": n_glue + receptor_u.atoms.n_atoms,
+        }
+        for protein in ("receptor", "target"):
+            verify_block(
+                protein,
+                _atom_keys(self._inputs[protein]),
+                complex_keys,
+                self._offset[protein],
+            )
+
+    def input_universe(self, protein: str):
+        return self._inputs[protein]
+
+    def offset(self, protein: str) -> int:
+        return self._offset[protein]
+
+    def resolve(self, protein: str, selection: str) -> list[int]:
+        """Resolve ``selection`` on the input topology of ``protein`` and return the
+        corresponding complex atom indices via the verified block offset."""
+        idx = [int(i) for i in self._inputs[protein].select_atoms(selection).indices]
+        return map_indices(idx, self._offset[protein])
+
+
 def build_restraint_context(
     prepared, config: CalculationConfig, *, interface_cutoff_angstrom: float = 12.0
 ) -> RestraintContext:
     """Resolve a :class:`RestraintContext` from a :class:`PreparedSystem` (MDAnalysis).
 
-    Detects the interface (Cα–Cα pairs within ``interface_cutoff_angstrom``),
-    selects the Boresch anchors (``BoreschSpec.anchors`` — auto via
-    :mod:`gluebind.selection`, or a validated manual override), and resolves the
-    RMSD-region atom indices for the bound (complex) and bulk (isolated) topologies.
+    Restraint selections are resolved against the **input** topologies
+    (``target``/``receptor`` ``.prm7``, the numbering the user authored against)
+    and mapped into the assembled complex via a verified atom map
+    (:class:`_ComplexMap`), so BioSimSpace's assembly re-indexing (``TER`` splits,
+    residue renumbering) cannot silently move a restraint onto the wrong atoms.
 
-    Reuses the unit-tested pure primitives (interface detection, collinearity,
-    DoF-variance selection); the MDAnalysis extraction is integration-verified
-    against real structures (Phase 7), so this is not exercised by the unit suite.
-    The pure assembly it feeds (:class:`SpecBuilder`) is.
+    Also detects the interface (Cα–Cα pairs within ``interface_cutoff_angstrom``)
+    and selects the Boresch anchors. Reuses the unit-tested pure primitives; the
+    MDAnalysis extraction is integration-verified against real structures, but the
+    verified-map core (:mod:`gluebind.system.atom_map`, :class:`_ComplexMap`) and
+    the pure assembly it feeds (:class:`SpecBuilder`) are unit-tested.
     """
     import MDAnalysis as mda
     import numpy as np
@@ -292,13 +345,15 @@ def build_restraint_context(
     from gluebind.selection.interface import interface_residues
 
     universe = mda.Universe(prepared.complex_prm7, prepared.complex_rst7)
-    n_target = mda.Universe(config.inputs.target.prm7).residues.n_residues
-    n_receptor = mda.Universe(config.inputs.receptor.prm7).residues.n_residues
-    residues = universe.residues
-    target_ca = residues[:n_target].atoms.select_atoms("name CA")
-    receptor_ca = residues[n_target : n_target + n_receptor].atoms.select_atoms(
-        "name CA"
+    target_u = mda.Universe(config.inputs.target.prm7)
+    receptor_u = mda.Universe(config.inputs.receptor.prm7)
+    cmap = _ComplexMap(
+        universe, target_u, receptor_u, has_glue=config.inputs.glue is not None
     )
+
+    # Interface Cα groups: resolve "name CA" on each input topology, map to complex.
+    target_ca = universe.atoms[cmap.resolve("target", "name CA")]
+    receptor_ca = universe.atoms[cmap.resolve("receptor", "name CA")]
 
     rec_i, lig_i = interface_residues(
         receptor_ca.positions, target_ca.positions, cutoff=interface_cutoff_angstrom
@@ -306,6 +361,7 @@ def build_restraint_context(
     rec_group = [int(i) for i in receptor_ca[rec_i].indices]
     lig_group = [int(i) for i in target_ca[lig_i].indices]
 
+    # Glue is resolvable directly by residue name (MOL is enforced unique).
     glue_indices = [
         int(i) for i in universe.select_atoms("resname MOL and not name H*").indices
     ]
@@ -320,21 +376,13 @@ def build_restraint_context(
     )
 
     rmsd_order, rmsd_atoms_bound, rmsd_bulk = _resolve_rmsd_regions(
-        config,
-        prepared,
-        universe,
-        receptor_ca,
-        target_ca,
-        glue_indices,
-        assign,
-        n_target,
-        n_receptor,
+        config, prepared, cmap, receptor_ca, target_ca, glue_indices, assign
     )
 
     always_on = [
         AlwaysOn(
             name=f"always_on_{i}",
-            atoms=[int(a) for a in universe.select_atoms(r.selection).indices],
+            atoms=cmap.resolve(r.protein, r.selection),
             force_constant=r.force_constant,
         )
         for i, r in enumerate(config.restraints.always_on)
@@ -421,23 +469,18 @@ def _collect_series(traj, rec_group, lig_group, atom_indices, np):
 
 
 def _resolve_rmsd_regions(
-    config,
-    prepared,
-    universe,
-    receptor_ca,
-    target_ca,
-    glue_indices,
-    assign,
-    n_target,
-    n_receptor,
+    config, prepared, cmap, receptor_ca, target_ca, glue_indices, assign
 ):
-    """RMSD region atom indices for bound (complex) and bulk (isolated) topologies."""
+    """RMSD region atom indices for bound (complex) and bulk (isolated) topologies.
+
+    Custom CV selections are resolved against their protein's *input* topology and
+    mapped into the complex via ``cmap`` (never against the complex directly).
+    """
     import MDAnalysis as mda
 
     restraints = config.restraints
     order: list[str] = []
     bound: dict[str, list[int]] = {}
-    bulk: dict[str, BulkTarget] = {}
 
     receptor_bulk = mda.Universe(
         prepared.receptor_bulk_prm7, prepared.receptor_bulk_rst7
@@ -469,46 +512,23 @@ def _resolve_rmsd_regions(
         }
         return order, bound, bulk
 
-    # Custom RMSD CVs from selection strings (bound = complex numbering).
+    # Custom RMSD CVs: resolve on the input topology (cv.protein) and map to complex.
     for cv in restraints.rmsd_cvs:
         order.append(cv.name)
-        atoms = [int(i) for i in universe.select_atoms(cv.selection).indices]
+        atoms = cmap.resolve(cv.protein, cv.selection)
         if cv.include_glue:
             atoms += glue_indices
         bound[cv.name] = atoms
     if restraints.rmsd_order:
         order = list(restraints.rmsd_order)
 
-    # Bulk = each region re-resolved against its protein's isolated topology, with
-    # earlier same-protein regions held and any always-on restraint that lives there.
+    # Bulk = each region re-resolved against its protein's input topology and mapped
+    # into that protein's isolated bulk topology (protein sits at offset 0 there),
+    # with earlier same-protein regions held and any always-on restraint present.
     bulk = _resolve_custom_bulk(
-        config,
-        prepared,
-        universe,
-        receptor_bulk,
-        target_bulk,
-        order,
-        assign,
-        n_target,
-        n_receptor,
+        config, prepared, cmap, receptor_bulk, target_bulk, order, assign
     )
     return order, bound, bulk
-
-
-def _infer_protein(resindices: list[int], n_target: int, n_receptor: int) -> str:
-    """'target' | 'receptor' from a CV's complex residue indices (target precedes
-    receptor), raising if the CV spans both proteins or falls outside them."""
-    lo, hi = min(resindices), max(resindices)
-    if hi < n_target:
-        return "target"
-    if lo >= n_target and hi < n_target + n_receptor:
-        return "receptor"
-    raise ValueError(
-        f"RMSD/always-on selection resolves to complex residues {lo}-{hi}, which span "
-        f"both proteins or fall outside them (target=[0,{n_target}), "
-        f"receptor=[{n_target},{n_target + n_receptor})); each region must lie within "
-        "a single protein so its bulk state can be resolved."
-    )
 
 
 def _validate_include_glue(name: str, cv, assign: str | None, protein: str) -> None:
@@ -535,30 +555,13 @@ def _validate_include_glue(name: str, cv, assign: str | None, protein: str) -> N
         )
 
 
-def _remap_to_bulk(complex_sel, bulk_universe, offset: int) -> list[int]:
-    """Map a complex-topology selection onto the isolated bulk topology: same
-    residues (shifted by ``offset``), same atom names, bulk atom indices."""
-    resindices = [int(r) - offset for r in complex_sel.residues.resindices]
-    names = sorted({str(n) for n in complex_sel.names})
-    residues = bulk_universe.residues[resindices]
-    return [
-        int(i) for i in residues.atoms.select_atoms("name " + " ".join(names)).indices
-    ]
-
-
 def _resolve_custom_bulk(
-    config,
-    prepared,
-    universe,
-    receptor_bulk,
-    target_bulk,
-    order,
-    assign,
-    n_target,
-    n_receptor,
+    config, prepared, cmap, receptor_bulk, target_bulk, order, assign
 ) -> dict[str, BulkTarget]:
-    """Per-region bulk targets: isolated topology, remapped sampled atoms, held
-    same-protein partners (sequential), and the always-on restraints present there."""
+    """Per-region bulk targets: isolated topology, atoms mapped from the protein's
+    *input* topology into its bulk topology (the isolated protein sits at offset 0,
+    verified), held same-protein partners (sequential), and the always-on
+    restraints present there."""
     restraints = config.restraints
     cvs = {cv.name: cv for cv in restraints.rmsd_cvs}
     bulk_universe = {"target": target_bulk, "receptor": receptor_bulk}
@@ -566,36 +569,46 @@ def _resolve_custom_bulk(
         "target": (prepared.target_bulk_prm7, prepared.target_bulk_rst7),
         "receptor": (prepared.receptor_bulk_prm7, prepared.receptor_bulk_rst7),
     }
-    offset = {"target": 0, "receptor": n_target}
+    verified: set[str] = set()
+
+    def _map_into_bulk(protein: str, selection: str) -> list[int]:
+        # The isolated protein is the first block of its bulk topology (offset 0);
+        # verify that once, then map input-topology indices straight across.
+        if protein not in verified:
+            verify_block(
+                protein,
+                _atom_keys(cmap.input_universe(protein)),
+                _atom_keys(bulk_universe[protein]),
+                0,
+            )
+            verified.add(protein)
+        idx = [
+            int(i) for i in cmap.input_universe(protein).select_atoms(selection).indices
+        ]
+        return map_indices(idx, 0)
 
     # Resolve every region's protein + bulk atoms once (held partners reuse these).
     region_protein: dict[str, str] = {}
     region_atoms: dict[str, list[int]] = {}
     for name in order:
         cv = cvs[name]
-        sel = universe.select_atoms(cv.selection)
-        protein = _infer_protein(
-            [int(r) for r in sel.residues.resindices], n_target, n_receptor
-        )
-        _validate_include_glue(name, cv, assign, protein)
-        buni = bulk_universe[protein]
-        atoms = _remap_to_bulk(sel, buni, offset[protein])
-        if cv.include_glue and assign == protein:
+        _validate_include_glue(name, cv, assign, cv.protein)
+        atoms = _map_into_bulk(cv.protein, cv.selection)
+        if cv.include_glue and assign == cv.protein:
             atoms += [
-                int(i) for i in buni.select_atoms("resname MOL and not name H*").indices
+                int(i)
+                for i in bulk_universe[cv.protein]
+                .select_atoms("resname MOL and not name H*")
+                .indices
             ]
-        region_protein[name] = protein
+        region_protein[name] = cv.protein
         region_atoms[name] = atoms
 
     # Always-on restraints, grouped by the bulk topology their atoms live in.
     always_on_by_protein: dict[str, list[AlwaysOn]] = {"target": [], "receptor": []}
     for i, r in enumerate(restraints.always_on):
-        sel = universe.select_atoms(r.selection)
-        protein = _infer_protein(
-            [int(x) for x in sel.residues.resindices], n_target, n_receptor
-        )
-        atoms = _remap_to_bulk(sel, bulk_universe[protein], offset[protein])
-        always_on_by_protein[protein].append(
+        atoms = _map_into_bulk(r.protein, r.selection)
+        always_on_by_protein[r.protein].append(
             AlwaysOn(f"always_on_{i}", atoms, r.force_constant)
         )
 

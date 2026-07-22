@@ -234,12 +234,18 @@ def test_validate_include_glue():
     from gluebind.config.restraints import RmsdCVSpec
     from gluebind.spec_builder import _validate_include_glue
 
-    on_target = RmsdCVSpec(name="BD2", selection="resid 1", include_glue=True)
+    on_target = RmsdCVSpec(
+        name="BD2", protein="target", selection="resid 1", include_glue=True
+    )
     # glue on the same protein as the CV: fine
     _validate_include_glue("BD2", on_target, assign="target", protein="target")
     # bound-only CV: no bulk leg to mismatch, so a cross-protein glue is allowed
     bound_only = RmsdCVSpec(
-        name="X", selection="resid 1", states=["bound"], include_glue=True
+        name="X",
+        protein="target",
+        selection="resid 1",
+        states=["bound"],
+        include_glue=True,
     )
     _validate_include_glue("X", bound_only, assign="target", protein="receptor")
     # bulk-sampled CV on the other protein: inconsistent bound/bulk -> raise
@@ -269,15 +275,82 @@ def test_separation_keeps_fixed_rmsd_when_rmsd_us_disabled():
     assert all(r["sampled"] is False for r in spec.restraints["rmsd"])
 
 
-def test_infer_protein_ranges():
-    from gluebind.spec_builder import _infer_protein
+# ---- ComplexMap: verified input->complex atom mapping ----------------------
 
-    assert _infer_protein([0, 5, 9], 10, 20) == "target"
-    assert _infer_protein([10, 15, 29], 10, 20) == "receptor"
-    with pytest.raises(ValueError, match="span both proteins"):
-        _infer_protein([8, 12], 10, 20)
-    with pytest.raises(ValueError):
-        _infer_protein([35], 10, 20)  # outside both proteins
+
+def _fake_universe(names, resids, resnames, masses=None):
+    """A minimal MDAnalysis Universe with the attributes the resolver reads."""
+    import numpy as np
+    from MDAnalysis import Universe
+
+    n = len(names)
+    resid_arr = np.asarray(resids)
+    n_res = len(set(resid_arr.tolist()))
+    u = Universe.empty(
+        n_atoms=n,
+        n_residues=n_res,
+        atom_resindex=_resindex(resid_arr),
+        trajectory=False,
+    )
+    u.add_TopologyAttr("names", list(names))
+    u.add_TopologyAttr("masses", list(masses if masses is not None else [12.0] * n))
+    # residue-level attrs
+    uniq = sorted(set(resid_arr.tolist()))
+    u.add_TopologyAttr("resids", uniq)
+    rn = {r: resnames[list(resid_arr).index(r)] for r in uniq}
+    u.add_TopologyAttr("resnames", [rn[r] for r in uniq])
+    return u
+
+
+def _resindex(resids):
+    uniq = sorted(set(resids.tolist()))
+    order = {r: i for i, r in enumerate(uniq)}
+    return [order[r] for r in resids.tolist()]
+
+
+def test_complex_map_resolves_through_verified_offset():
+    # Assembly order glue(MOL), receptor, target. The complex has RENUMBERED resids
+    # relative to the inputs, but the map anchors on atom order (name+mass), so a
+    # selection resolved on the input maps to the correct complex atoms.
+    from gluebind.spec_builder import _ComplexMap
+
+    target_in = _fake_universe(
+        names=["N", "CA", "C"], resids=[10, 10, 11], resnames=["ALA", "ALA", "GLY"]
+    )
+    receptor_in = _fake_universe(
+        names=["N", "CA"], resids=[5, 5], resnames=["SER", "SER"]
+    )
+    # complex: glue MOL (2 atoms), then receptor (2), then target (3); resids all
+    # renumbered starting from 1 — deliberately different from the inputs.
+    complex_u = _fake_universe(
+        names=["C1", "C2", "N", "CA", "N", "CA", "C"],
+        resids=[1, 1, 2, 2, 3, 3, 4],
+        resnames=["MOL", "MOL", "SER", "SER", "ALA", "ALA", "GLY"],
+    )
+    cmap = _ComplexMap(complex_u, target_in, receptor_in, has_glue=True)
+    # target block starts after glue(2)+receptor(2) = offset 4
+    assert cmap.resolve("target", "name CA") == [5]  # target CA at complex index 5
+    assert cmap.resolve("receptor", "name CA") == [3]  # receptor CA at complex index 3
+    assert cmap.resolve("target", "resid 10") == [4, 5]  # input resid 10 -> complex 4,5
+
+
+def test_complex_map_raises_on_reordered_atoms():
+    from gluebind.spec_builder import _ComplexMap
+
+    target_in = _fake_universe(
+        names=["N", "CA"], resids=[1, 1], resnames=["ALA", "ALA"]
+    )
+    receptor_in = _fake_universe(
+        names=["N", "CA"], resids=[1, 1], resnames=["SER", "SER"]
+    )
+    # receptor block reordered (CA before N) -> verification must fail
+    complex_u = _fake_universe(
+        names=["CA", "N", "N", "CA"],
+        resids=[1, 1, 2, 2],
+        resnames=["SER", "SER", "ALA", "ALA"],
+    )
+    with pytest.raises(ValueError, match="verification failed"):
+        _ComplexMap(complex_u, target_in, receptor_in, has_glue=False)
 
 
 # ---- separation ------------------------------------------------------------

@@ -596,11 +596,13 @@ def test_rmsd_stage_names_respect_states(tmp_path):
                 "rmsd_cvs": [
                     {
                         "name": "domainA",
+                        "protein": "target",
                         "selection": "resid 1-10",
                         "states": ["bound", "bulk"],
                     },
                     {
                         "name": "domainB",
+                        "protein": "target",
                         "selection": "resid 11-20",
                         "states": ["bound"],
                     },

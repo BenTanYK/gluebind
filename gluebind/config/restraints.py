@@ -26,6 +26,7 @@ from typing import Literal
 import pydantic
 
 State = Literal["bound", "bulk"]
+Protein = Literal["target", "receptor"]
 
 _CONFIG = pydantic.ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -41,9 +42,15 @@ class RmsdCVSpec(pydantic.BaseModel):
 
     name: str
     """Short identifier; also the stage directory name. Must be unique."""
+    protein: Protein
+    """Which input protein this CV lives on (``target`` or ``receptor``). The
+    selection is resolved against *that* input topology and mapped into the
+    assembled complex, so it is immune to any re-indexing BioSimSpace applies
+    during assembly (see :mod:`gluebind.system.atom_map`)."""
     selection: str
-    """MDAnalysis-style residue selection, resolved against the parameterised
-    topology (0-indexed convention documented in the config guide)."""
+    """MDAnalysis selection, resolved against the ``protein``'s **input**
+    ``.prm7`` (the numbering the user authored against), then mapped to the
+    complex."""
     states: list[State] = ["bound", "bulk"]
     """Which thermodynamic states this CV is sampled in."""
     include_glue: bool = False
@@ -70,6 +77,9 @@ class AlwaysOnRestraint(pydantic.BaseModel):
 
     model_config = _CONFIG
 
+    protein: Protein
+    """Which input protein the restrained atoms live on; the selection is
+    resolved against that input topology and mapped into the complex/bulk."""
     selection: str
     force_constant: float
     """Harmonic force constant in kcal/mol/Å²."""

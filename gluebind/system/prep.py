@@ -115,12 +115,15 @@ def parameterise_glue(sdf: str | pathlib.Path, forcefield: str):
 
 
 def assemble_and_solvate(target, receptor, glue, prep_config: PrepConfig):
-    """Combine target + receptor + optional glue and solvate the complex."""
+    """Combine glue (MOL) + receptor + target and solvate the complex.
+
+    Assembly order is glue first, then receptor, then target — so the glue is
+    molecule 0 and each protein occupies a contiguous atom block, which the
+    input->complex atom map relies on (see :mod:`gluebind.system.atom_map`)."""
     import BioSimSpace as BSS
 
-    system = target + receptor
-    if glue is not None:
-        system = system + glue
+    system = glue + receptor if glue is not None else receptor
+    system = system + target
 
     box_min, box_max = system.getAxisAlignedBoundingBox()
     padding = prep_config.box_padding_angstrom * BSS.Units.Length.angstrom
