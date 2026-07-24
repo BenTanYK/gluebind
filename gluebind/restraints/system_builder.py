@@ -61,6 +61,23 @@ def heating_schedule(
     return [(i + 1) * step for i in range(increments)]
 
 
+def minimise_and_set_temperature(
+    simulation, integrator, *, target_temperature_K: float
+) -> None:
+    """Minimise, then set the integrator and velocities straight to the target
+    temperature — **no heating ramp**.
+
+    For windows that start from an already-equilibrated structure at the target
+    temperature (the prep-equilibrated complex, or an SMD frame), so re-heating
+    from cold each window would be wasted MD. The integrator was created at
+    ``INITIAL_TEMPERATURE_K`` by :func:`build_simulation`, so it is set to the
+    target here.
+    """
+    simulation.minimizeEnergy()
+    integrator.setTemperature(target_temperature_K * unit.kelvin)
+    simulation.context.setVelocitiesToTemperature(target_temperature_K * unit.kelvin)
+
+
 def minimise_and_heat(simulation, integrator, *, target_temperature_K: float) -> None:
     """Minimise, then ramp the temperature to ``target_temperature_K``.
 

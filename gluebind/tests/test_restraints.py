@@ -139,3 +139,26 @@ def test_heating_schedule_starts_at_first_increment_and_reaches_target():
     assert len(sched) == 50  # every increment run (none skipped)
     assert sched[0] == pytest.approx(6.0)  # first increment (300/50), not 12.0
     assert sched[-1] == pytest.approx(300.0)  # reaches the target exactly
+
+
+def test_minimise_and_set_temperature_goes_straight_to_target():
+    # No heating ramp: the integrator (created cold) must be set to the target.
+    system = _system(2)
+    integrator = mm.LangevinMiddleIntegrator(
+        6.0 * unit.kelvin, 1.0 / unit.picosecond, 1.0 * unit.femtoseconds
+    )
+    topology = app.Topology()
+    res = topology.addResidue("X", topology.addChain())
+    topology.addAtom("A", app.element.carbon, res)
+    topology.addAtom("B", app.element.carbon, res)
+    sim = app.Simulation(
+        topology, system, integrator, mm.Platform.getPlatformByName("Reference")
+    )
+    sim.context.setPositions(_nm([(0, 0, 0), (0, 0, 0.15)]))
+
+    system_builder.minimise_and_set_temperature(
+        sim, integrator, target_temperature_K=300.0
+    )
+    assert integrator.getTemperature().value_in_unit(unit.kelvin) == pytest.approx(
+        300.0
+    )

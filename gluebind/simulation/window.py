@@ -185,9 +185,12 @@ def run_window(work_dir: str | pathlib.Path) -> None:
                 "an RMSD window requires a restraint entry with sampled=True"
             )
 
-    # Minimise + heat with all restraints in place, holding the structure to the
-    # equilibrated reference throughout the ramp.
-    sb.minimise_and_heat(
+    # The window starts from an already-equilibrated structure at the target
+    # temperature (prep-equilibrated complex, or an SMD frame), so minimise with
+    # the restraints in place and go straight to the target temperature — no
+    # per-window heating ramp (the equil_discard/RED truncation handles relaxing
+    # into the biased state).
+    sb.minimise_and_set_temperature(
         simulation, integrator, target_temperature_K=spec.temperature_K
     )
 
