@@ -167,7 +167,7 @@ def test_analyse_aggregates_and_writes_csv(tmp_path):
         },
     }
     for name, calc in cset.calcs.items():
-        calc.analyse = (lambda result: (lambda *a, **k: result))(fake[name])
+        calc.analyse = (lambda result: lambda *a, **k: result)(fake[name])
 
     out = cset.analyse()
 

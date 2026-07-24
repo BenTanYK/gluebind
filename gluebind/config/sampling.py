@@ -165,7 +165,13 @@ class SamplingConfig(pydantic.BaseModel):
     still applied (held fixed) in the Boresch/SMD/separation windows, but their US
     stages are skipped, giving the cheaper ranking estimate
     ΔG_sep + ΔG_o^bound + ΔG_corr° (a stability discriminator, not a rigorous
-    ΔG_bind° — see the analyse() ``rmsd_included`` flag)."""
+    ΔG_bind° — see the analyse() ``rmsd_included`` flag).
+
+    Excluded from the config hash, so a separation-only run can be *upgraded* to
+    the full cycle later by flipping this to ``True`` and re-running: the run
+    resumes and adds only the RMSD stages (the already-sampled Boresch/SMD/
+    separation windows are unaffected by this flag). Ideal for running N systems
+    cheaply, then completing the RMSD leg for a promising subset."""
 
     boresch: WindowSampling = pydantic.Field(default_factory=_boresch_default)
     rmsd: WindowSampling = pydantic.Field(default_factory=_rmsd_default)

@@ -587,6 +587,29 @@ def test_rmsd_included_true_by_default(tmp_path):
     assert result["rmsd_included"] is True
 
 
+def test_upgrade_separation_only_to_full_rmsd(tmp_path):
+    # The N-then-M workflow: run separation-only, then upgrade the same run to the
+    # full cycle by flipping run_rmsd_us and re-running — it must resume (no
+    # config_hash abort) and add only the RMSD stages.
+    cfg_off = _config()
+    cfg_off.sampling.run_rmsd_us = False
+    _calc(tmp_path, config=cfg_off).run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+
+    cfg_on = _config()
+    cfg_on.sampling.run_rmsd_us = True
+    calc = _calc(tmp_path, config=cfg_on)
+    assert calc._group("rmsd") is not None  # RMSD stages now built
+    calc.run(  # must NOT raise config_hash mismatch; runs only the new RMSD stages
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    for window in calc._iter_windows():
+        assert window.is_replicate_complete(1)  # RMSD windows completed on the upgrade
+    result = calc.analyse(_fake_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0)
+    assert result["rmsd_included"] is True
+
+
 def test_rmsd_stage_names_respect_states(tmp_path):
     # A custom CV sampled only in the bound state must not spawn a _bulk stage.
     cfg = CalculationConfig.model_validate(

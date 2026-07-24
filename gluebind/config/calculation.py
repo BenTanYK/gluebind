@@ -131,8 +131,17 @@ class CalculationConfig(pydantic.BaseModel):
 
         Persisted in the run state; a resume against a mutated config is caught
         by comparing this hash.
+
+        ``sampling.run_rmsd_us`` is deliberately excluded: it is a scope flag (it
+        only controls whether the RMSD US *stages* are built), not a physics
+        parameter — no already-sampled window's physics depends on it. Excluding it
+        lets a separation-PMF-only run (``run_rmsd_us=False``) be *upgraded* to the
+        full cycle by flipping the flag and re-running, which resumes and simply
+        adds the RMSD stages rather than aborting as config drift.
         """
         canonical = json.dumps(
-            self.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+            self.model_dump(mode="json", exclude={"sampling": {"run_rmsd_us"}}),
+            sort_keys=True,
+            separators=(",", ":"),
         )
         return hashlib.sha256(canonical.encode()).hexdigest()
