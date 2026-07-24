@@ -1386,6 +1386,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gluebind.config.sampling.SamplingConfig.run_rmsd_us" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;run_rmsd_us
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gluebind.config.sampling.SamplingConfig.for_cv" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2198,6 +2209,8 @@
       
         
       
+        
+      
     
     
     
@@ -2267,6 +2280,34 @@
     
   
     prep_stage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../simulation/production/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    production
   
 
     
@@ -2445,6 +2486,8 @@
       
         
       
+        
+      
     
     
     
@@ -2497,6 +2540,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../system/atom_map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    atom_map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2786,6 +2857,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;ensemble_size
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.sampling.SamplingConfig.run_rmsd_us" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;run_rmsd_us
       
     </span>
   </a>
@@ -3457,6 +3539,20 @@ silent no-op.</p>
             <p>Number of independent replicate simulations per window.</p>
           </div>
         </li>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;run_rmsd_us&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-class-attribute&quot;&gt;&lt;code&gt;class-attribute&lt;/code&gt;&lt;/small&gt;
+      &lt;small class=&quot;doc doc-label doc-label-instance-attribute&quot;&gt;&lt;code&gt;instance-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.config.sampling.SamplingConfig.run_rmsd_us&lt;/code&gt;)" href="#gluebind.config.sampling.SamplingConfig.run_rmsd_us">run_rmsd_us</a></code></b>
+              (<code><span title="bool">bool</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Whether to run the RMSD umbrella-sampling stages (ΔG_c^bound/ΔG_c^bulk). Set</p>
+          </div>
+        </li>
     </ul>
 
 
@@ -3521,6 +3617,41 @@ free-energy integrals — kept consistent throughout (the paper protocol).</p>
 
 </div>
 
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="gluebind.config.sampling.SamplingConfig.run_rmsd_us" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">run_rmsd_us</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#gluebind.config.sampling.SamplingConfig.run_rmsd_us" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">run_rmsd_us</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether to run the RMSD umbrella-sampling stages (ΔG_c^bound/ΔG_c^bulk). Set
+<code>False</code> for the restrained-separation-PMF-only mode: the RMSD restraints are
+still applied (held fixed) in the Boresch/SMD/separation windows, but their US
+stages are skipped, giving the cheaper ranking estimate
+ΔG_sep + ΔG_o^bound + ΔG_corr° (a stability discriminator, not a rigorous
+ΔG_bind° — see the analyse() <code>rmsd_included</code> flag).</p>
+<p>Excluded from the config hash, so a separation-only run can be <em>upgraded</em> to
+the full cycle later by flipping this to <code>True</code> and re-running: the run
+resumes and adds only the RMSD stages (the already-sampled Boresch/SMD/
+separation windows are unaffected by this flag). Ideal for running N systems
+cheaply, then completing the RMSD leg for a promising subset.</p>
+
+    </div>
+
+</div>
+
 
 
 
@@ -3543,23 +3674,23 @@ free-energy integrals — kept consistent throughout (the paper protocol).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/config/sampling.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-183">183</a></span>
-<span class="normal"><a href="#__codelineno-0-184">184</a></span>
-<span class="normal"><a href="#__codelineno-0-185">185</a></span>
-<span class="normal"><a href="#__codelineno-0-186">186</a></span>
-<span class="normal"><a href="#__codelineno-0-187">187</a></span>
-<span class="normal"><a href="#__codelineno-0-188">188</a></span>
-<span class="normal"><a href="#__codelineno-0-189">189</a></span>
-<span class="normal"><a href="#__codelineno-0-190">190</a></span>
-<span class="normal"><a href="#__codelineno-0-191">191</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-183"><a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="k">def</span><span class="w"> </span><span class="nf">for_cv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSampling</span><span class="p">:</span>
-</span><span id="__span-0-184"><a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve the sampling schedule for a stage of a given CV type.</span>
-</span><span id="__span-0-185"><a id="__codelineno-0-185" name="__codelineno-0-185"></a>
-</span><span id="__span-0-186"><a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">    ``cv_type`` is one of ``&quot;boresch&quot;``, ``&quot;rmsd&quot;``, ``&quot;separation&quot;``.</span>
-</span><span id="__span-0-187"><a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="__span-0-188"><a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="k">if</span> <span class="n">cv_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;boresch&quot;</span><span class="p">,</span> <span class="s2">&quot;rmsd&quot;</span><span class="p">,</span> <span class="s2">&quot;separation&quot;</span><span class="p">):</span>
-</span><span id="__span-0-189"><a id="__codelineno-0-189" name="__codelineno-0-189"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown cv_type </span><span class="si">{</span><span class="n">cv_type</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-0-190"><a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="n">base</span><span class="p">:</span> <span class="n">WindowSampling</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv_type</span><span class="p">)</span>
-</span><span id="__span-0-191"><a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="k">return</span> <span class="n">base</span><span class="o">.</span><span class="n">resolved</span><span class="p">(</span><span class="n">stage_name</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-196">196</a></span>
+<span class="normal"><a href="#__codelineno-0-197">197</a></span>
+<span class="normal"><a href="#__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span>
+<span class="normal"><a href="#__codelineno-0-204">204</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-196"><a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="k">def</span><span class="w"> </span><span class="nf">for_cv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSampling</span><span class="p">:</span>
+</span><span id="__span-0-197"><a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve the sampling schedule for a stage of a given CV type.</span>
+</span><span id="__span-0-198"><a id="__codelineno-0-198" name="__codelineno-0-198"></a>
+</span><span id="__span-0-199"><a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">    ``cv_type`` is one of ``&quot;boresch&quot;``, ``&quot;rmsd&quot;``, ``&quot;separation&quot;``.</span>
+</span><span id="__span-0-200"><a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-201"><a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="k">if</span> <span class="n">cv_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;boresch&quot;</span><span class="p">,</span> <span class="s2">&quot;rmsd&quot;</span><span class="p">,</span> <span class="s2">&quot;separation&quot;</span><span class="p">):</span>
+</span><span id="__span-0-202"><a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown cv_type </span><span class="si">{</span><span class="n">cv_type</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-203"><a id="__codelineno-0-203" name="__codelineno-0-203"></a>    <span class="n">base</span><span class="p">:</span> <span class="n">WindowSampling</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv_type</span><span class="p">)</span>
+</span><span id="__span-0-204"><a id="__codelineno-0-204" name="__codelineno-0-204"></a>    <span class="k">return</span> <span class="n">base</span><span class="o">.</span><span class="n">resolved</span><span class="p">(</span><span class="n">stage_name</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>

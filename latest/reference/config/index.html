@@ -1974,6 +1974,8 @@
       
         
       
+        
+      
     
     
     
@@ -2043,6 +2045,34 @@
     
   
     prep_stage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../simulation/production/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    production
   
 
     
@@ -2221,6 +2251,8 @@
       
         
       
+        
+      
     
     
     
@@ -2273,6 +2305,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../system/atom_map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    atom_map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2586,6 +2646,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#gluebind.config.AlwaysOnRestraint.protein" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;protein
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gluebind.config.AlwaysOnRestraint.force_constant" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2664,6 +2735,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gluebind.config.RestraintsConfig.rmsd_atoms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;rmsd_atoms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.RestraintsConfig.always_on_atoms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;always_on_atoms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gluebind.config.RestraintsConfig.uses_default_all_ca" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2696,6 +2789,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.RmsdCVSpec.protein" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;protein
       
     </span>
   </a>
@@ -2768,6 +2872,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;ensemble_size
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.SamplingConfig.run_rmsd_us" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;run_rmsd_us
       
     </span>
   </a>
@@ -3126,7 +3241,7 @@ silently disagree.</p>
           <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Inputs&lt;/span&gt; (&lt;code&gt;gluebind.config.Inputs&lt;/code&gt;)" href="#gluebind.config.Inputs">Inputs</a></code></b>
           –
           <div class="doc-md-description">
-            <p>The two proteins and the optional glue.</p>
+            <p>The two proteins, the optional glue, and optional crystal waters.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3329,6 +3444,12 @@ silently disagree.</p>
         <p>A stable SHA-256 over the canonical config, for drift detection.</p>
 <p>Persisted in the run state; a resume against a mutated config is caught
 by comparing this hash.</p>
+<p><code>sampling.run_rmsd_us</code> is deliberately excluded: it is a scope flag (it
+only controls whether the RMSD US <em>stages</em> are built), not a physics
+parameter — no already-sampled window's physics depends on it. Excluding it
+lets a separation-PMF-only run (<code>run_rmsd_us=False</code>) be <em>upgraded</em> to the
+full cycle by flipping the flag and re-running, which resumes and simply
+adds the RMSD stages rather than aborting as config drift.</p>
 
     </div>
 
@@ -3359,23 +3480,23 @@ by comparing this hash.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/config/calculation.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span>
-<span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span>
-<span class="normal"><a href="#__codelineno-0-80">80</a></span>
-<span class="normal"><a href="#__codelineno-0-81">81</a></span>
-<span class="normal"><a href="#__codelineno-0-82">82</a></span>
-<span class="normal"><a href="#__codelineno-0-83">83</a></span>
-<span class="normal"><a href="#__codelineno-0-84">84</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="nd">@classmethod</span>
-</span><span id="__span-0-77"><a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CalculationConfig&quot;</span><span class="p">:</span>
-</span><span id="__span-0-78"><a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and validate a calculation config from a YAML file.&quot;&quot;&quot;</span>
-</span><span id="__span-0-79"><a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-</span><span id="__span-0-80"><a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span id="__span-0-81"><a id="__codelineno-0-81" name="__codelineno-0-81"></a>        <span class="n">raw</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-</span><span id="__span-0-82"><a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-83"><a id="__codelineno-0-83" name="__codelineno-0-83"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> is empty&quot;</span><span class="p">)</span>
-</span><span id="__span-0-84"><a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#__codelineno-0-91">91</a></span>
+<span class="normal"><a href="#__codelineno-0-92">92</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-84"><a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="nd">@classmethod</span>
+</span><span id="__span-0-85"><a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CalculationConfig&quot;</span><span class="p">:</span>
+</span><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and validate a calculation config from a YAML file.&quot;&quot;&quot;</span>
+</span><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a>        <span class="n">raw</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</span><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a>    <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> is empty&quot;</span><span class="p">)</span>
+</span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3400,29 +3521,29 @@ by comparing this hash.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/config/calculation.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-86">86</a></span>
-<span class="normal"><a href="#__codelineno-0-87">87</a></span>
-<span class="normal"><a href="#__codelineno-0-88">88</a></span>
-<span class="normal"><a href="#__codelineno-0-89">89</a></span>
-<span class="normal"><a href="#__codelineno-0-90">90</a></span>
-<span class="normal"><a href="#__codelineno-0-91">91</a></span>
-<span class="normal"><a href="#__codelineno-0-92">92</a></span>
-<span class="normal"><a href="#__codelineno-0-93">93</a></span>
-<span class="normal"><a href="#__codelineno-0-94">94</a></span>
-<span class="normal"><a href="#__codelineno-0-95">95</a></span>
-<span class="normal"><a href="#__codelineno-0-96">96</a></span>
-<span class="normal"><a href="#__codelineno-0-97">97</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="k">def</span><span class="w"> </span><span class="nf">dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span>
-</span><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Write this config to ``path`` as YAML.&quot;&quot;&quot;</span>
-</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-</span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span>
-</span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">),</span>
-</span><span id="__span-0-93"><a id="__codelineno-0-93" name="__codelineno-0-93"></a>            <span class="n">f</span><span class="p">,</span>
-</span><span id="__span-0-94"><a id="__codelineno-0-94" name="__codelineno-0-94"></a>            <span class="n">sort_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-0-95"><a id="__codelineno-0-95" name="__codelineno-0-95"></a>            <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-0-96"><a id="__codelineno-0-96" name="__codelineno-0-96"></a>        <span class="p">)</span>
-</span><span id="__span-0-97"><a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="k">return</span> <span class="n">path</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
+<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
+<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
+<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
+<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-94"><a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="k">def</span><span class="w"> </span><span class="nf">dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span>
+</span><span id="__span-0-95"><a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Write this config to ``path`` as YAML.&quot;&quot;&quot;</span>
+</span><span id="__span-0-96"><a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</span><span id="__span-0-97"><a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-98"><a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99"></a>        <span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span>
+</span><span id="__span-0-100"><a id="__codelineno-0-100" name="__codelineno-0-100"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">),</span>
+</span><span id="__span-0-101"><a id="__codelineno-0-101" name="__codelineno-0-101"></a>            <span class="n">f</span><span class="p">,</span>
+</span><span id="__span-0-102"><a id="__codelineno-0-102" name="__codelineno-0-102"></a>            <span class="n">sort_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-103"><a id="__codelineno-0-103" name="__codelineno-0-103"></a>            <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-104"><a id="__codelineno-0-104" name="__codelineno-0-104"></a>        <span class="p">)</span>
+</span><span id="__span-0-105"><a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="k">return</span> <span class="n">path</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3447,11 +3568,11 @@ by comparing this hash.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/config/calculation.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#__codelineno-0-100">100</a></span>
-<span class="normal"><a href="#__codelineno-0-101">101</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="k">def</span><span class="w"> </span><span class="nf">dump_resolved</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span>
-</span><span id="__span-0-100"><a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Dump the fully-resolved config into a run directory for provenance.&quot;&quot;&quot;</span>
-</span><span id="__span-0-101"><a id="__codelineno-0-101" name="__codelineno-0-101"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">run_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">RESOLVED_CONFIG_FILENAME</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-107"><a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="k">def</span><span class="w"> </span><span class="nf">dump_resolved</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span>
+</span><span id="__span-0-108"><a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Dump the fully-resolved config into a run directory for provenance.&quot;&quot;&quot;</span>
+</span><span id="__span-0-109"><a id="__codelineno-0-109" name="__codelineno-0-109"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">run_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">RESOLVED_CONFIG_FILENAME</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3482,15 +3603,7 @@ input directory. Absolute paths are left unchanged.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/config/calculation.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-103">103</a></span>
-<span class="normal"><a href="#__codelineno-0-104">104</a></span>
-<span class="normal"><a href="#__codelineno-0-105">105</a></span>
-<span class="normal"><a href="#__codelineno-0-106">106</a></span>
-<span class="normal"><a href="#__codelineno-0-107">107</a></span>
-<span class="normal"><a href="#__codelineno-0-108">108</a></span>
-<span class="normal"><a href="#__codelineno-0-109">109</a></span>
-<span class="normal"><a href="#__codelineno-0-110">110</a></span>
-<span class="normal"><a href="#__codelineno-0-111">111</a></span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-111">111</a></span>
 <span class="normal"><a href="#__codelineno-0-112">112</a></span>
 <span class="normal"><a href="#__codelineno-0-113">113</a></span>
 <span class="normal"><a href="#__codelineno-0-114">114</a></span>
@@ -3505,30 +3618,44 @@ input directory. Absolute paths are left unchanged.</p>
 <span class="normal"><a href="#__codelineno-0-123">123</a></span>
 <span class="normal"><a href="#__codelineno-0-124">124</a></span>
 <span class="normal"><a href="#__codelineno-0-125">125</a></span>
-<span class="normal"><a href="#__codelineno-0-126">126</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-103"><a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="k">def</span><span class="w"> </span><span class="nf">with_resolved_input_paths</span><span class="p">(</span>
-</span><span id="__span-0-104"><a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span>
-</span><span id="__span-0-105"><a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CalculationConfig&quot;</span><span class="p">:</span>
-</span><span id="__span-0-106"><a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a copy with relative input file paths resolved against ``base``.</span>
-</span><span id="__span-0-107"><a id="__codelineno-0-107" name="__codelineno-0-107"></a>
-</span><span id="__span-0-108"><a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="sd">    Lets a ``config.yaml`` live alongside its AMBER inputs in a self-contained</span>
-</span><span id="__span-0-109"><a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="sd">    directory (paths relative to that directory) — how CalcSet treats each</span>
-</span><span id="__span-0-110"><a id="__codelineno-0-110" name="__codelineno-0-110"></a><span class="sd">    per-system subdirectory, and how a single calc can be run from its own</span>
-</span><span id="__span-0-111"><a id="__codelineno-0-111" name="__codelineno-0-111"></a><span class="sd">    input directory. Absolute paths are left unchanged.</span>
-</span><span id="__span-0-112"><a id="__codelineno-0-112" name="__codelineno-0-112"></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="__span-0-113"><a id="__codelineno-0-113" name="__codelineno-0-113"></a>    <span class="n">base</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
-</span><span id="__span-0-114"><a id="__codelineno-0-114" name="__codelineno-0-114"></a>
-</span><span id="__span-0-115"><a id="__codelineno-0-115" name="__codelineno-0-115"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_abs</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-0-116"><a id="__codelineno-0-116" name="__codelineno-0-116"></a>        <span class="n">p</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-</span><span id="__span-0-117"><a id="__codelineno-0-117" name="__codelineno-0-117"></a>        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">p</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">()</span> <span class="k">else</span> <span class="p">(</span><span class="n">base</span> <span class="o">/</span> <span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
-</span><span id="__span-0-118"><a id="__codelineno-0-118" name="__codelineno-0-118"></a>
-</span><span id="__span-0-119"><a id="__codelineno-0-119" name="__codelineno-0-119"></a>    <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
-</span><span id="__span-0-120"><a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="n">inputs</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;inputs&quot;</span><span class="p">]</span>
-</span><span id="__span-0-121"><a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="k">for</span> <span class="n">molecule</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;target&quot;</span><span class="p">,</span> <span class="s2">&quot;receptor&quot;</span><span class="p">):</span>
-</span><span id="__span-0-122"><a id="__codelineno-0-122" name="__codelineno-0-122"></a>        <span class="n">inputs</span><span class="p">[</span><span class="n">molecule</span><span class="p">][</span><span class="s2">&quot;prm7&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_abs</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="n">molecule</span><span class="p">][</span><span class="s2">&quot;prm7&quot;</span><span class="p">])</span>
-</span><span id="__span-0-123"><a id="__codelineno-0-123" name="__codelineno-0-123"></a>        <span class="n">inputs</span><span class="p">[</span><span class="n">molecule</span><span class="p">][</span><span class="s2">&quot;rst7&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_abs</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="n">molecule</span><span class="p">][</span><span class="s2">&quot;rst7&quot;</span><span class="p">])</span>
-</span><span id="__span-0-124"><a id="__codelineno-0-124" name="__codelineno-0-124"></a>    <span class="k">if</span> <span class="n">inputs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;glue&quot;</span><span class="p">):</span>
-</span><span id="__span-0-125"><a id="__codelineno-0-125" name="__codelineno-0-125"></a>        <span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;glue&quot;</span><span class="p">][</span><span class="s2">&quot;sdf&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_abs</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;glue&quot;</span><span class="p">][</span><span class="s2">&quot;sdf&quot;</span><span class="p">])</span>
-</span><span id="__span-0-126"><a id="__codelineno-0-126" name="__codelineno-0-126"></a>    <span class="k">return</span> <span class="n">CalculationConfig</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#__codelineno-0-137">137</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-111"><a id="__codelineno-0-111" name="__codelineno-0-111"></a><span class="k">def</span><span class="w"> </span><span class="nf">with_resolved_input_paths</span><span class="p">(</span>
+</span><span id="__span-0-112"><a id="__codelineno-0-112" name="__codelineno-0-112"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span>
+</span><span id="__span-0-113"><a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CalculationConfig&quot;</span><span class="p">:</span>
+</span><span id="__span-0-114"><a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a copy with relative input file paths resolved against ``base``.</span>
+</span><span id="__span-0-115"><a id="__codelineno-0-115" name="__codelineno-0-115"></a>
+</span><span id="__span-0-116"><a id="__codelineno-0-116" name="__codelineno-0-116"></a><span class="sd">    Lets a ``config.yaml`` live alongside its AMBER inputs in a self-contained</span>
+</span><span id="__span-0-117"><a id="__codelineno-0-117" name="__codelineno-0-117"></a><span class="sd">    directory (paths relative to that directory) — how CalcSet treats each</span>
+</span><span id="__span-0-118"><a id="__codelineno-0-118" name="__codelineno-0-118"></a><span class="sd">    per-system subdirectory, and how a single calc can be run from its own</span>
+</span><span id="__span-0-119"><a id="__codelineno-0-119" name="__codelineno-0-119"></a><span class="sd">    input directory. Absolute paths are left unchanged.</span>
+</span><span id="__span-0-120"><a id="__codelineno-0-120" name="__codelineno-0-120"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-121"><a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="n">base</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+</span><span id="__span-0-122"><a id="__codelineno-0-122" name="__codelineno-0-122"></a>
+</span><span id="__span-0-123"><a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_abs</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-0-124"><a id="__codelineno-0-124" name="__codelineno-0-124"></a>        <span class="n">p</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</span><span id="__span-0-125"><a id="__codelineno-0-125" name="__codelineno-0-125"></a>        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">p</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">()</span> <span class="k">else</span> <span class="p">(</span><span class="n">base</span> <span class="o">/</span> <span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
+</span><span id="__span-0-126"><a id="__codelineno-0-126" name="__codelineno-0-126"></a>
+</span><span id="__span-0-127"><a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
+</span><span id="__span-0-128"><a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="n">inputs</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;inputs&quot;</span><span class="p">]</span>
+</span><span id="__span-0-129"><a id="__codelineno-0-129" name="__codelineno-0-129"></a>    <span class="k">for</span> <span class="n">molecule</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;target&quot;</span><span class="p">,</span> <span class="s2">&quot;receptor&quot;</span><span class="p">):</span>
+</span><span id="__span-0-130"><a id="__codelineno-0-130" name="__codelineno-0-130"></a>        <span class="n">inputs</span><span class="p">[</span><span class="n">molecule</span><span class="p">][</span><span class="s2">&quot;prm7&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_abs</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="n">molecule</span><span class="p">][</span><span class="s2">&quot;prm7&quot;</span><span class="p">])</span>
+</span><span id="__span-0-131"><a id="__codelineno-0-131" name="__codelineno-0-131"></a>        <span class="n">inputs</span><span class="p">[</span><span class="n">molecule</span><span class="p">][</span><span class="s2">&quot;rst7&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_abs</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="n">molecule</span><span class="p">][</span><span class="s2">&quot;rst7&quot;</span><span class="p">])</span>
+</span><span id="__span-0-132"><a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="k">if</span> <span class="n">inputs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;glue&quot;</span><span class="p">):</span>
+</span><span id="__span-0-133"><a id="__codelineno-0-133" name="__codelineno-0-133"></a>        <span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;glue&quot;</span><span class="p">][</span><span class="s2">&quot;sdf&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_abs</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;glue&quot;</span><span class="p">][</span><span class="s2">&quot;sdf&quot;</span><span class="p">])</span>
+</span><span id="__span-0-134"><a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="k">if</span> <span class="n">inputs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;waters&quot;</span><span class="p">):</span>
+</span><span id="__span-0-135"><a id="__codelineno-0-135" name="__codelineno-0-135"></a>        <span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;waters&quot;</span><span class="p">][</span><span class="s2">&quot;prm7&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_abs</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;waters&quot;</span><span class="p">][</span><span class="s2">&quot;prm7&quot;</span><span class="p">])</span>
+</span><span id="__span-0-136"><a id="__codelineno-0-136" name="__codelineno-0-136"></a>        <span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;waters&quot;</span><span class="p">][</span><span class="s2">&quot;rst7&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_abs</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;waters&quot;</span><span class="p">][</span><span class="s2">&quot;rst7&quot;</span><span class="p">])</span>
+</span><span id="__span-0-137"><a id="__codelineno-0-137" name="__codelineno-0-137"></a>    <span class="k">return</span> <span class="n">CalculationConfig</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3619,7 +3746,12 @@ template convention), so any other name will silently miss the glue.</p>
 
 
 
-        <p>The two proteins and the optional glue.</p>
+        <p>The two proteins, the optional glue, and optional crystal waters.</p>
+<p><code>waters</code> is an optional prm7/rst7 of crystallographic waters to preserve.
+They are appended as the <em>last</em> component of the assembled complex (after the
+proteins and glue), so the glue/receptor/target blocks stay contiguous at the
+front and the input-&gt;complex atom map is unaffected; the crystal waters are
+kept in the complex as solvent and are not carried into the bulk references.</p>
 
 
 
@@ -3968,6 +4100,19 @@ the final estimate.</p>
 <p><span class="doc-section-title">Attributes:</span></p>
     <ul>
         <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;protein&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-instance-attribute&quot;&gt;&lt;code&gt;instance-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.config.AlwaysOnRestraint.protein&lt;/code&gt;)" href="#gluebind.config.AlwaysOnRestraint.protein">protein</a></code></b>
+              (<code><span title="gluebind.config.restraints.Protein">Protein</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Which input protein the restrained atoms live on; the selection is</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
           <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;force_constant&lt;/span&gt;
 
 
@@ -3992,6 +4137,31 @@ the final estimate.</p>
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="gluebind.config.AlwaysOnRestraint.protein" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">protein</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#gluebind.config.AlwaysOnRestraint.protein" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">protein</span><span class="p">:</span> <span class="n"><span title="gluebind.config.restraints.Protein">Protein</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Which input protein the restrained atoms live on; the selection is
+resolved against that input topology and mapped into the complex/bulk.</p>
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-attribute">
 
@@ -4175,7 +4345,7 @@ default to automatic selection from RMSF minima.</p>
               (<code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;RmsdCVSpec&lt;/span&gt; (&lt;code&gt;gluebind.config.restraints.RmsdCVSpec&lt;/code&gt;)" href="restraints/#gluebind.config.restraints.RmsdCVSpec">RmsdCVSpec</a>]</code>)
           –
           <div class="doc-md-description">
-            <p>RMSD CV regions. Empty ⇒ all-Cα default (see module docstring).</p>
+            <p>RMSD CV regions. Empty ⇒ all-protein default (see module docstring).</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -4190,6 +4360,34 @@ default to automatic selection from RMSF minima.</p>
           –
           <div class="doc-md-description">
             <p>Sequential bound-state application order, by CV name. Empty ⇒ the order</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;rmsd_atoms&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-class-attribute&quot;&gt;&lt;code&gt;class-attribute&lt;/code&gt;&lt;/small&gt;
+      &lt;small class=&quot;doc doc-label doc-label-instance-attribute&quot;&gt;&lt;code&gt;instance-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.config.RestraintsConfig.rmsd_atoms&lt;/code&gt;)" href="#gluebind.config.RestraintsConfig.rmsd_atoms">rmsd_atoms</a></code></b>
+              (<code><span title="gluebind.config.restraints.Atoms">Atoms</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Which atoms the US RMSD restraints act on — <code>CA</code> (Cα only) or <code>backbone</code></p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;always_on_atoms&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-class-attribute&quot;&gt;&lt;code&gt;class-attribute&lt;/code&gt;&lt;/small&gt;
+      &lt;small class=&quot;doc doc-label doc-label-instance-attribute&quot;&gt;&lt;code&gt;instance-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.config.RestraintsConfig.always_on_atoms&lt;/code&gt;)" href="#gluebind.config.RestraintsConfig.always_on_atoms">always_on_atoms</a></code></b>
+              (<code><span title="gluebind.config.restraints.Atoms">Atoms</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Which atoms the constant (always-on) restraints act on — <code>CA</code> or</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -4239,7 +4437,7 @@ default to automatic selection from RMSF minima.</p>
 
     <div class="doc doc-contents ">
 
-        <p>RMSD CV regions. Empty ⇒ all-Cα default (see module docstring).</p>
+        <p>RMSD CV regions. Empty ⇒ all-protein default (see module docstring).</p>
 
     </div>
 
@@ -4266,6 +4464,59 @@ default to automatic selection from RMSF minima.</p>
 
         <p>Sequential bound-state application order, by CV name. Empty ⇒ the order
 of <code>rmsd_cvs</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="gluebind.config.RestraintsConfig.rmsd_atoms" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">rmsd_atoms</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#gluebind.config.RestraintsConfig.rmsd_atoms" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">rmsd_atoms</span><span class="p">:</span> <span class="n"><span title="gluebind.config.restraints.Atoms">Atoms</span></span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Which atoms the US RMSD restraints act on — <code>CA</code> (Cα only) or <code>backbone</code>
+(C, N, Cα). Applied to every RMSD CV and to the all-protein default; CV
+selections are therefore residue-only (the atom filter comes from here).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="gluebind.config.RestraintsConfig.always_on_atoms" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">always_on_atoms</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#gluebind.config.RestraintsConfig.always_on_atoms" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">always_on_atoms</span><span class="p">:</span> <span class="n"><span title="gluebind.config.restraints.Atoms">Atoms</span></span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Which atoms the constant (always-on) restraints act on — <code>CA</code> or
+<code>backbone</code>; set independently of <code>rmsd_atoms</code>.</p>
 
     </div>
 
@@ -4356,6 +4607,19 @@ of <code>rmsd_cvs</code>.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;protein&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-instance-attribute&quot;&gt;&lt;code&gt;instance-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.config.RmsdCVSpec.protein&lt;/code&gt;)" href="#gluebind.config.RmsdCVSpec.protein">protein</a></code></b>
+              (<code><span title="gluebind.config.restraints.Protein">Protein</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Which input protein this CV lives on (<code>target</code> or <code>receptor</code>). The</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
           <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;selection&lt;/span&gt;
 
 
@@ -4365,7 +4629,7 @@ of <code>rmsd_cvs</code>.</p>
               (<code><span title="str">str</span></code>)
           –
           <div class="doc-md-description">
-            <p>MDAnalysis-style residue selection, resolved against the parameterised</p>
+            <p>Residue-only MDAnalysis selection (e.g. <code>"resid 174-280"</code>), resolved</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -4379,7 +4643,7 @@ of <code>rmsd_cvs</code>.</p>
               (<code><span title="list">list</span>[<span title="gluebind.config.restraints.State">State</span>]</code>)
           –
           <div class="doc-md-description">
-            <p>Which thermodynamic states this CV is sampled in.</p>
+            <p>Which thermodynamic states this CV is sampled in — must be <strong>both</strong> <code>bound</code></p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -4437,6 +4701,33 @@ of <code>rmsd_cvs</code>.</p>
 
 
 
+<h3 id="gluebind.config.RmsdCVSpec.protein" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">protein</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#gluebind.config.RmsdCVSpec.protein" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">protein</span><span class="p">:</span> <span class="n"><span title="gluebind.config.restraints.Protein">Protein</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Which input protein this CV lives on (<code>target</code> or <code>receptor</code>). The
+selection is resolved against <em>that</em> input topology and mapped into the
+assembled complex, so it is immune to any re-indexing BioSimSpace applies
+during assembly (see :mod:<code>gluebind.system.atom_map</code>).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
 <h3 id="gluebind.config.RmsdCVSpec.selection" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">selection</span>
 
@@ -4451,8 +4742,10 @@ of <code>rmsd_cvs</code>.</p>
 
     <div class="doc doc-contents ">
 
-        <p>MDAnalysis-style residue selection, resolved against the parameterised
-topology (0-indexed convention documented in the config guide).</p>
+        <p>Residue-only MDAnalysis selection (e.g. <code>"resid 174-280"</code>), resolved
+against the <code>protein</code>'s <strong>input</strong> <code>.prm7</code> (the numbering the user authored
+against) and mapped to the complex. The atom filter (Cα vs backbone) is <em>not</em>
+part of the selection — it comes from <code>RestraintsConfig.rmsd_atoms</code>.</p>
 
     </div>
 
@@ -4477,7 +4770,11 @@ topology (0-indexed convention documented in the config guide).</p>
 
     <div class="doc doc-contents ">
 
-        <p>Which thermodynamic states this CV is sampled in.</p>
+        <p>Which thermodynamic states this CV is sampled in — must be <strong>both</strong> <code>bound</code>
+and <code>bulk</code> (enforced by :class:<code>RestraintsConfig</code>). The confinement free energy
+cancels only when a region is restrained in the bound state and released in the
+bulk state, so a region sampled in just one leg breaks the cycle; the field stays
+explicit for provenance in the echoed config.</p>
 
     </div>
 
@@ -4593,6 +4890,20 @@ topology (0-indexed convention documented in the config guide).</p>
             <p>Number of independent replicate simulations per window.</p>
           </div>
         </li>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;run_rmsd_us&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-class-attribute&quot;&gt;&lt;code&gt;class-attribute&lt;/code&gt;&lt;/small&gt;
+      &lt;small class=&quot;doc doc-label doc-label-instance-attribute&quot;&gt;&lt;code&gt;instance-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.config.SamplingConfig.run_rmsd_us&lt;/code&gt;)" href="#gluebind.config.SamplingConfig.run_rmsd_us">run_rmsd_us</a></code></b>
+              (<code><span title="bool">bool</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Whether to run the RMSD umbrella-sampling stages (ΔG_c^bound/ΔG_c^bulk). Set</p>
+          </div>
+        </li>
     </ul>
 
 
@@ -4657,6 +4968,41 @@ free-energy integrals — kept consistent throughout (the paper protocol).</p>
 
 </div>
 
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="gluebind.config.SamplingConfig.run_rmsd_us" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">run_rmsd_us</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#gluebind.config.SamplingConfig.run_rmsd_us" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">run_rmsd_us</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether to run the RMSD umbrella-sampling stages (ΔG_c^bound/ΔG_c^bulk). Set
+<code>False</code> for the restrained-separation-PMF-only mode: the RMSD restraints are
+still applied (held fixed) in the Boresch/SMD/separation windows, but their US
+stages are skipped, giving the cheaper ranking estimate
+ΔG_sep + ΔG_o^bound + ΔG_corr° (a stability discriminator, not a rigorous
+ΔG_bind° — see the analyse() <code>rmsd_included</code> flag).</p>
+<p>Excluded from the config hash, so a separation-only run can be <em>upgraded</em> to
+the full cycle later by flipping this to <code>True</code> and re-running: the run
+resumes and adds only the RMSD stages (the already-sampled Boresch/SMD/
+separation windows are unaffected by this flag). Ideal for running N systems
+cheaply, then completing the RMSD leg for a promising subset.</p>
+
+    </div>
+
+</div>
+
 
 
 
@@ -4679,23 +5025,23 @@ free-energy integrals — kept consistent throughout (the paper protocol).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/config/sampling.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-183">183</a></span>
-<span class="normal"><a href="#__codelineno-0-184">184</a></span>
-<span class="normal"><a href="#__codelineno-0-185">185</a></span>
-<span class="normal"><a href="#__codelineno-0-186">186</a></span>
-<span class="normal"><a href="#__codelineno-0-187">187</a></span>
-<span class="normal"><a href="#__codelineno-0-188">188</a></span>
-<span class="normal"><a href="#__codelineno-0-189">189</a></span>
-<span class="normal"><a href="#__codelineno-0-190">190</a></span>
-<span class="normal"><a href="#__codelineno-0-191">191</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-183"><a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="k">def</span><span class="w"> </span><span class="nf">for_cv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSampling</span><span class="p">:</span>
-</span><span id="__span-0-184"><a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve the sampling schedule for a stage of a given CV type.</span>
-</span><span id="__span-0-185"><a id="__codelineno-0-185" name="__codelineno-0-185"></a>
-</span><span id="__span-0-186"><a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">    ``cv_type`` is one of ``&quot;boresch&quot;``, ``&quot;rmsd&quot;``, ``&quot;separation&quot;``.</span>
-</span><span id="__span-0-187"><a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="__span-0-188"><a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="k">if</span> <span class="n">cv_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;boresch&quot;</span><span class="p">,</span> <span class="s2">&quot;rmsd&quot;</span><span class="p">,</span> <span class="s2">&quot;separation&quot;</span><span class="p">):</span>
-</span><span id="__span-0-189"><a id="__codelineno-0-189" name="__codelineno-0-189"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown cv_type </span><span class="si">{</span><span class="n">cv_type</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-0-190"><a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="n">base</span><span class="p">:</span> <span class="n">WindowSampling</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv_type</span><span class="p">)</span>
-</span><span id="__span-0-191"><a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="k">return</span> <span class="n">base</span><span class="o">.</span><span class="n">resolved</span><span class="p">(</span><span class="n">stage_name</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-196">196</a></span>
+<span class="normal"><a href="#__codelineno-0-197">197</a></span>
+<span class="normal"><a href="#__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span>
+<span class="normal"><a href="#__codelineno-0-204">204</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-196"><a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="k">def</span><span class="w"> </span><span class="nf">for_cv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSampling</span><span class="p">:</span>
+</span><span id="__span-0-197"><a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve the sampling schedule for a stage of a given CV type.</span>
+</span><span id="__span-0-198"><a id="__codelineno-0-198" name="__codelineno-0-198"></a>
+</span><span id="__span-0-199"><a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">    ``cv_type`` is one of ``&quot;boresch&quot;``, ``&quot;rmsd&quot;``, ``&quot;separation&quot;``.</span>
+</span><span id="__span-0-200"><a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-201"><a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="k">if</span> <span class="n">cv_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;boresch&quot;</span><span class="p">,</span> <span class="s2">&quot;rmsd&quot;</span><span class="p">,</span> <span class="s2">&quot;separation&quot;</span><span class="p">):</span>
+</span><span id="__span-0-202"><a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown cv_type </span><span class="si">{</span><span class="n">cv_type</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-203"><a id="__codelineno-0-203" name="__codelineno-0-203"></a>    <span class="n">base</span><span class="p">:</span> <span class="n">WindowSampling</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv_type</span><span class="p">)</span>
+</span><span id="__span-0-204"><a id="__codelineno-0-204" name="__codelineno-0-204"></a>    <span class="k">return</span> <span class="n">base</span><span class="o">.</span><span class="n">resolved</span><span class="p">(</span><span class="n">stage_name</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
