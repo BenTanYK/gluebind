@@ -239,7 +239,9 @@ def test_validate_include_glue():
     )
     # glue on the same protein as the CV: fine
     _validate_include_glue("BD2", on_target, assign="target", protein="target")
-    # bound-only CV: no bulk leg to mismatch, so a cross-protein glue is allowed
+    # bound-only CV: no bulk leg to mismatch, so a cross-protein glue passes this
+    # helper. (RestraintsConfig now rejects asymmetric states upstream, so this is
+    # the helper's defensive branch, not a config-reachable case.)
     bound_only = RmsdCVSpec(
         name="X",
         protein="target",

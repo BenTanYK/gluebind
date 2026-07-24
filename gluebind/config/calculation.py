@@ -54,13 +54,21 @@ class GlueInput(pydantic.BaseModel):
 
 
 class Inputs(pydantic.BaseModel):
-    """The two proteins and the optional glue."""
+    """The two proteins, the optional glue, and optional crystal waters.
+
+    ``waters`` is an optional prm7/rst7 of crystallographic waters to preserve.
+    They are appended as the *last* component of the assembled complex (after the
+    proteins and glue), so the glue/receptor/target blocks stay contiguous at the
+    front and the input->complex atom map is unaffected; the crystal waters are
+    kept in the complex as solvent and are not carried into the bulk references.
+    """
 
     model_config = _CONFIG
 
     target: MoleculeInput
     receptor: MoleculeInput
     glue: GlueInput | None = None
+    waters: MoleculeInput | None = None
 
 
 class CalculationConfig(pydantic.BaseModel):
@@ -123,6 +131,9 @@ class CalculationConfig(pydantic.BaseModel):
             inputs[molecule]["rst7"] = _abs(inputs[molecule]["rst7"])
         if inputs.get("glue"):
             inputs["glue"]["sdf"] = _abs(inputs["glue"]["sdf"])
+        if inputs.get("waters"):
+            inputs["waters"]["prm7"] = _abs(inputs["waters"]["prm7"])
+            inputs["waters"]["rst7"] = _abs(inputs["waters"]["rst7"])
         return CalculationConfig.model_validate(data)
 
     @property

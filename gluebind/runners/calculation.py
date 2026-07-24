@@ -66,6 +66,22 @@ def _sem(values) -> float:
     return float(a.std(ddof=1) / np.sqrt(n)) if n > 1 else 0.0
 
 
+def _rmsf_report_header(candidates) -> str:
+    """Header for the per-protein RMSF report ``.dat``.
+
+    ``candidates`` is a list of ``(resid, atom_index)`` pairs, most-stable first;
+    ``atom_index`` is the 0-indexed *complex* atom index of that residue's Cα — exactly
+    what ``BoreschSpec.anchors`` expects, so a user can read a stable resid off the RMSF
+    plot and paste its atom index straight into the config. RMSF is in Ångström
+    (MDAnalysis works in Å; ``compute_rmsf`` passes those values through).
+    """
+    pretty = ", ".join(f"resid {r}=atom {i}" for r, i in candidates)
+    return (
+        f"suggested stable anchor candidates (low-RMSF local minima, most stable "
+        f"first): {pretty}\nresid  atom_index  rmsf(Angstrom)"
+    )
+
+
 def _repeat_dg_sem(per_repeat: dict, dg_corr: float) -> float | None:
     """SEM of ΔG° over independent repeats.
 
@@ -210,11 +226,12 @@ class Calculation(SimulationRunner):
         anchors or building the sampling tree.
 
         The manual-anchor fallback (the workflow the paper used): call this,
-        inspect ``prep/rmsf_{receptor,target}.dat`` (each ``resid  rmsf`` plus the
-        auto-suggested stable candidate resids), set
-        ``restraints.boresch.anchors = {"b": ..., "c": ..., "B": ..., "C": ...}``
-        (0-indexed atoms), then call :meth:`run` — which reuses this equilibration
-        (idempotent) and wires with the chosen anchors.
+        inspect ``prep/rmsf_{receptor,target}.dat`` (each ``resid  atom_index  rmsf``
+        plus the auto-suggested stable candidates, listed as ``resid=atom``), set
+        ``restraints.boresch.anchors = {"b": ..., "c": ..., "B": ..., "C": ...}`` to the
+        chosen residues' ``atom_index`` values (0-indexed complex atoms), then call
+        :meth:`run` — which reuses this equilibration (idempotent) and wires with the
+        chosen anchors.
 
         Returns the :class:`~gluebind.system.prep.PreparedSystem`.
         """
@@ -248,8 +265,12 @@ class Calculation(SimulationRunner):
         return prepared
 
     def _write_rmsf_report(self, prepared) -> dict[str, str]:
-        """Write per-protein Cα RMSF (``resid  rmsf``) + suggested stable candidate
-        resids to ``prep/rmsf_<protein>.dat`` for manual anchor inspection."""
+        """Write per-protein Cα RMSF (``resid  atom_index  rmsf``) + suggested stable
+        candidates to ``prep/rmsf_<protein>.dat`` for manual anchor inspection.
+
+        ``atom_index`` is each Cα's 0-indexed complex atom index — the value
+        ``BoreschSpec.anchors`` takes — so the workflow is read-resid-off-the-plot →
+        paste-its-atom-index."""
         import MDAnalysis as mda
         import numpy as np
 
@@ -271,20 +292,32 @@ class Calculation(SimulationRunner):
         prep_dir = self.base_dir / "prep"
         report: dict[str, str] = {}
         for protein in ("receptor", "target"):
-            ca_indices = cmap.resolve(protein, "name CA")
-            resids, rmsf = compute_rmsf(
-                universe, selection="index " + " ".join(map(str, ca_indices))
+            ca_selection = "index " + " ".join(
+                map(str, cmap.resolve(protein, "name CA"))
             )
-            candidates = stablest_candidates(resids, rmsf)
+            resids, rmsf = compute_rmsf(universe, selection=ca_selection)
+            # Complex atom indices of those Cα atoms, aligned with resids/rmsf (same
+            # AtomGroup order) — this is what BoreschSpec.anchors takes.
+            atom_indices = universe.select_atoms(ca_selection).indices
+            resid_to_atom = {
+                int(r): int(i) for r, i in zip(resids, atom_indices, strict=True)
+            }
+            # Preserve stablest_candidates' rank order (most stable first).
+            candidates = [
+                (r, resid_to_atom[r]) for r in stablest_candidates(resids, rmsf)
+            ]
             path = prep_dir / f"rmsf_{protein}.dat"
-            header = (
-                f"suggested stable candidate resids (low-RMSF local minima): "
-                f"{candidates}\nresid  rmsf(nm)"
-            )
+            header = _rmsf_report_header(candidates)
             np.savetxt(
                 path,
-                np.column_stack([np.asarray(resids), np.asarray(rmsf, float)]),
-                fmt=["%d", "%.4f"],
+                np.column_stack(
+                    [
+                        np.asarray(resids),
+                        np.asarray(atom_indices),
+                        np.asarray(rmsf, float),
+                    ]
+                ),
+                fmt=["%d", "%d", "%.4f"],
                 header=header,
             )
             report[protein] = str(path)

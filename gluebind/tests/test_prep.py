@@ -74,6 +74,25 @@ def test_validate_glue_resname_rejects_other():
         validate_glue_resname([])  # no residues
 
 
+def test_validate_waters_resnames_accepts_water_names():
+    from gluebind.system.inputs import validate_waters_resnames
+
+    validate_waters_resnames(["WAT"])
+    validate_waters_resnames(["HOH", "WAT"])  # mixed common conventions: fine
+    validate_waters_resnames(["hoh"])  # case-insensitive
+
+
+def test_validate_waters_resnames_rejects_non_water_and_empty():
+    from gluebind.system.inputs import validate_waters_resnames
+
+    with pytest.raises(ValueError, match="only crystal-water"):
+        validate_waters_resnames(["WAT", "ALA"])  # a protein residue slipped in
+    with pytest.raises(ValueError, match="only crystal-water"):
+        validate_waters_resnames(["NA"])  # an ion belongs in its own input
+    with pytest.raises(ValueError, match="no residues"):
+        validate_waters_resnames([])
+
+
 def test_compute_layout_single_chain():
     # assembly order: glue (MOL) first, then receptor, then target
     layout = compute_layout(1, 1, has_glue=True)

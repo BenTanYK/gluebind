@@ -12,7 +12,7 @@ WHAM_REPO ?= https://github.com/agrossfield/wham.git
 WHAM_REF  ?= v2.1.1
 WHAM_SRC  ?=
 
-.PHONY: env wham lint format test docs docs-deploy
+.PHONY: env wham lint format test test-integration docs docs-deploy
 
 env:
 	mamba create     --name $(PACKAGE_NAME)
@@ -62,6 +62,13 @@ format:
 
 test:
 	$(CONDA_ENV_RUN) pytest -v $(TEST_ARGS) $(PACKAGE_DIR)/tests/
+
+# The 1FAP integration tier (opt-in; overrides the default -m). Tests self-skip
+# when a dep (BSS, red, wham) or a GPU is missing, so a partial env runs a partial
+# tier rather than failing. Runs via LocalBackend by default; point at a cluster
+# to exercise SlurmBackend.
+test-integration:
+	$(CONDA_ENV_RUN) pytest -v -m "integration" $(PACKAGE_DIR)/tests/
 
 docs:
 	$(CONDA_ENV_RUN) mkdocs build

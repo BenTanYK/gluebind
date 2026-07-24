@@ -29,6 +29,33 @@ def validate_glue_resname(resnames) -> None:
         )
 
 
+WATER_RESNAMES = frozenset(
+    {"WAT", "HOH", "H2O", "SOL", "TIP3", "TIP4", "TIP5", "T3P", "T4P", "SPC", "OPC"}
+)
+"""Residue names accepted in the optional crystal-water input. Kept permissive to
+cover common AMBER/PDB/GROMACS conventions; :func:`validate_waters_resnames`
+rejects anything else so a mis-supplied protein/ion file fails loudly."""
+
+
+def validate_waters_resnames(resnames) -> None:
+    """Raise unless every residue in the crystal-water input is a recognised water.
+
+    The waters input must contain *only* water — proteins and ions belong in their
+    own inputs — so that appending it as the last complex component cannot perturb
+    the protein/glue atom blocks the restraint atom map anchors on.
+    """
+    names = {str(r) for r in resnames}
+    if not names:
+        raise ValueError("the waters input contains no residues")
+    non_water = sorted(n for n in names if n.upper() not in WATER_RESNAMES)
+    if non_water:
+        raise ValueError(
+            f"the waters input must contain only crystal-water residues, but found "
+            f"{non_water}. Keep proteins and ions in their own inputs; water may be "
+            f"named any of {sorted(WATER_RESNAMES)}."
+        )
+
+
 @dataclasses.dataclass(frozen=True)
 class ComponentLayout:
     """Which molecule indices in the assembled system belong to each component.
@@ -77,6 +104,21 @@ def load_glue(sdf: str | pathlib.Path):
     molecule = BSS.IO.readMolecules(str(sdf))[0]
     validate_glue_resname([res.name() for res in molecule.getResidues()])
     return molecule
+
+
+def load_waters(prm7: str | pathlib.Path, rst7: str | pathlib.Path):
+    """Load the optional crystal-water topology, validating it is water-only.
+
+    Returns a BioSimSpace system of water molecules, to be appended as the last
+    complex component (see :func:`gluebind.system.prep.assemble_and_solvate`).
+    Enforces :func:`validate_waters_resnames` up front so a mis-supplied
+    protein/ion file fails at load rather than silently shifting atom indices.
+    """
+    system = load_system(prm7, rst7)
+    validate_waters_resnames(
+        res.name() for mol in system.getMolecules() for res in mol.getResidues()
+    )
+    return system
 
 
 def count_molecules(system) -> int:

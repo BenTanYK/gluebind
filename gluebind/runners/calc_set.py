@@ -185,8 +185,12 @@ class CalcSet(SimulationRunner):
 
         Returns ``{"results": [...per-system rows...], "stats": {...}}``. Each row
         carries the system name, its ΔG° and components, and (where present) its
-        experimental value. ``stats`` (Pearson r/R², MAE, Kendall τ) is computed
-        over the systems with an experimental value, and is empty below two.
+        experimental value. ``stats`` partitions the systems with an experimental
+        value by ``rmsd_included``: a ``"full"`` block (Pearson r/R², MAE, Kendall τ)
+        for full-ΔG° systems and a ``"ranking_only"`` block (Kendall τ only) for
+        separation-PMF-only systems — never pooled, since the latter is a ranking
+        metric off the experimental scale. Each block needs >= 2 systems; ``stats``
+        is ``{}`` if neither qualifies.
         """
         rows: list[dict] = []
         for name, calc in self.calcs.items():
@@ -249,19 +253,47 @@ def kendall_tau(x, y) -> float:
 
 
 def correlation_stats(rows: list[dict]) -> dict:
-    """Correlation of calculated vs experimental ΔG over rows that have both."""
-    calc = [r["dg_bind"] for r in rows if r.get("experimental_dg") is not None]
-    exp = [r["experimental_dg"] for r in rows if r.get("experimental_dg") is not None]
-    if len(calc) < 2:
-        return {}
-    r = pearson_r(calc, exp)
-    return {
-        "n": len(calc),
-        "pearson_r": r,
-        "r2": r * r,
-        "mae": mae(calc, exp),
-        "kendall_tau": kendall_tau(calc, exp),
-    }
+    """Correlation of calculated vs experimental ΔG, partitioned by ``rmsd_included``.
+
+    Rows with ``rmsd_included`` true carry a full ΔG° (absolute scale, so MAE/R² are
+    meaningful); rows with it false carry a separation-PMF-only estimate — a *ranking*
+    metric with the ΔG_c legs omitted, so it is not on the experimental scale and only
+    a rank correlation (Kendall τ) is meaningful. The two are **never pooled**. Returns
+    a ``"full"`` block and/or a ``"ranking_only"`` block (each needs >= 2 systems with
+    an experimental value), or ``{}`` if neither qualifies.
+    """
+    paired = [
+        (r["dg_bind"], r["experimental_dg"], bool(r.get("rmsd_included", True)))
+        for r in rows
+        if r.get("experimental_dg") is not None
+    ]
+    full = [(c, e) for c, e, included in paired if included]
+    ranking = [(c, e) for c, e, included in paired if not included]
+
+    stats: dict = {}
+    if len(full) >= 2:
+        calc = [c for c, _ in full]
+        exp = [e for _, e in full]
+        r = pearson_r(calc, exp)
+        stats["full"] = {
+            "n": len(full),
+            "pearson_r": r,
+            "r2": r * r,
+            "mae": mae(calc, exp),
+            "kendall_tau": kendall_tau(calc, exp),
+        }
+    if len(ranking) >= 2:
+        calc = [c for c, _ in ranking]
+        exp = [e for _, e in ranking]
+        stats["ranking_only"] = {
+            "n": len(ranking),
+            "kendall_tau": kendall_tau(calc, exp),
+            "note": (
+                "separation-PMF-only ranking metric (ΔG_c legs omitted) — not on the "
+                "experimental scale, so rank correlation only, no MAE/R²"
+            ),
+        }
+    return stats
 
 
 def write_results_csv(path: str | pathlib.Path, rows: list[dict]) -> pathlib.Path:

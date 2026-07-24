@@ -606,6 +606,18 @@ def test_rmsd_included_true_by_default(tmp_path):
     assert result["rmsd_included"] is True
 
 
+def test_rmsf_report_header_labels_angstrom_and_atom_index():
+    # RMSF comes from MDAnalysis (Å); the header must say so, and it must surface each
+    # candidate's complex atom index (what BoreschSpec.anchors takes), not just resids.
+    from gluebind.runners.calculation import _rmsf_report_header
+
+    header = _rmsf_report_header([(12, 340), (16, 402)])
+    assert "rmsf(Angstrom)" in header
+    assert "nm" not in header  # regression: was mislabelled rmsf(nm)
+    assert "atom_index" in header
+    assert "12" in header and "340" in header  # resid AND its Cα atom index
+
+
 def test_upgrade_separation_only_to_full_rmsd(tmp_path):
     # The N-then-M workflow: run separation-only, then upgrade the same run to the
     # full cycle by flipping run_rmsd_us and re-running — it must resume (no
@@ -629,24 +641,19 @@ def test_upgrade_separation_only_to_full_rmsd(tmp_path):
     assert result["rmsd_included"] is True
 
 
-def test_rmsd_stage_names_respect_states(tmp_path):
-    # A custom CV sampled only in the bound state must not spawn a _bulk stage.
+def test_rmsd_stage_names_bound_and_bulk_per_cv(tmp_path):
+    # Each custom CV (states validated symmetric) spawns a bound and a bulk stage,
+    # in CV order — the telescoping confinement legs.
     cfg = CalculationConfig.model_validate(
         {
             "inputs": INPUTS,
             "restraints": {
                 "rmsd_cvs": [
-                    {
-                        "name": "domainA",
-                        "protein": "target",
-                        "selection": "resid 1-10",
-                        "states": ["bound", "bulk"],
-                    },
+                    {"name": "domainA", "protein": "target", "selection": "resid 1-10"},
                     {
                         "name": "domainB",
                         "protein": "target",
                         "selection": "resid 11-20",
-                        "states": ["bound"],
                     },
                 ]
             },
@@ -665,7 +672,12 @@ def test_rmsd_stage_names_respect_states(tmp_path):
         stage_centres={"thetaA": [1.0], "separation": [1.5]},
     )
     names = calc._rmsd_stage_names()
-    assert names == ["domainA_bound", "domainA_bulk", "domainB_bound"]
+    assert names == [
+        "domainA_bound",
+        "domainA_bulk",
+        "domainB_bound",
+        "domainB_bulk",
+    ]
 
 
 def test_stage_add_windows_dedup_and_sort(tmp_path):

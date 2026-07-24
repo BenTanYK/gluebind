@@ -21,6 +21,17 @@ include = ["gluebind*"]
 
 [tool.setuptools_scm]
 
+[tool.pytest.ini_options]
+testpaths = ["gluebind/tests"]
+markers = [
+    "integration: 1FAP integration tests — real MD/cheminformatics deps; opt-in, run via LocalBackend on a GPU box or SlurmBackend on a cluster",
+    "gpu: requires a CUDA GPU (auto-skipped when absent)",
+]
+# Bare `pytest` / `make test` runs only the fast unit suite; the 1FAP integration
+# tier is opt-in via `make test-integration` (overrides -m). Scientific validation
+# on the real CRBN/BRD4 systems is a user workflow, not part of the test suite.
+addopts = "-m 'not integration'"
+
 [tool.ruff]
 line-length = 88
 

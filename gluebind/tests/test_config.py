@@ -28,6 +28,20 @@ def test_roundtrip_and_hash_stable(tmp_path):
     assert loaded.config_hash == cfg.config_hash
 
 
+def test_waters_input_optional_and_paths_resolve(tmp_path):
+    # waters is absent by default ...
+    assert _min_cfg().inputs.waters is None
+    # ... and when present, its prm7/rst7 resolve alongside the other inputs.
+    cfg = CalculationConfig.model_validate(
+        {"inputs": {**MIN_INPUTS, "waters": {"prm7": "xtal.prm7", "rst7": "xtal.rst7"}}}
+    )
+    resolved = cfg.with_resolved_input_paths(tmp_path)
+    assert resolved.inputs.waters.prm7 == str((tmp_path / "xtal.prm7").resolve())
+    assert resolved.inputs.waters.rst7 == str((tmp_path / "xtal.rst7").resolve())
+    # the proteins still resolve too (waters didn't disturb the others)
+    assert resolved.inputs.target.prm7 == str((tmp_path / "t.prm7").resolve())
+
+
 def test_config_hash_changes_with_content():
     a = _min_cfg()
     b = _min_cfg()
@@ -74,6 +88,25 @@ def test_rmsd_order_must_be_full_permutation():
     RestraintsConfig(rmsd_cvs=cvs, rmsd_order=["B", "A"])  # full permutation: ok
     with pytest.raises(ValueError, match="permutation"):
         RestraintsConfig(rmsd_cvs=cvs, rmsd_order=["A"])  # partial subset drops B
+
+
+def test_rmsd_cv_states_must_be_symmetric():
+    from gluebind.config.restraints import RestraintsConfig, RmsdCVSpec
+
+    # both states (the default): a valid confinement cycle
+    RestraintsConfig(
+        rmsd_cvs=[RmsdCVSpec(name="A", protein="target", selection="resid 1")]
+    )
+    # asymmetric states (sampled in only one leg) break the cycle -> rejected
+    for bad in (["bound"], ["bulk"]):
+        with pytest.raises(ValueError, match="both 'bound' and 'bulk'"):
+            RestraintsConfig(
+                rmsd_cvs=[
+                    RmsdCVSpec(
+                        name="A", protein="target", selection="resid 1", states=bad
+                    )
+                ]
+            )
 
 
 def test_always_on_requires_explicit_rmsd_cvs():

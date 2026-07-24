@@ -97,8 +97,29 @@ def test_correlation_stats_ignores_rows_without_experimental():
         {"dg_bind": -5.0},  # no experimental value -> excluded
     ]
     stats = correlation_stats(rows)
-    assert stats["n"] == 2
-    assert set(stats) == {"n", "pearson_r", "r2", "mae", "kendall_tau"}
+    # rows default to rmsd_included=True -> full-ΔG° block
+    assert stats["full"]["n"] == 2
+    assert set(stats["full"]) == {"n", "pearson_r", "r2", "mae", "kendall_tau"}
+    assert "ranking_only" not in stats
+
+
+def test_correlation_stats_partitions_by_rmsd_included():
+    # Separation-PMF-only systems are a ranking metric off the absolute scale, so
+    # they must NOT be pooled with full-ΔG° systems for MAE/R².
+    rows = [
+        {"dg_bind": -9.0, "experimental_dg": -10.0, "rmsd_included": True},
+        {"dg_bind": -7.0, "experimental_dg": -8.0, "rmsd_included": True},
+        {"dg_bind": -3.0, "experimental_dg": -10.0, "rmsd_included": False},
+        {"dg_bind": -1.0, "experimental_dg": -8.0, "rmsd_included": False},
+    ]
+    stats = correlation_stats(rows)
+    # full block has the absolute-scale metrics
+    assert stats["full"]["n"] == 2
+    assert "mae" in stats["full"] and "r2" in stats["full"]
+    # ranking-only block reports a rank correlation ONLY (no MAE/R²)
+    assert stats["ranking_only"]["n"] == 2
+    assert set(stats["ranking_only"]) == {"n", "kendall_tau", "note"}
+    assert "mae" not in stats["ranking_only"]
 
 
 def test_write_results_csv_union_columns(tmp_path):
@@ -173,8 +194,8 @@ def test_analyse_aggregates_and_writes_csv(tmp_path):
 
     assert [r["system"] for r in out["results"]] == ["A", "B"]
     assert out["results"][0]["experimental_dg"] == -10.0
-    assert out["stats"]["n"] == 2
-    assert out["stats"]["r2"] == pytest.approx(
+    assert out["stats"]["full"]["n"] == 2
+    assert out["stats"]["full"]["r2"] == pytest.approx(
         1.0
     )  # two points -> perfectly correlated
     # the ONLY set-level artifact

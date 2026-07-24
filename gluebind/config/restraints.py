@@ -54,7 +54,11 @@ class RmsdCVSpec(pydantic.BaseModel):
     against) and mapped to the complex. The atom filter (Cα vs backbone) is *not*
     part of the selection — it comes from ``RestraintsConfig.rmsd_atoms``."""
     states: list[State] = ["bound", "bulk"]
-    """Which thermodynamic states this CV is sampled in."""
+    """Which thermodynamic states this CV is sampled in — must be **both** ``bound``
+    and ``bulk`` (enforced by :class:`RestraintsConfig`). The confinement free energy
+    cancels only when a region is restrained in the bound state and released in the
+    bulk state, so a region sampled in just one leg breaks the cycle; the field stays
+    explicit for provenance in the echoed config."""
     include_glue: bool = False
     """Whether to add the glue heavy atoms to this CV's atom group."""
 
@@ -169,6 +173,19 @@ class RestraintsConfig(pydantic.BaseModel):
                 "supported with the all-Cα default (which already restrains the "
                 "whole protein)."
             )
+        # Each RMSD CV must be sampled in BOTH states: the confinement free energy
+        # cancels only when a region is restrained in the bound state and released in
+        # the bulk state. An asymmetric `states` (e.g. bulk-only) would leave the
+        # region held in a leg where it has no US stage — via the sequential hold —
+        # so its confinement cost never cancels: a broken thermodynamic cycle.
+        for cv in self.rmsd_cvs:
+            if set(cv.states) != {"bound", "bulk"}:
+                raise ValueError(
+                    f"rmsd_cv {cv.name!r} has states={cv.states}; each RMSD CV must be "
+                    "sampled in both 'bound' and 'bulk' — the confinement free energy "
+                    "cancels only when a region is restrained in bound and released in "
+                    "bulk, so asymmetric states break the thermodynamic cycle."
+                )
         return self
 
     @property

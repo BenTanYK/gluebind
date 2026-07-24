@@ -265,10 +265,12 @@ def run_steered_md(
     )
     simulation.context.setPeriodicBoxVectors(*box)
     simulation.context.setPositions(positions)
-    sb.minimise_and_heat(simulation, integrator, target_temperature_K=temperature_K)
-    reference = simulation.context.getState(getPositions=True).getPositions()
 
-    # Fixed RMSD + Boresch restraints (rigid), then the moving separation bias.
+    # Fixed RMSD + Boresch restraints reference the equilibrated *input* structure and
+    # are applied BEFORE minimisation/heating, so the regions are held rigid throughout
+    # — rather than referencing a post-heat snapshot the structure has already drifted
+    # into (matches run_window and the production run).
+    reference = positions
     for region, atoms in rmsd_atoms_bound.items():
         rmsd_mod.add_rmsd_restraint(
             system, atoms, reference, k_rmsd, name=region, centre=None
@@ -276,7 +278,10 @@ def run_steered_md(
     points = boresch_mod.points_from_groups(rec_group, lig_group, anchors)
     for dof, eq_value in boresch_eq_values.items():
         boresch_mod.add_fixed_restraint(system, dof, points, eq_value, k_boresch)
+    simulation.context.reinitialize(preserveState=True)
+    sb.minimise_and_heat(simulation, integrator, target_temperature_K=temperature_K)
 
+    # The moving separation bias, added after heating the restrained bound state.
     cv = separation_mod.make_cv(rec_group, lig_group)
     steer = mm.CustomCVForce("0.5*k_smd*(cv-r0)^2")
     steer.addGlobalParameter(

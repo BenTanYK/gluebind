@@ -32,6 +32,7 @@ from gluebind.system.inputs import (
     count_molecules,
     load_glue,
     load_system,
+    load_waters,
 )
 
 PREPARED_FILENAME = "prepared.json"
@@ -114,16 +115,20 @@ def parameterise_glue(sdf: str | pathlib.Path, forcefield: str):
     return getattr(BSS.Parameters, norm)(molecule).getMolecule()
 
 
-def assemble_and_solvate(target, receptor, glue, prep_config: PrepConfig):
-    """Combine glue (MOL) + receptor + target and solvate the complex.
+def assemble_and_solvate(target, receptor, glue, waters, prep_config: PrepConfig):
+    """Combine glue (MOL) + receptor + target (+ optional crystal waters) and solvate.
 
-    Assembly order is glue first, then receptor, then target — so the glue is
-    molecule 0 and each protein occupies a contiguous atom block, which the
-    input->complex atom map relies on (see :mod:`gluebind.system.atom_map`)."""
+    Assembly order is glue first, then receptor, then target, then any
+    user-supplied crystal ``waters`` — so the glue is molecule 0, each protein
+    occupies a contiguous atom block at the *front* (which the input->complex atom
+    map relies on, see :mod:`gluebind.system.atom_map`), and the crystal waters go
+    last as solvent, never perturbing those blocks. ``waters`` may be ``None``."""
     import BioSimSpace as BSS
 
     system = glue + receptor if glue is not None else receptor
     system = system + target
+    if waters is not None:
+        system = system + waters
 
     box_min, box_max = system.getAxisAlignedBoundingBox()
     padding = prep_config.box_padding_angstrom * BSS.Units.Length.angstrom
@@ -453,13 +458,16 @@ def prepare(
     if inputs.glue is not None:
         glue = parameterise_glue(inputs.glue.sdf, config.prep.glue_forcefield)
         assign_to = inputs.glue.assign_to
+    waters = None
+    if inputs.waters is not None:
+        waters = load_waters(inputs.waters.prm7, inputs.waters.rst7)
 
     layout = compute_layout(
         count_molecules(target), count_molecules(receptor), glue is not None
     )
 
     # Driver (fast, CPU): assemble + solvate, then hand the MD stages to the backend.
-    solvated = assemble_and_solvate(target, receptor, glue, config.prep)
+    solvated = assemble_and_solvate(target, receptor, glue, waters, config.prep)
     solvated_prm7, solvated_rst7 = _save(solvated, work_dir / "solvated")
 
     plan = equilibration_stage_plan(config.prep)

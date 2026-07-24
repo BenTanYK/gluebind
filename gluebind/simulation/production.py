@@ -87,7 +87,7 @@ def run_production(work_dir: str | pathlib.Path) -> None:
         spec.topology, hmr_factor=spec.hmr_factor, pme_cutoff_nm=spec.pme_cutoff_nm
     )
     positions, box_vectors = sb.load_coordinates(spec.coordinates)
-    simulation, _integrator = sb.build_simulation(
+    simulation, integrator = sb.build_simulation(
         prmtop, system, timestep_fs=spec.timestep_fs, platform=_platform(spec.platform)
     )
     simulation.context.setPeriodicBoxVectors(*box_vectors)
@@ -106,6 +106,11 @@ def run_production(work_dir: str | pathlib.Path) -> None:
         )
         simulation.context.reinitialize(preserveState=True)
 
+    # Production is NVT at the sampling temperature. build_simulation created the
+    # integrator cold (INITIAL_TEMPERATURE_K, for the heated window path), so set the
+    # Langevin thermostat bath — not just the initial velocities — to the target here;
+    # otherwise the thermostat would drive the whole run down to that cold temperature.
+    integrator.setTemperature(spec.temperature_K * unit.kelvin)
     simulation.context.setVelocitiesToTemperature(spec.temperature_K * unit.kelvin)
     simulation.reporters.append(
         app.DCDReporter(f"{prefix}.dcd", spec.sample_interval_steps)
