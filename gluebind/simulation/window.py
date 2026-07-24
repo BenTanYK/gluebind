@@ -127,10 +127,11 @@ def run_window(work_dir: str | pathlib.Path) -> None:
     )
     simulation.context.setPeriodicBoxVectors(*box_vectors)
     simulation.context.setPositions(positions)
-    sb.minimise_and_heat(
-        simulation, integrator, target_temperature_K=spec.temperature_K
-    )
-    reference = simulation.context.getState(getPositions=True).getPositions()
+    # Restraints reference the equilibrated *input* structure and are applied
+    # BEFORE minimisation/heating, so they hold the structure throughout — rather
+    # than being added after a free heating that could let it drift (and then
+    # referenced to the drifted structure). Matches the template convention.
+    reference = positions
 
     bias = None  # the force whose collective variable we record
 
@@ -183,6 +184,12 @@ def run_window(work_dir: str | pathlib.Path) -> None:
             raise ValueError(
                 "an RMSD window requires a restraint entry with sampled=True"
             )
+
+    # Minimise + heat with all restraints in place, holding the structure to the
+    # equilibrated reference throughout the ramp.
+    sb.minimise_and_heat(
+        simulation, integrator, target_temperature_K=spec.temperature_K
+    )
 
     ns_per_step = spec.timestep_fs * 1e-6
     samples = sb.collect_cv_samples(

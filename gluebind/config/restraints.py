@@ -152,6 +152,23 @@ class RestraintsConfig(pydantic.BaseModel):
             raise ValueError(
                 f"rmsd_order references unknown CV names: {sorted(unknown)}"
             )
+        # rmsd_order, if given, must be a full permutation — a partial subset would
+        # silently drop CVs from the bound-state application (a runtime failure).
+        if self.rmsd_order and sorted(self.rmsd_order) != sorted(names):
+            raise ValueError(
+                "rmsd_order must list every rmsd_cv exactly once (a permutation); "
+                f"got {self.rmsd_order} for CVs {names}"
+            )
+        # always_on lives in the custom-CV bulk scheme (its bulk handling is only
+        # wired for explicit rmsd_cvs); the all-Cα default already restrains the
+        # whole protein, so combining them is unsupported (would omit always_on
+        # from the default bulk stages, breaking cancellation).
+        if self.always_on and not self.rmsd_cvs:
+            raise ValueError(
+                "always_on restraints require explicit rmsd_cvs — they are not "
+                "supported with the all-Cα default (which already restrains the "
+                "whole protein)."
+            )
         return self
 
     @property

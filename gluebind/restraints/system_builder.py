@@ -48,19 +48,29 @@ def build_simulation(prmtop, system, *, timestep_fs: float, platform=None):
     return simulation, integrator
 
 
+def heating_schedule(
+    target_temperature_K: float, increments: int = HEATING_INCREMENTS
+) -> list[float]:
+    """The stepped heating ramp temperatures (K), from one increment up to the
+    target inclusive — ``increments`` steps of ``target/increments`` each.
+
+    Matches the template's ramp (300 K in 50 × 6 K steps). Starts at the first
+    increment (not the second), so no step of the ramp is skipped.
+    """
+    step = target_temperature_K / increments
+    return [(i + 1) * step for i in range(increments)]
+
+
 def minimise_and_heat(simulation, integrator, *, target_temperature_K: float) -> None:
     """Minimise, then ramp the temperature to ``target_temperature_K``.
 
-    Matches the template's 50-increment stepped ramp (which reaches 300 K in 6 K
-    steps); here the increment is derived from the target so the production
-    temperature is a single configurable value used consistently for heating,
-    sampling and analysis.
+    Uses :func:`heating_schedule` so the ramp is derived from the target and no
+    increment is skipped.
     """
     simulation.minimizeEnergy()
     simulation.context.setVelocitiesToTemperature(INITIAL_TEMPERATURE_K * unit.kelvin)
-    increment = target_temperature_K / HEATING_INCREMENTS
-    for i in range(1, HEATING_INCREMENTS):
-        integrator.setTemperature((i + 1) * increment * unit.kelvin)
+    for temperature in heating_schedule(target_temperature_K):
+        integrator.setTemperature(temperature * unit.kelvin)
         simulation.step(HEATING_STEPS_PER_INCREMENT)
     integrator.setTemperature(target_temperature_K * unit.kelvin)
 

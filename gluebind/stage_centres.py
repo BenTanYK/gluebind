@@ -20,16 +20,36 @@ def boresch_centres_from_series(series, spacing: float) -> list[float]:
     """Window centres (rad) spanning a DoF's observed range at ``spacing``.
 
     Places a regular grid at ``spacing`` covering ``[min, max]`` of the sampled
-    values, so the umbrella windows bracket the equilibrium distribution. Note:
-    this spans the raw ``[min, max]`` and does not special-case dihedral
-    wrap-around at ±π — verify the distributions are unimodal and away from the
-    branch cut (they are for stable interface anchors); supply explicit centres
-    otherwise.
+    values, so the umbrella windows bracket the equilibrium distribution.
+
+    Guards against a dihedral distribution that straddles the ±π branch cut: there
+    the raw ``[min, max]`` spans almost the whole circle even though the sampled
+    values are tightly clustered, so the naive grid would place windows over a
+    large *unsampled* arc. When detected (the true circular spread is much smaller
+    than the raw range) this raises — supply explicit centres for that DoF.
     """
     import numpy as np
 
     values = np.asarray(series, dtype=float)
     lo, hi = float(values.min()), float(values.max())
+    raw_range = hi - lo
+
+    # Circular spread = 2π minus the largest empty arc (interior gaps + the
+    # wrap-around gap). If an *interior* gap is the largest, the data wraps the
+    # branch cut and the circular spread is smaller than the raw range.
+    ordered = np.sort(values)
+    if ordered.size >= 2:
+        gaps = np.diff(ordered)
+        wrap_gap = (ordered[0] + 2 * math.pi) - ordered[-1]
+        circular_range = 2 * math.pi - max(float(gaps.max()), float(wrap_gap))
+        if raw_range - circular_range > 1e-3:
+            raise ValueError(
+                f"Boresch DoF distribution appears to straddle the ±π branch cut "
+                f"(raw range {raw_range:.2f} rad but circular spread only "
+                f"{circular_range:.2f} rad); the naive [min, max] window grid would "
+                "cover a large unsampled arc. Supply explicit centres for this DoF."
+            )
+
     start = math.floor(lo / spacing) * spacing
     n = max(1, int(math.ceil((hi - start) / spacing)) + 1)
     return [round(start + i * spacing, 4) for i in range(n)]

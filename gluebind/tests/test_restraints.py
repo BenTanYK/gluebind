@@ -132,3 +132,10 @@ def test_atoms_in_residues_by_name():
         _topology(), residue_indices=[1], atom_names={"CA"}
     )
     assert idx == [2]
+
+
+def test_heating_schedule_starts_at_first_increment_and_reaches_target():
+    sched = system_builder.heating_schedule(300.0, increments=50)
+    assert len(sched) == 50  # every increment run (none skipped)
+    assert sched[0] == pytest.approx(6.0)  # first increment (300/50), not 12.0
+    assert sched[-1] == pytest.approx(300.0)  # reaches the target exactly

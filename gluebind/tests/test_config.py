@@ -64,6 +64,37 @@ def test_extra_top_level_key_forbidden():
         CalculationConfig.model_validate({"inputs": MIN_INPUTS, "bogus": 1})
 
 
+def test_rmsd_order_must_be_full_permutation():
+    from gluebind.config.restraints import RestraintsConfig, RmsdCVSpec
+
+    cvs = [
+        RmsdCVSpec(name="A", protein="target", selection="resid 1"),
+        RmsdCVSpec(name="B", protein="target", selection="resid 2"),
+    ]
+    RestraintsConfig(rmsd_cvs=cvs, rmsd_order=["B", "A"])  # full permutation: ok
+    with pytest.raises(ValueError, match="permutation"):
+        RestraintsConfig(rmsd_cvs=cvs, rmsd_order=["A"])  # partial subset drops B
+
+
+def test_always_on_requires_explicit_rmsd_cvs():
+    from gluebind.config.restraints import (
+        AlwaysOnRestraint,
+        RestraintsConfig,
+        RmsdCVSpec,
+    )
+
+    ao = AlwaysOnRestraint(
+        protein="receptor", selection="resid 116-158", force_constant=100.0
+    )
+    with pytest.raises(ValueError, match="always_on restraints require"):
+        RestraintsConfig(always_on=[ao])  # all-Cα default + always_on unsupported
+    # with explicit rmsd_cvs it is fine
+    RestraintsConfig(
+        rmsd_cvs=[RmsdCVSpec(name="R", protein="receptor", selection="resid 1")],
+        always_on=[ao],
+    )
+
+
 def test_config_hash_ignores_run_rmsd_us_but_catches_real_changes():
     # run_rmsd_us is a scope flag, not physics — flipping it must NOT change the
     # hash (so a separation-only run can be upgraded to full RMSD on resume)...
