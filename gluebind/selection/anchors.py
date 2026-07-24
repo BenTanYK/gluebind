@@ -16,6 +16,7 @@ collinearity constraint.
 from __future__ import annotations
 
 import math
+import warnings
 from collections.abc import Callable, Mapping, Sequence
 from itertools import permutations
 
@@ -67,11 +68,18 @@ def is_valid_anchor_set(
 def validate_manual_anchors(
     mean_coords: Mapping[str, np.ndarray], *, tol_deg: float = 15.0
 ) -> None:
-    """Raise if user-supplied anchors have a near-collinear triple."""
+    """Warn if user-supplied anchors have a near-collinear triple.
+
+    A warning, not an error: the user chose these anchors deliberately (the manual
+    fallback), so flag the risk — the Boresch dihedrals are ill-defined near
+    collinearity — but let them proceed.
+    """
     if not is_valid_anchor_set(mean_coords, tol_deg=tol_deg):
-        raise ValueError(
-            "manual Boresch anchors have a near-collinear triple along c-b-a-A-B-C; "
-            "choose non-collinear anchor points"
+        warnings.warn(
+            "manual Boresch anchors have a near-collinear triple along c-b-a-A-B-C "
+            f"(within {tol_deg}°); the Boresch dihedrals are ill-defined near "
+            "collinearity — consider different anchor points.",
+            stacklevel=2,
         )
 
 

@@ -102,13 +102,23 @@ def test_valid_anchor_set_collinear_false():
     assert not is_valid_anchor_set(coords)
 
 
-def test_validate_manual_anchors_raises_on_collinear():
+def test_validate_manual_anchors_warns_on_collinear():
+    # Manual anchors are the user's deliberate choice, so a near-collinear triple
+    # warns (does not raise) — they may proceed.
     coords = {
         k: np.array([float(i), 0.0, 0.0])
         for i, k in enumerate(["c", "b", "a", "A", "B", "C"])
     }
-    with pytest.raises(ValueError, match="collinear"):
+    with pytest.warns(UserWarning, match="collinear"):
         validate_manual_anchors(coords)
+
+
+def test_validate_manual_anchors_silent_when_non_collinear():
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any warning would fail the test
+        validate_manual_anchors(_mean_coords())
 
 
 # ---- dof variance + selection ----------------------------------------------
@@ -116,6 +126,17 @@ def test_validate_manual_anchors_raises_on_collinear():
 
 def _const_series(point, n_frames=5):
     return np.tile(np.asarray(point, float), (n_frames, 1))
+
+
+def test_stablest_candidates_picks_lowest_rmsf_minima():
+    from gluebind.selection.rmsf import stablest_candidates
+
+    # RMSF valley shape: local minima at indices 2 (0.05) and 6 (0.02); index 6 is
+    # the most stable, so it comes first, and non-minima (e.g. the peak) are excluded.
+    resids = [10, 11, 12, 13, 14, 15, 16, 17]
+    rmsf = [0.9, 0.4, 0.05, 0.4, 0.9, 0.4, 0.02, 0.4]
+    cands = stablest_candidates(resids, rmsf, top_n=2)
+    assert cands == [16, 12]  # resid 16 (rmsf 0.02) then resid 12 (0.05)
 
 
 def test_total_dof_variance_zero_for_static_geometry():

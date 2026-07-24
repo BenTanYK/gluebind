@@ -204,6 +204,92 @@ class Calculation(SimulationRunner):
         self._wire(prepared)
         return prepared
 
+    def equilibrate(self):
+        """Run only the equilibration (+ bulk extraction) and write a per-protein Cα
+        RMSF report for manual Boresch-anchor selection — **without** resolving
+        anchors or building the sampling tree.
+
+        The manual-anchor fallback (the workflow the paper used): call this,
+        inspect ``prep/rmsf_{receptor,target}.dat`` (each ``resid  rmsf`` plus the
+        auto-suggested stable candidate resids), set
+        ``restraints.boresch.anchors = {"b": ..., "c": ..., "B": ..., "C": ...}``
+        (0-indexed atoms), then call :meth:`run` — which reuses this equilibration
+        (idempotent) and wires with the chosen anchors.
+
+        Returns the :class:`~gluebind.system.prep.PreparedSystem`.
+        """
+        from gluebind.system.prep import PreparedSystem
+        from gluebind.system.prep import prepare as prepare_system
+
+        add_file_handler(self.base_dir, logger_name=self._log.name)
+        prep_dir = self.base_dir / "prep"
+        try:
+            prepared = PreparedSystem.load(prep_dir)
+            self._log.info(
+                "equilibrate %s: reusing existing prepared system", self.base_dir.name
+            )
+        except FileNotFoundError:
+            self._log.info(
+                "equilibrate %s: building and equilibrating system", self.base_dir.name
+            )
+            prepared = prepare_system(
+                self.config,
+                prep_dir,
+                self.backend,
+                platform=self.platform,
+                poll_interval=self.poll_interval,
+            )
+        report = self._write_rmsf_report(prepared)
+        self._log.info(
+            "equilibrate %s: RMSF report for anchor selection -> %s",
+            self.base_dir.name,
+            ", ".join(report.values()),
+        )
+        return prepared
+
+    def _write_rmsf_report(self, prepared) -> dict[str, str]:
+        """Write per-protein Cα RMSF (``resid  rmsf``) + suggested stable candidate
+        resids to ``prep/rmsf_<protein>.dat`` for manual anchor inspection."""
+        import MDAnalysis as mda
+        import numpy as np
+
+        from gluebind.selection.rmsf import compute_rmsf, stablest_candidates
+        from gluebind.spec_builder import _ComplexMap
+
+        if prepared.complex_trajectory is None:
+            raise RuntimeError(
+                "cannot write an RMSF report: the equilibration produced no "
+                "trajectory (prepared.complex_trajectory is None)"
+            )
+        universe = mda.Universe(prepared.complex_prm7, prepared.complex_trajectory)
+        cmap = _ComplexMap(
+            universe,
+            mda.Universe(self.config.inputs.target.prm7),
+            mda.Universe(self.config.inputs.receptor.prm7),
+            has_glue=self.config.inputs.glue is not None,
+        )
+        prep_dir = self.base_dir / "prep"
+        report: dict[str, str] = {}
+        for protein in ("receptor", "target"):
+            ca_indices = cmap.resolve(protein, "name CA")
+            resids, rmsf = compute_rmsf(
+                universe, selection="index " + " ".join(map(str, ca_indices))
+            )
+            candidates = stablest_candidates(resids, rmsf)
+            path = prep_dir / f"rmsf_{protein}.dat"
+            header = (
+                f"suggested stable candidate resids (low-RMSF local minima): "
+                f"{candidates}\nresid  rmsf(nm)"
+            )
+            np.savetxt(
+                path,
+                np.column_stack([np.asarray(resids), np.asarray(rmsf, float)]),
+                fmt=["%d", "%.4f"],
+                header=header,
+            )
+            report[protein] = str(path)
+        return report
+
     def _load_prepared(self):
         """Return the on-disk :class:`PreparedSystem`, or ``None`` if not prepared."""
         from gluebind.system.prep import PreparedSystem

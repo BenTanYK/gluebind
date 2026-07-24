@@ -498,6 +498,25 @@ def _dump_prepared(base_dir):
     ).dump(base_dir / "prep")
 
 
+def test_equilibrate_reuses_prep_and_does_not_wire(tmp_path):
+    # equilibrate() runs prep + writes the RMSF report but must NOT resolve anchors
+    # or build the sampling tree (spec_builder stays None) — the manual-anchor
+    # fallback. Prep is stubbed via the on-disk manifest; RMSF write stubbed (MDA).
+    _dump_prepared(tmp_path)
+    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+    written = {}
+    calc._write_rmsf_report = lambda prepared: written.setdefault(
+        "paths", {"receptor": "rmsf_receptor.dat", "target": "rmsf_target.dat"}
+    )
+
+    prepared = calc.equilibrate()
+
+    assert prepared.complex_prm7 == "c.prm7"  # loaded the existing prep (no re-run)
+    assert calc.spec_builder is None  # NOT wired — anchors not resolved
+    assert calc.groups == []
+    assert written["paths"]  # RMSF report requested for inspection
+
+
 def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
     # Fresh process: an unwired from_config calc analysing an already-prepared run
     # must re-wire from disk (rebuild the stage tree) so stages are iterated — not
