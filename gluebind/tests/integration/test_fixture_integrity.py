@@ -24,6 +24,9 @@ def test_protein_inputs_load_and_are_dry(fap_inputs):
 
 
 def test_glue_is_named_mol_rapamycin(fap_inputs):
+    # rdkit isn't a declared dep (it arrives transitively via BSS), so guard it —
+    # the protein/water canary tests use MDAnalysis only and still run without it.
+    pytest.importorskip("rdkit.Chem")
     from rdkit import Chem
     from rdkit.Chem import rdMolDescriptors
 
