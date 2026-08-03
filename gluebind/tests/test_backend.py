@@ -1,6 +1,7 @@
 """Tests for the backend seam: LocalBackend, Scheduler, SlurmBackend helpers."""
 
 import shlex
+import subprocess
 import sys
 import threading
 import time
@@ -236,6 +237,21 @@ def test_slurm_submit_shell_quotes_command(tmp_path, monkeypatch):
     script = (tmp_path / "quoted.sh").read_text()
     command_line = script.strip().splitlines()[-1]
     assert shlex.split(command_line) == spec.command
+
+
+def test_slurm_submit_reports_sbatch_stderr(tmp_path, monkeypatch):
+    from gluebind.config.slurm import SlurmConfig
+
+    def _fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(
+            1, ["sbatch"], output="submission rejected", stderr="Invalid partition"
+        )
+
+    monkeypatch.setattr("gluebind.backend.slurm.subprocess.run", _fail)
+    spec = JobSpec(command=["echo", "hello"], work_dir=str(tmp_path), name="broken")
+
+    with pytest.raises(RuntimeError, match="Invalid partition"):
+        SlurmBackend(SlurmConfig()).submit(spec)
 
 
 def test_slurm_poll_grace_period_and_resume(monkeypatch):

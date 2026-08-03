@@ -44,7 +44,16 @@ class SlurmBackend(Backend):
         submission = self.config.get_submission_cmds(
             cmd, spec.work_dir, script_name=spec.name
         )
-        proc = subprocess.run(submission, capture_output=True, text=True, check=True)
+        try:
+            proc = subprocess.run(
+                submission, capture_output=True, text=True, check=True
+            )
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"SLURM submission failed for job {spec.name!r}.\n"
+                f"stdout:\n{exc.stdout or exc.output or ''}\n"
+                f"stderr:\n{exc.stderr or ''}"
+            ) from exc
         handle = self._parse_job_id(proc.stdout)
         with self._lock:
             self._submitted_at[handle] = self._clock()
