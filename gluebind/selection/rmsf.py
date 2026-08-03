@@ -22,7 +22,12 @@ def compute_rmsf(universe, selection: str = "name CA"):
         universe, universe, select=selection, ref_frame=0
     ).run()
     align.AlignTraj(
-        universe, average.results.universe, select=selection, in_memory=True
+        universe,
+        average.results.universe,
+        # AverageStructure contains only ``selection`` and renumbers it from
+        # zero, so apply the original selector only to the mobile trajectory.
+        select={"mobile": selection, "reference": "all"},
+        in_memory=True,
     ).run()
     atoms = universe.select_atoms(selection)
     rmsf = rms.RMSF(atoms).run()
