@@ -32,10 +32,10 @@ def _tiny_config(fap_inputs, *, with_waters):
         {
             "inputs": inputs,
             "prep": {
-                "minimisation_steps": 20,
-                "nvt_heat_ns": 0.002,
-                "npt_ns": 0.002,
-                "equilibration_ns": 0.01,
+                "minimisation_steps": 1000,
+                "nvt_heat_ns": 0.1,
+                "npt_ns": 0.1,
+                "equilibration_ns": 0.1,
             },
         }
     )
