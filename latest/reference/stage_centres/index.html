@@ -2320,6 +2320,8 @@
       
         
       
+        
+      
     
     
     
@@ -2417,6 +2419,34 @@
     
   
     inputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../system/mdanalysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mdanalysis
   
 
     
@@ -2841,13 +2871,13 @@ sampling schedule directly.</p>
 </span><span id="__span-0-68"><a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    RMSD stage centres are *not* returned — the runner derives those from the</span>
 </span><span id="__span-0-69"><a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    sampling schedule directly.</span>
 </span><span id="__span-0-70"><a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="__span-0-71"><a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">MDAnalysis</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mda</span>
-</span><span id="__span-0-72"><a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span id="__span-0-73"><a id="__codelineno-0-73" name="__codelineno-0-73"></a>
-</span><span id="__span-0-74"><a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">gluebind.boresch_geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">DOFS</span>
-</span><span id="__span-0-75"><a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">gluebind.runners.window</span><span class="w"> </span><span class="kn">import</span> <span class="n">enumerate_centres</span>
-</span><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">gluebind.selection.anchors</span><span class="w"> </span><span class="kn">import</span> <span class="n">dof_timeseries</span>
-</span><span id="__span-0-77"><a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">gluebind.spec_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">_collect_series</span>
+</span><span id="__span-0-71"><a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-0-72"><a id="__codelineno-0-72" name="__codelineno-0-72"></a>
+</span><span id="__span-0-73"><a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">gluebind.boresch_geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">DOFS</span>
+</span><span id="__span-0-74"><a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">gluebind.runners.window</span><span class="w"> </span><span class="kn">import</span> <span class="n">enumerate_centres</span>
+</span><span id="__span-0-75"><a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">gluebind.selection.anchors</span><span class="w"> </span><span class="kn">import</span> <span class="n">dof_timeseries</span>
+</span><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">gluebind.spec_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">_collect_series</span>
+</span><span id="__span-0-77"><a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">gluebind.system.mdanalysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_amber_universe</span>
 </span><span id="__span-0-78"><a id="__codelineno-0-78" name="__codelineno-0-78"></a>
 </span><span id="__span-0-79"><a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="n">centres</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span id="__span-0-80"><a id="__codelineno-0-80" name="__codelineno-0-80"></a>
@@ -2858,7 +2888,7 @@ sampling schedule directly.</p>
 </span><span id="__span-0-85"><a id="__codelineno-0-85" name="__codelineno-0-85"></a>            <span class="s2">&quot;the config&quot;</span>
 </span><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a>        <span class="p">)</span>
 </span><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a>
-</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="n">traj</span> <span class="o">=</span> <span class="n">mda</span><span class="o">.</span><span class="n">Universe</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">complex_prm7</span><span class="p">,</span> <span class="n">prepared</span><span class="o">.</span><span class="n">complex_trajectory</span><span class="p">)</span>
+</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="n">traj</span> <span class="o">=</span> <span class="n">load_amber_universe</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">complex_prm7</span><span class="p">,</span> <span class="n">prepared</span><span class="o">.</span><span class="n">complex_trajectory</span><span class="p">)</span>
 </span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="n">anchor_atoms</span> <span class="o">=</span> <span class="p">[</span><span class="n">context</span><span class="o">.</span><span class="n">anchors</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">)]</span>
 </span><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a>    <span class="n">series</span> <span class="o">=</span> <span class="n">_collect_series</span><span class="p">(</span>
 </span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="n">traj</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">rec_group</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">lig_group</span><span class="p">,</span> <span class="n">anchor_atoms</span><span class="p">,</span> <span class="n">np</span>

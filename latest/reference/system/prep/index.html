@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://github.com/BenTanYK/gluebind/latest/reference/system/prep/">
       
       
-        <link rel="prev" href="../inputs/">
+        <link rel="prev" href="../mdanalysis/">
       
       
         <link rel="next" href="../../../development/">
@@ -2253,6 +2253,8 @@
       
         
       
+        
+      
     
     
     
@@ -2350,6 +2352,34 @@
     
   
     inputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mdanalysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mdanalysis
   
 
     
@@ -3510,7 +3540,8 @@ the <code>prepared.json</code> manifest into <code>work_dir</code>, and returns 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/system/prep.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-426">426</a></span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-425">425</a></span>
+<span class="normal"><a href="#__codelineno-0-426">426</a></span>
 <span class="normal"><a href="#__codelineno-0-427">427</a></span>
 <span class="normal"><a href="#__codelineno-0-428">428</a></span>
 <span class="normal"><a href="#__codelineno-0-429">429</a></span>
@@ -3629,128 +3660,127 @@ the <code>prepared.json</code> manifest into <code>work_dir</code>, and returns 
 <span class="normal"><a href="#__codelineno-0-542">542</a></span>
 <span class="normal"><a href="#__codelineno-0-543">543</a></span>
 <span class="normal"><a href="#__codelineno-0-544">544</a></span>
-<span class="normal"><a href="#__codelineno-0-545">545</a></span>
-<span class="normal"><a href="#__codelineno-0-546">546</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-426"><a id="__codelineno-0-426" name="__codelineno-0-426"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span>
-</span><span id="__span-0-427"><a id="__codelineno-0-427" name="__codelineno-0-427"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">CalculationConfig</span><span class="p">,</span>
-</span><span id="__span-0-428"><a id="__codelineno-0-428" name="__codelineno-0-428"></a>    <span class="n">work_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span>
-</span><span id="__span-0-429"><a id="__codelineno-0-429" name="__codelineno-0-429"></a>    <span class="n">backend</span><span class="p">,</span>
-</span><span id="__span-0-430"><a id="__codelineno-0-430" name="__codelineno-0-430"></a>    <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-0-431"><a id="__codelineno-0-431" name="__codelineno-0-431"></a>    <span class="n">platform</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CUDA&quot;</span><span class="p">,</span>
-</span><span id="__span-0-432"><a id="__codelineno-0-432" name="__codelineno-0-432"></a>    <span class="n">poll_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
-</span><span id="__span-0-433"><a id="__codelineno-0-433" name="__codelineno-0-433"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedSystem</span><span class="p">:</span>
-</span><span id="__span-0-434"><a id="__codelineno-0-434" name="__codelineno-0-434"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Full preparation: parameterise, assemble, solvate, equilibrate, extract bulk.</span>
-</span><span id="__span-0-435"><a id="__codelineno-0-435" name="__codelineno-0-435"></a>
-</span><span id="__span-0-436"><a id="__codelineno-0-436" name="__codelineno-0-436"></a><span class="sd">    The cheap, CPU-bound setup (glue parameterisation, assembly, solvation, and</span>
-</span><span id="__span-0-437"><a id="__codelineno-0-437" name="__codelineno-0-437"></a><span class="sd">    bulk isolation) runs here on the driver; every MD stage — the complex</span>
-</span><span id="__span-0-438"><a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="sd">    equilibration and the two bulk-species equilibrations — is dispatched to</span>
-</span><span id="__span-0-439"><a id="__codelineno-0-439" name="__codelineno-0-439"></a><span class="sd">    ``backend`` as one job per stage (see :func:`run_equilibration_stages`), so it</span>
-</span><span id="__span-0-440"><a id="__codelineno-0-440" name="__codelineno-0-440"></a><span class="sd">    runs on compute nodes with per-stage logs and intermediate snapshots and no</span>
-</span><span id="__span-0-441"><a id="__codelineno-0-441" name="__codelineno-0-441"></a><span class="sd">    MD/GPU work runs on the driver. A single equilibration run is used (no</span>
-</span><span id="__span-0-442"><a id="__codelineno-0-442" name="__codelineno-0-442"></a><span class="sd">    ensemble).</span>
-</span><span id="__span-0-443"><a id="__codelineno-0-443" name="__codelineno-0-443"></a>
-</span><span id="__span-0-444"><a id="__codelineno-0-444" name="__codelineno-0-444"></a><span class="sd">    Writes ``solvated.*``, ``equilibration/NN_&lt;stage&gt;/output.*``,</span>
-</span><span id="__span-0-445"><a id="__codelineno-0-445" name="__codelineno-0-445"></a><span class="sd">    ``{target,receptor}_bulk/{solvated.*,equilibration/NN_&lt;stage&gt;/output.*}`` and</span>
-</span><span id="__span-0-446"><a id="__codelineno-0-446" name="__codelineno-0-446"></a><span class="sd">    the ``prepared.json`` manifest into ``work_dir``, and returns the manifest.</span>
-</span><span id="__span-0-447"><a id="__codelineno-0-447" name="__codelineno-0-447"></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="__span-0-448"><a id="__codelineno-0-448" name="__codelineno-0-448"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">BioSimSpace</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">BSS</span>
-</span><span id="__span-0-449"><a id="__codelineno-0-449" name="__codelineno-0-449"></a>
-</span><span id="__span-0-450"><a id="__codelineno-0-450" name="__codelineno-0-450"></a>    <span class="n">work_dir</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
-</span><span id="__span-0-451"><a id="__codelineno-0-451" name="__codelineno-0-451"></a>    <span class="n">work_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-452"><a id="__codelineno-0-452" name="__codelineno-0-452"></a>    <span class="n">inputs</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">inputs</span>
-</span><span id="__span-0-453"><a id="__codelineno-0-453" name="__codelineno-0-453"></a>
-</span><span id="__span-0-454"><a id="__codelineno-0-454" name="__codelineno-0-454"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">load_system</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
-</span><span id="__span-0-455"><a id="__codelineno-0-455" name="__codelineno-0-455"></a>    <span class="n">receptor</span> <span class="o">=</span> <span class="n">load_system</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">receptor</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">receptor</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
-</span><span id="__span-0-456"><a id="__codelineno-0-456" name="__codelineno-0-456"></a>    <span class="n">glue</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-0-457"><a id="__codelineno-0-457" name="__codelineno-0-457"></a>    <span class="n">assign_to</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-0-458"><a id="__codelineno-0-458" name="__codelineno-0-458"></a>    <span class="k">if</span> <span class="n">inputs</span><span class="o">.</span><span class="n">glue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-459"><a id="__codelineno-0-459" name="__codelineno-0-459"></a>        <span class="n">glue</span> <span class="o">=</span> <span class="n">parameterise_glue</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">glue</span><span class="o">.</span><span class="n">sdf</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="o">.</span><span class="n">glue_forcefield</span><span class="p">)</span>
-</span><span id="__span-0-460"><a id="__codelineno-0-460" name="__codelineno-0-460"></a>        <span class="n">assign_to</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">glue</span><span class="o">.</span><span class="n">assign_to</span>
-</span><span id="__span-0-461"><a id="__codelineno-0-461" name="__codelineno-0-461"></a>    <span class="n">waters</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-0-462"><a id="__codelineno-0-462" name="__codelineno-0-462"></a>    <span class="k">if</span> <span class="n">inputs</span><span class="o">.</span><span class="n">waters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-463"><a id="__codelineno-0-463" name="__codelineno-0-463"></a>        <span class="n">waters</span> <span class="o">=</span> <span class="n">load_waters</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">waters</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">waters</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
-</span><span id="__span-0-464"><a id="__codelineno-0-464" name="__codelineno-0-464"></a>
-</span><span id="__span-0-465"><a id="__codelineno-0-465" name="__codelineno-0-465"></a>    <span class="n">layout</span> <span class="o">=</span> <span class="n">compute_layout</span><span class="p">(</span>
-</span><span id="__span-0-466"><a id="__codelineno-0-466" name="__codelineno-0-466"></a>        <span class="n">count_molecules</span><span class="p">(</span><span class="n">target</span><span class="p">),</span> <span class="n">count_molecules</span><span class="p">(</span><span class="n">receptor</span><span class="p">),</span> <span class="n">glue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-467"><a id="__codelineno-0-467" name="__codelineno-0-467"></a>    <span class="p">)</span>
-</span><span id="__span-0-468"><a id="__codelineno-0-468" name="__codelineno-0-468"></a>
-</span><span id="__span-0-469"><a id="__codelineno-0-469" name="__codelineno-0-469"></a>    <span class="c1"># Driver (fast, CPU): assemble + solvate, then hand the MD stages to the backend.</span>
-</span><span id="__span-0-470"><a id="__codelineno-0-470" name="__codelineno-0-470"></a>    <span class="n">solvated</span> <span class="o">=</span> <span class="n">assemble_and_solvate</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">receptor</span><span class="p">,</span> <span class="n">glue</span><span class="p">,</span> <span class="n">waters</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">)</span>
-</span><span id="__span-0-471"><a id="__codelineno-0-471" name="__codelineno-0-471"></a>    <span class="n">solvated_prm7</span><span class="p">,</span> <span class="n">solvated_rst7</span> <span class="o">=</span> <span class="n">_save</span><span class="p">(</span><span class="n">solvated</span><span class="p">,</span> <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;solvated&quot;</span><span class="p">)</span>
-</span><span id="__span-0-472"><a id="__codelineno-0-472" name="__codelineno-0-472"></a>
-</span><span id="__span-0-473"><a id="__codelineno-0-473" name="__codelineno-0-473"></a>    <span class="n">plan</span> <span class="o">=</span> <span class="n">equilibration_stage_plan</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">)</span>
-</span><span id="__span-0-474"><a id="__codelineno-0-474" name="__codelineno-0-474"></a>    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">restraints</span><span class="o">.</span><span class="n">always_on</span><span class="p">:</span>
-</span><span id="__span-0-475"><a id="__codelineno-0-475" name="__codelineno-0-475"></a>        <span class="c1"># Constant restraints (e.g. the DDB1 surrogate) must be present during the</span>
-</span><span id="__span-0-476"><a id="__codelineno-0-476" name="__codelineno-0-476"></a>        <span class="c1"># production run, so run min/heat/NPT in BSS and the production stage in</span>
-</span><span id="__span-0-477"><a id="__codelineno-0-477" name="__codelineno-0-477"></a>        <span class="c1"># OpenMM — where the restraint is applied on verified-mapped indices, the</span>
-</span><span id="__span-0-478"><a id="__codelineno-0-478" name="__codelineno-0-478"></a>        <span class="c1"># same way the US windows resolve it (BSS&#39;s assembly re-indexing never</span>
-</span><span id="__span-0-479"><a id="__codelineno-0-479" name="__codelineno-0-479"></a>        <span class="c1"># touches the restrained run).</span>
-</span><span id="__span-0-480"><a id="__codelineno-0-480" name="__codelineno-0-480"></a>        <span class="n">npt_prm7</span><span class="p">,</span> <span class="n">npt_rst7</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">run_equilibration_stages</span><span class="p">(</span>
-</span><span id="__span-0-481"><a id="__codelineno-0-481" name="__codelineno-0-481"></a>            <span class="n">solvated_prm7</span><span class="p">,</span>
-</span><span id="__span-0-482"><a id="__codelineno-0-482" name="__codelineno-0-482"></a>            <span class="n">solvated_rst7</span><span class="p">,</span>
-</span><span id="__span-0-483"><a id="__codelineno-0-483" name="__codelineno-0-483"></a>            <span class="n">plan</span><span class="p">[:</span><span class="mi">3</span><span class="p">],</span>
-</span><span id="__span-0-484"><a id="__codelineno-0-484" name="__codelineno-0-484"></a>            <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;equilibration&quot;</span><span class="p">,</span>
-</span><span id="__span-0-485"><a id="__codelineno-0-485" name="__codelineno-0-485"></a>            <span class="n">backend</span><span class="p">,</span>
-</span><span id="__span-0-486"><a id="__codelineno-0-486" name="__codelineno-0-486"></a>            <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
-</span><span id="__span-0-487"><a id="__codelineno-0-487" name="__codelineno-0-487"></a>            <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
-</span><span id="__span-0-488"><a id="__codelineno-0-488" name="__codelineno-0-488"></a>        <span class="p">)</span>
-</span><span id="__span-0-489"><a id="__codelineno-0-489" name="__codelineno-0-489"></a>        <span class="n">complex_prm7</span><span class="p">,</span> <span class="n">complex_rst7</span><span class="p">,</span> <span class="n">trajectory</span> <span class="o">=</span> <span class="n">_run_production_stage</span><span class="p">(</span>
-</span><span id="__span-0-490"><a id="__codelineno-0-490" name="__codelineno-0-490"></a>            <span class="n">config</span><span class="p">,</span>
-</span><span id="__span-0-491"><a id="__codelineno-0-491" name="__codelineno-0-491"></a>            <span class="n">npt_prm7</span><span class="p">,</span>
-</span><span id="__span-0-492"><a id="__codelineno-0-492" name="__codelineno-0-492"></a>            <span class="n">npt_rst7</span><span class="p">,</span>
-</span><span id="__span-0-493"><a id="__codelineno-0-493" name="__codelineno-0-493"></a>            <span class="n">plan</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
-</span><span id="__span-0-494"><a id="__codelineno-0-494" name="__codelineno-0-494"></a>            <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;equilibration&quot;</span> <span class="o">/</span> <span class="s2">&quot;04_production&quot;</span><span class="p">,</span>
-</span><span id="__span-0-495"><a id="__codelineno-0-495" name="__codelineno-0-495"></a>            <span class="n">backend</span><span class="p">,</span>
-</span><span id="__span-0-496"><a id="__codelineno-0-496" name="__codelineno-0-496"></a>            <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
-</span><span id="__span-0-497"><a id="__codelineno-0-497" name="__codelineno-0-497"></a>            <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
-</span><span id="__span-0-498"><a id="__codelineno-0-498" name="__codelineno-0-498"></a>        <span class="p">)</span>
-</span><span id="__span-0-499"><a id="__codelineno-0-499" name="__codelineno-0-499"></a>    <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-0-500"><a id="__codelineno-0-500" name="__codelineno-0-500"></a>        <span class="n">complex_prm7</span><span class="p">,</span> <span class="n">complex_rst7</span><span class="p">,</span> <span class="n">trajectory</span> <span class="o">=</span> <span class="n">run_equilibration_stages</span><span class="p">(</span>
-</span><span id="__span-0-501"><a id="__codelineno-0-501" name="__codelineno-0-501"></a>            <span class="n">solvated_prm7</span><span class="p">,</span>
-</span><span id="__span-0-502"><a id="__codelineno-0-502" name="__codelineno-0-502"></a>            <span class="n">solvated_rst7</span><span class="p">,</span>
-</span><span id="__span-0-503"><a id="__codelineno-0-503" name="__codelineno-0-503"></a>            <span class="n">plan</span><span class="p">,</span>
-</span><span id="__span-0-504"><a id="__codelineno-0-504" name="__codelineno-0-504"></a>            <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;equilibration&quot;</span><span class="p">,</span>
-</span><span id="__span-0-505"><a id="__codelineno-0-505" name="__codelineno-0-505"></a>            <span class="n">backend</span><span class="p">,</span>
-</span><span id="__span-0-506"><a id="__codelineno-0-506" name="__codelineno-0-506"></a>            <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
-</span><span id="__span-0-507"><a id="__codelineno-0-507" name="__codelineno-0-507"></a>            <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
-</span><span id="__span-0-508"><a id="__codelineno-0-508" name="__codelineno-0-508"></a>        <span class="p">)</span>
-</span><span id="__span-0-509"><a id="__codelineno-0-509" name="__codelineno-0-509"></a>
-</span><span id="__span-0-510"><a id="__codelineno-0-510" name="__codelineno-0-510"></a>    <span class="c1"># Bulk reference species: isolate + re-solvate on the driver (cheap), then</span>
-</span><span id="__span-0-511"><a id="__codelineno-0-511" name="__codelineno-0-511"></a>    <span class="c1"># equilibrate through the backend — no MD runs on the driver.</span>
-</span><span id="__span-0-512"><a id="__codelineno-0-512" name="__codelineno-0-512"></a>    <span class="n">equilibrated</span> <span class="o">=</span> <span class="n">BSS</span><span class="o">.</span><span class="n">IO</span><span class="o">.</span><span class="n">readMolecules</span><span class="p">([</span><span class="n">complex_prm7</span><span class="p">,</span> <span class="n">complex_rst7</span><span class="p">])</span>
-</span><span id="__span-0-513"><a id="__codelineno-0-513" name="__codelineno-0-513"></a>    <span class="n">target_bulk</span> <span class="o">=</span> <span class="n">_extract_bulk</span><span class="p">(</span>
-</span><span id="__span-0-514"><a id="__codelineno-0-514" name="__codelineno-0-514"></a>        <span class="n">equilibrated</span><span class="p">,</span>
-</span><span id="__span-0-515"><a id="__codelineno-0-515" name="__codelineno-0-515"></a>        <span class="n">_bulk_indices</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">,</span> <span class="n">assign_to</span><span class="p">),</span>
-</span><span id="__span-0-516"><a id="__codelineno-0-516" name="__codelineno-0-516"></a>        <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">,</span>
-</span><span id="__span-0-517"><a id="__codelineno-0-517" name="__codelineno-0-517"></a>        <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;target_bulk&quot;</span><span class="p">,</span>
-</span><span id="__span-0-518"><a id="__codelineno-0-518" name="__codelineno-0-518"></a>        <span class="n">backend</span><span class="p">,</span>
-</span><span id="__span-0-519"><a id="__codelineno-0-519" name="__codelineno-0-519"></a>        <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
-</span><span id="__span-0-520"><a id="__codelineno-0-520" name="__codelineno-0-520"></a>        <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
-</span><span id="__span-0-521"><a id="__codelineno-0-521" name="__codelineno-0-521"></a>    <span class="p">)</span>
-</span><span id="__span-0-522"><a id="__codelineno-0-522" name="__codelineno-0-522"></a>    <span class="n">receptor_bulk</span> <span class="o">=</span> <span class="n">_extract_bulk</span><span class="p">(</span>
-</span><span id="__span-0-523"><a id="__codelineno-0-523" name="__codelineno-0-523"></a>        <span class="n">equilibrated</span><span class="p">,</span>
-</span><span id="__span-0-524"><a id="__codelineno-0-524" name="__codelineno-0-524"></a>        <span class="n">_bulk_indices</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="s2">&quot;receptor&quot;</span><span class="p">,</span> <span class="n">assign_to</span><span class="p">),</span>
-</span><span id="__span-0-525"><a id="__codelineno-0-525" name="__codelineno-0-525"></a>        <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">,</span>
-</span><span id="__span-0-526"><a id="__codelineno-0-526" name="__codelineno-0-526"></a>        <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;receptor_bulk&quot;</span><span class="p">,</span>
-</span><span id="__span-0-527"><a id="__codelineno-0-527" name="__codelineno-0-527"></a>        <span class="n">backend</span><span class="p">,</span>
-</span><span id="__span-0-528"><a id="__codelineno-0-528" name="__codelineno-0-528"></a>        <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
-</span><span id="__span-0-529"><a id="__codelineno-0-529" name="__codelineno-0-529"></a>        <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
-</span><span id="__span-0-530"><a id="__codelineno-0-530" name="__codelineno-0-530"></a>    <span class="p">)</span>
-</span><span id="__span-0-531"><a id="__codelineno-0-531" name="__codelineno-0-531"></a>
-</span><span id="__span-0-532"><a id="__codelineno-0-532" name="__codelineno-0-532"></a>    <span class="n">prepared</span> <span class="o">=</span> <span class="n">PreparedSystem</span><span class="p">(</span>
-</span><span id="__span-0-533"><a id="__codelineno-0-533" name="__codelineno-0-533"></a>        <span class="n">complex_prm7</span><span class="o">=</span><span class="n">complex_prm7</span><span class="p">,</span>
-</span><span id="__span-0-534"><a id="__codelineno-0-534" name="__codelineno-0-534"></a>        <span class="n">complex_rst7</span><span class="o">=</span><span class="n">complex_rst7</span><span class="p">,</span>
-</span><span id="__span-0-535"><a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="n">complex_trajectory</span><span class="o">=</span><span class="n">trajectory</span><span class="p">,</span>
-</span><span id="__span-0-536"><a id="__codelineno-0-536" name="__codelineno-0-536"></a>        <span class="n">target_bulk_prm7</span><span class="o">=</span><span class="n">target_bulk</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-</span><span id="__span-0-537"><a id="__codelineno-0-537" name="__codelineno-0-537"></a>        <span class="n">target_bulk_rst7</span><span class="o">=</span><span class="n">target_bulk</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-</span><span id="__span-0-538"><a id="__codelineno-0-538" name="__codelineno-0-538"></a>        <span class="n">receptor_bulk_prm7</span><span class="o">=</span><span class="n">receptor_bulk</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-</span><span id="__span-0-539"><a id="__codelineno-0-539" name="__codelineno-0-539"></a>        <span class="n">receptor_bulk_rst7</span><span class="o">=</span><span class="n">receptor_bulk</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-</span><span id="__span-0-540"><a id="__codelineno-0-540" name="__codelineno-0-540"></a>        <span class="n">glue_assign_to</span><span class="o">=</span><span class="n">assign_to</span><span class="p">,</span>
-</span><span id="__span-0-541"><a id="__codelineno-0-541" name="__codelineno-0-541"></a>        <span class="n">target_molecules</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">target</span><span class="p">,</span>
-</span><span id="__span-0-542"><a id="__codelineno-0-542" name="__codelineno-0-542"></a>        <span class="n">receptor_molecules</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">receptor</span><span class="p">,</span>
-</span><span id="__span-0-543"><a id="__codelineno-0-543" name="__codelineno-0-543"></a>        <span class="n">glue_molecule</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">glue</span><span class="p">,</span>
-</span><span id="__span-0-544"><a id="__codelineno-0-544" name="__codelineno-0-544"></a>    <span class="p">)</span>
-</span><span id="__span-0-545"><a id="__codelineno-0-545" name="__codelineno-0-545"></a>    <span class="n">prepared</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
-</span><span id="__span-0-546"><a id="__codelineno-0-546" name="__codelineno-0-546"></a>    <span class="k">return</span> <span class="n">prepared</span>
+<span class="normal"><a href="#__codelineno-0-545">545</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-425"><a id="__codelineno-0-425" name="__codelineno-0-425"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span>
+</span><span id="__span-0-426"><a id="__codelineno-0-426" name="__codelineno-0-426"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">CalculationConfig</span><span class="p">,</span>
+</span><span id="__span-0-427"><a id="__codelineno-0-427" name="__codelineno-0-427"></a>    <span class="n">work_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span>
+</span><span id="__span-0-428"><a id="__codelineno-0-428" name="__codelineno-0-428"></a>    <span class="n">backend</span><span class="p">,</span>
+</span><span id="__span-0-429"><a id="__codelineno-0-429" name="__codelineno-0-429"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-430"><a id="__codelineno-0-430" name="__codelineno-0-430"></a>    <span class="n">platform</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CUDA&quot;</span><span class="p">,</span>
+</span><span id="__span-0-431"><a id="__codelineno-0-431" name="__codelineno-0-431"></a>    <span class="n">poll_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+</span><span id="__span-0-432"><a id="__codelineno-0-432" name="__codelineno-0-432"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedSystem</span><span class="p">:</span>
+</span><span id="__span-0-433"><a id="__codelineno-0-433" name="__codelineno-0-433"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Full preparation: parameterise, assemble, solvate, equilibrate, extract bulk.</span>
+</span><span id="__span-0-434"><a id="__codelineno-0-434" name="__codelineno-0-434"></a>
+</span><span id="__span-0-435"><a id="__codelineno-0-435" name="__codelineno-0-435"></a><span class="sd">    The cheap, CPU-bound setup (glue parameterisation, assembly, solvation, and</span>
+</span><span id="__span-0-436"><a id="__codelineno-0-436" name="__codelineno-0-436"></a><span class="sd">    bulk isolation) runs here on the driver; every MD stage — the complex</span>
+</span><span id="__span-0-437"><a id="__codelineno-0-437" name="__codelineno-0-437"></a><span class="sd">    equilibration and the two bulk-species equilibrations — is dispatched to</span>
+</span><span id="__span-0-438"><a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="sd">    ``backend`` as one job per stage (see :func:`run_equilibration_stages`), so it</span>
+</span><span id="__span-0-439"><a id="__codelineno-0-439" name="__codelineno-0-439"></a><span class="sd">    runs on compute nodes with per-stage logs and intermediate snapshots and no</span>
+</span><span id="__span-0-440"><a id="__codelineno-0-440" name="__codelineno-0-440"></a><span class="sd">    MD/GPU work runs on the driver. A single equilibration run is used (no</span>
+</span><span id="__span-0-441"><a id="__codelineno-0-441" name="__codelineno-0-441"></a><span class="sd">    ensemble).</span>
+</span><span id="__span-0-442"><a id="__codelineno-0-442" name="__codelineno-0-442"></a>
+</span><span id="__span-0-443"><a id="__codelineno-0-443" name="__codelineno-0-443"></a><span class="sd">    Writes ``solvated.*``, ``equilibration/NN_&lt;stage&gt;/output.*``,</span>
+</span><span id="__span-0-444"><a id="__codelineno-0-444" name="__codelineno-0-444"></a><span class="sd">    ``{target,receptor}_bulk/{solvated.*,equilibration/NN_&lt;stage&gt;/output.*}`` and</span>
+</span><span id="__span-0-445"><a id="__codelineno-0-445" name="__codelineno-0-445"></a><span class="sd">    the ``prepared.json`` manifest into ``work_dir``, and returns the manifest.</span>
+</span><span id="__span-0-446"><a id="__codelineno-0-446" name="__codelineno-0-446"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-447"><a id="__codelineno-0-447" name="__codelineno-0-447"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">BioSimSpace</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">BSS</span>
+</span><span id="__span-0-448"><a id="__codelineno-0-448" name="__codelineno-0-448"></a>
+</span><span id="__span-0-449"><a id="__codelineno-0-449" name="__codelineno-0-449"></a>    <span class="n">work_dir</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
+</span><span id="__span-0-450"><a id="__codelineno-0-450" name="__codelineno-0-450"></a>    <span class="n">work_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-451"><a id="__codelineno-0-451" name="__codelineno-0-451"></a>    <span class="n">inputs</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">inputs</span>
+</span><span id="__span-0-452"><a id="__codelineno-0-452" name="__codelineno-0-452"></a>
+</span><span id="__span-0-453"><a id="__codelineno-0-453" name="__codelineno-0-453"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">load_system</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
+</span><span id="__span-0-454"><a id="__codelineno-0-454" name="__codelineno-0-454"></a>    <span class="n">receptor</span> <span class="o">=</span> <span class="n">load_system</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">receptor</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">receptor</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
+</span><span id="__span-0-455"><a id="__codelineno-0-455" name="__codelineno-0-455"></a>    <span class="n">glue</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-456"><a id="__codelineno-0-456" name="__codelineno-0-456"></a>    <span class="n">assign_to</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-457"><a id="__codelineno-0-457" name="__codelineno-0-457"></a>    <span class="k">if</span> <span class="n">inputs</span><span class="o">.</span><span class="n">glue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-458"><a id="__codelineno-0-458" name="__codelineno-0-458"></a>        <span class="n">glue</span> <span class="o">=</span> <span class="n">parameterise_glue</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">glue</span><span class="o">.</span><span class="n">sdf</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="o">.</span><span class="n">glue_forcefield</span><span class="p">)</span>
+</span><span id="__span-0-459"><a id="__codelineno-0-459" name="__codelineno-0-459"></a>        <span class="n">assign_to</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">glue</span><span class="o">.</span><span class="n">assign_to</span>
+</span><span id="__span-0-460"><a id="__codelineno-0-460" name="__codelineno-0-460"></a>    <span class="n">waters</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-461"><a id="__codelineno-0-461" name="__codelineno-0-461"></a>    <span class="k">if</span> <span class="n">inputs</span><span class="o">.</span><span class="n">waters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-462"><a id="__codelineno-0-462" name="__codelineno-0-462"></a>        <span class="n">waters</span> <span class="o">=</span> <span class="n">load_waters</span><span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">waters</span><span class="o">.</span><span class="n">prm7</span><span class="p">,</span> <span class="n">inputs</span><span class="o">.</span><span class="n">waters</span><span class="o">.</span><span class="n">rst7</span><span class="p">)</span>
+</span><span id="__span-0-463"><a id="__codelineno-0-463" name="__codelineno-0-463"></a>
+</span><span id="__span-0-464"><a id="__codelineno-0-464" name="__codelineno-0-464"></a>    <span class="n">layout</span> <span class="o">=</span> <span class="n">compute_layout</span><span class="p">(</span>
+</span><span id="__span-0-465"><a id="__codelineno-0-465" name="__codelineno-0-465"></a>        <span class="n">count_molecules</span><span class="p">(</span><span class="n">target</span><span class="p">),</span> <span class="n">count_molecules</span><span class="p">(</span><span class="n">receptor</span><span class="p">),</span> <span class="n">glue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-466"><a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="p">)</span>
+</span><span id="__span-0-467"><a id="__codelineno-0-467" name="__codelineno-0-467"></a>
+</span><span id="__span-0-468"><a id="__codelineno-0-468" name="__codelineno-0-468"></a>    <span class="c1"># Driver (fast, CPU): assemble + solvate, then hand the MD stages to the backend.</span>
+</span><span id="__span-0-469"><a id="__codelineno-0-469" name="__codelineno-0-469"></a>    <span class="n">solvated</span> <span class="o">=</span> <span class="n">assemble_and_solvate</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">receptor</span><span class="p">,</span> <span class="n">glue</span><span class="p">,</span> <span class="n">waters</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">)</span>
+</span><span id="__span-0-470"><a id="__codelineno-0-470" name="__codelineno-0-470"></a>    <span class="n">solvated_prm7</span><span class="p">,</span> <span class="n">solvated_rst7</span> <span class="o">=</span> <span class="n">_save</span><span class="p">(</span><span class="n">solvated</span><span class="p">,</span> <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;solvated&quot;</span><span class="p">)</span>
+</span><span id="__span-0-471"><a id="__codelineno-0-471" name="__codelineno-0-471"></a>
+</span><span id="__span-0-472"><a id="__codelineno-0-472" name="__codelineno-0-472"></a>    <span class="n">plan</span> <span class="o">=</span> <span class="n">equilibration_stage_plan</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">)</span>
+</span><span id="__span-0-473"><a id="__codelineno-0-473" name="__codelineno-0-473"></a>    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">restraints</span><span class="o">.</span><span class="n">always_on</span><span class="p">:</span>
+</span><span id="__span-0-474"><a id="__codelineno-0-474" name="__codelineno-0-474"></a>        <span class="c1"># Constant restraints (e.g. the DDB1 surrogate) must be present during the</span>
+</span><span id="__span-0-475"><a id="__codelineno-0-475" name="__codelineno-0-475"></a>        <span class="c1"># production run, so run min/heat/NPT in BSS and the production stage in</span>
+</span><span id="__span-0-476"><a id="__codelineno-0-476" name="__codelineno-0-476"></a>        <span class="c1"># OpenMM — where the restraint is applied on verified-mapped indices, the</span>
+</span><span id="__span-0-477"><a id="__codelineno-0-477" name="__codelineno-0-477"></a>        <span class="c1"># same way the US windows resolve it (BSS&#39;s assembly re-indexing never</span>
+</span><span id="__span-0-478"><a id="__codelineno-0-478" name="__codelineno-0-478"></a>        <span class="c1"># touches the restrained run).</span>
+</span><span id="__span-0-479"><a id="__codelineno-0-479" name="__codelineno-0-479"></a>        <span class="n">npt_prm7</span><span class="p">,</span> <span class="n">npt_rst7</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">run_equilibration_stages</span><span class="p">(</span>
+</span><span id="__span-0-480"><a id="__codelineno-0-480" name="__codelineno-0-480"></a>            <span class="n">solvated_prm7</span><span class="p">,</span>
+</span><span id="__span-0-481"><a id="__codelineno-0-481" name="__codelineno-0-481"></a>            <span class="n">solvated_rst7</span><span class="p">,</span>
+</span><span id="__span-0-482"><a id="__codelineno-0-482" name="__codelineno-0-482"></a>            <span class="n">plan</span><span class="p">[:</span><span class="mi">3</span><span class="p">],</span>
+</span><span id="__span-0-483"><a id="__codelineno-0-483" name="__codelineno-0-483"></a>            <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;equilibration&quot;</span><span class="p">,</span>
+</span><span id="__span-0-484"><a id="__codelineno-0-484" name="__codelineno-0-484"></a>            <span class="n">backend</span><span class="p">,</span>
+</span><span id="__span-0-485"><a id="__codelineno-0-485" name="__codelineno-0-485"></a>            <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-0-486"><a id="__codelineno-0-486" name="__codelineno-0-486"></a>            <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
+</span><span id="__span-0-487"><a id="__codelineno-0-487" name="__codelineno-0-487"></a>        <span class="p">)</span>
+</span><span id="__span-0-488"><a id="__codelineno-0-488" name="__codelineno-0-488"></a>        <span class="n">complex_prm7</span><span class="p">,</span> <span class="n">complex_rst7</span><span class="p">,</span> <span class="n">trajectory</span> <span class="o">=</span> <span class="n">_run_production_stage</span><span class="p">(</span>
+</span><span id="__span-0-489"><a id="__codelineno-0-489" name="__codelineno-0-489"></a>            <span class="n">config</span><span class="p">,</span>
+</span><span id="__span-0-490"><a id="__codelineno-0-490" name="__codelineno-0-490"></a>            <span class="n">npt_prm7</span><span class="p">,</span>
+</span><span id="__span-0-491"><a id="__codelineno-0-491" name="__codelineno-0-491"></a>            <span class="n">npt_rst7</span><span class="p">,</span>
+</span><span id="__span-0-492"><a id="__codelineno-0-492" name="__codelineno-0-492"></a>            <span class="n">plan</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+</span><span id="__span-0-493"><a id="__codelineno-0-493" name="__codelineno-0-493"></a>            <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;equilibration&quot;</span> <span class="o">/</span> <span class="s2">&quot;04_production&quot;</span><span class="p">,</span>
+</span><span id="__span-0-494"><a id="__codelineno-0-494" name="__codelineno-0-494"></a>            <span class="n">backend</span><span class="p">,</span>
+</span><span id="__span-0-495"><a id="__codelineno-0-495" name="__codelineno-0-495"></a>            <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-0-496"><a id="__codelineno-0-496" name="__codelineno-0-496"></a>            <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
+</span><span id="__span-0-497"><a id="__codelineno-0-497" name="__codelineno-0-497"></a>        <span class="p">)</span>
+</span><span id="__span-0-498"><a id="__codelineno-0-498" name="__codelineno-0-498"></a>    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-499"><a id="__codelineno-0-499" name="__codelineno-0-499"></a>        <span class="n">complex_prm7</span><span class="p">,</span> <span class="n">complex_rst7</span><span class="p">,</span> <span class="n">trajectory</span> <span class="o">=</span> <span class="n">run_equilibration_stages</span><span class="p">(</span>
+</span><span id="__span-0-500"><a id="__codelineno-0-500" name="__codelineno-0-500"></a>            <span class="n">solvated_prm7</span><span class="p">,</span>
+</span><span id="__span-0-501"><a id="__codelineno-0-501" name="__codelineno-0-501"></a>            <span class="n">solvated_rst7</span><span class="p">,</span>
+</span><span id="__span-0-502"><a id="__codelineno-0-502" name="__codelineno-0-502"></a>            <span class="n">plan</span><span class="p">,</span>
+</span><span id="__span-0-503"><a id="__codelineno-0-503" name="__codelineno-0-503"></a>            <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;equilibration&quot;</span><span class="p">,</span>
+</span><span id="__span-0-504"><a id="__codelineno-0-504" name="__codelineno-0-504"></a>            <span class="n">backend</span><span class="p">,</span>
+</span><span id="__span-0-505"><a id="__codelineno-0-505" name="__codelineno-0-505"></a>            <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-0-506"><a id="__codelineno-0-506" name="__codelineno-0-506"></a>            <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
+</span><span id="__span-0-507"><a id="__codelineno-0-507" name="__codelineno-0-507"></a>        <span class="p">)</span>
+</span><span id="__span-0-508"><a id="__codelineno-0-508" name="__codelineno-0-508"></a>
+</span><span id="__span-0-509"><a id="__codelineno-0-509" name="__codelineno-0-509"></a>    <span class="c1"># Bulk reference species: isolate + re-solvate on the driver (cheap), then</span>
+</span><span id="__span-0-510"><a id="__codelineno-0-510" name="__codelineno-0-510"></a>    <span class="c1"># equilibrate through the backend — no MD runs on the driver.</span>
+</span><span id="__span-0-511"><a id="__codelineno-0-511" name="__codelineno-0-511"></a>    <span class="n">equilibrated</span> <span class="o">=</span> <span class="n">BSS</span><span class="o">.</span><span class="n">IO</span><span class="o">.</span><span class="n">readMolecules</span><span class="p">([</span><span class="n">complex_prm7</span><span class="p">,</span> <span class="n">complex_rst7</span><span class="p">])</span>
+</span><span id="__span-0-512"><a id="__codelineno-0-512" name="__codelineno-0-512"></a>    <span class="n">target_bulk</span> <span class="o">=</span> <span class="n">_extract_bulk</span><span class="p">(</span>
+</span><span id="__span-0-513"><a id="__codelineno-0-513" name="__codelineno-0-513"></a>        <span class="n">equilibrated</span><span class="p">,</span>
+</span><span id="__span-0-514"><a id="__codelineno-0-514" name="__codelineno-0-514"></a>        <span class="n">_bulk_indices</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">,</span> <span class="n">assign_to</span><span class="p">),</span>
+</span><span id="__span-0-515"><a id="__codelineno-0-515" name="__codelineno-0-515"></a>        <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">,</span>
+</span><span id="__span-0-516"><a id="__codelineno-0-516" name="__codelineno-0-516"></a>        <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;target_bulk&quot;</span><span class="p">,</span>
+</span><span id="__span-0-517"><a id="__codelineno-0-517" name="__codelineno-0-517"></a>        <span class="n">backend</span><span class="p">,</span>
+</span><span id="__span-0-518"><a id="__codelineno-0-518" name="__codelineno-0-518"></a>        <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-0-519"><a id="__codelineno-0-519" name="__codelineno-0-519"></a>        <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
+</span><span id="__span-0-520"><a id="__codelineno-0-520" name="__codelineno-0-520"></a>    <span class="p">)</span>
+</span><span id="__span-0-521"><a id="__codelineno-0-521" name="__codelineno-0-521"></a>    <span class="n">receptor_bulk</span> <span class="o">=</span> <span class="n">_extract_bulk</span><span class="p">(</span>
+</span><span id="__span-0-522"><a id="__codelineno-0-522" name="__codelineno-0-522"></a>        <span class="n">equilibrated</span><span class="p">,</span>
+</span><span id="__span-0-523"><a id="__codelineno-0-523" name="__codelineno-0-523"></a>        <span class="n">_bulk_indices</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="s2">&quot;receptor&quot;</span><span class="p">,</span> <span class="n">assign_to</span><span class="p">),</span>
+</span><span id="__span-0-524"><a id="__codelineno-0-524" name="__codelineno-0-524"></a>        <span class="n">config</span><span class="o">.</span><span class="n">prep</span><span class="p">,</span>
+</span><span id="__span-0-525"><a id="__codelineno-0-525" name="__codelineno-0-525"></a>        <span class="n">work_dir</span> <span class="o">/</span> <span class="s2">&quot;receptor_bulk&quot;</span><span class="p">,</span>
+</span><span id="__span-0-526"><a id="__codelineno-0-526" name="__codelineno-0-526"></a>        <span class="n">backend</span><span class="p">,</span>
+</span><span id="__span-0-527"><a id="__codelineno-0-527" name="__codelineno-0-527"></a>        <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-0-528"><a id="__codelineno-0-528" name="__codelineno-0-528"></a>        <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span>
+</span><span id="__span-0-529"><a id="__codelineno-0-529" name="__codelineno-0-529"></a>    <span class="p">)</span>
+</span><span id="__span-0-530"><a id="__codelineno-0-530" name="__codelineno-0-530"></a>
+</span><span id="__span-0-531"><a id="__codelineno-0-531" name="__codelineno-0-531"></a>    <span class="n">prepared</span> <span class="o">=</span> <span class="n">PreparedSystem</span><span class="p">(</span>
+</span><span id="__span-0-532"><a id="__codelineno-0-532" name="__codelineno-0-532"></a>        <span class="n">complex_prm7</span><span class="o">=</span><span class="n">complex_prm7</span><span class="p">,</span>
+</span><span id="__span-0-533"><a id="__codelineno-0-533" name="__codelineno-0-533"></a>        <span class="n">complex_rst7</span><span class="o">=</span><span class="n">complex_rst7</span><span class="p">,</span>
+</span><span id="__span-0-534"><a id="__codelineno-0-534" name="__codelineno-0-534"></a>        <span class="n">complex_trajectory</span><span class="o">=</span><span class="n">trajectory</span><span class="p">,</span>
+</span><span id="__span-0-535"><a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="n">target_bulk_prm7</span><span class="o">=</span><span class="n">target_bulk</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span><span id="__span-0-536"><a id="__codelineno-0-536" name="__codelineno-0-536"></a>        <span class="n">target_bulk_rst7</span><span class="o">=</span><span class="n">target_bulk</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+</span><span id="__span-0-537"><a id="__codelineno-0-537" name="__codelineno-0-537"></a>        <span class="n">receptor_bulk_prm7</span><span class="o">=</span><span class="n">receptor_bulk</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span><span id="__span-0-538"><a id="__codelineno-0-538" name="__codelineno-0-538"></a>        <span class="n">receptor_bulk_rst7</span><span class="o">=</span><span class="n">receptor_bulk</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+</span><span id="__span-0-539"><a id="__codelineno-0-539" name="__codelineno-0-539"></a>        <span class="n">glue_assign_to</span><span class="o">=</span><span class="n">assign_to</span><span class="p">,</span>
+</span><span id="__span-0-540"><a id="__codelineno-0-540" name="__codelineno-0-540"></a>        <span class="n">target_molecules</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">target</span><span class="p">,</span>
+</span><span id="__span-0-541"><a id="__codelineno-0-541" name="__codelineno-0-541"></a>        <span class="n">receptor_molecules</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">receptor</span><span class="p">,</span>
+</span><span id="__span-0-542"><a id="__codelineno-0-542" name="__codelineno-0-542"></a>        <span class="n">glue_molecule</span><span class="o">=</span><span class="n">layout</span><span class="o">.</span><span class="n">glue</span><span class="p">,</span>
+</span><span id="__span-0-543"><a id="__codelineno-0-543" name="__codelineno-0-543"></a>    <span class="p">)</span>
+</span><span id="__span-0-544"><a id="__codelineno-0-544" name="__codelineno-0-544"></a>    <span class="n">prepared</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
+</span><span id="__span-0-545"><a id="__codelineno-0-545" name="__codelineno-0-545"></a>    <span class="k">return</span> <span class="n">prepared</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3799,7 +3829,7 @@ the <code>prepared.json</code> manifest into <code>work_dir</code>, and returns 
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../inputs/" class="md-footer__link md-footer__link--prev" aria-label="Previous: inputs">
+          <a href="../mdanalysis/" class="md-footer__link md-footer__link--prev" aria-label="Previous: mdanalysis">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3809,7 +3839,7 @@ the <code>prepared.json</code> manifest into <code>work_dir</code>, and returns 
                 Previous
               </span>
               <div class="md-ellipsis">
-                inputs
+                mdanalysis
               </div>
             </div>
           </a>
