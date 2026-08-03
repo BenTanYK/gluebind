@@ -112,7 +112,8 @@ def run_window(work_dir: str | pathlib.Path) -> None:
     import numpy as np
 
     # OpenMM-dependent imports are local so importing this module stays cheap.
-    from gluebind.restraints import boresch, rmsd, separation, system_builder as sb
+    from gluebind.restraints import boresch, rmsd, separation
+    from gluebind.restraints import system_builder as sb
 
     work_dir = pathlib.Path(work_dir)
     spec = WindowSpec.load(work_dir / WINDOW_SPEC_FILENAME)

@@ -68,13 +68,13 @@ def compute_stage_centres(prepared, context, config) -> dict[str, list[float]]:
     RMSD stage centres are *not* returned — the runner derives those from the
     sampling schedule directly.
     """
-    import MDAnalysis as mda
     import numpy as np
 
     from gluebind.boresch_geometry import DOFS
     from gluebind.runners.window import enumerate_centres
     from gluebind.selection.anchors import dof_timeseries
     from gluebind.spec_builder import _collect_series
+    from gluebind.system.mdanalysis import load_amber_universe
 
     centres: dict[str, list[float]] = {}
 
@@ -85,7 +85,7 @@ def compute_stage_centres(prepared, context, config) -> dict[str, list[float]]:
             "the config"
         )
 
-    traj = mda.Universe(prepared.complex_prm7, prepared.complex_trajectory)
+    traj = load_amber_universe(prepared.complex_prm7, prepared.complex_trajectory)
     anchor_atoms = [context.anchors[k] for k in ("b", "c", "B", "C")]
     series = _collect_series(
         traj, context.rec_group, context.lig_group, anchor_atoms, np

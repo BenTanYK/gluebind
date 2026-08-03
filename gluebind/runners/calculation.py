@@ -37,9 +37,9 @@ from gluebind.analysis.free_energy import (
     standard_state_correction,
 )
 from gluebind.analysis.pmf import pmf_minimum
-from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.backend.base import Backend
 from gluebind.backend.scheduler import Scheduler, SlotPool
+from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.slurm import SlurmConfig
 from gluebind.logutil import add_file_handler, get_logger
@@ -271,22 +271,24 @@ class Calculation(SimulationRunner):
         ``atom_index`` is each Cα's 0-indexed complex atom index — the value
         ``BoreschSpec.anchors`` takes — so the workflow is read-resid-off-the-plot →
         paste-its-atom-index."""
-        import MDAnalysis as mda
         import numpy as np
 
         from gluebind.selection.rmsf import compute_rmsf, stablest_candidates
         from gluebind.spec_builder import _ComplexMap
+        from gluebind.system.mdanalysis import load_amber_universe
 
         if prepared.complex_trajectory is None:
             raise RuntimeError(
                 "cannot write an RMSF report: the equilibration produced no "
                 "trajectory (prepared.complex_trajectory is None)"
             )
-        universe = mda.Universe(prepared.complex_prm7, prepared.complex_trajectory)
+        universe = load_amber_universe(
+            prepared.complex_prm7, prepared.complex_trajectory
+        )
         cmap = _ComplexMap(
             universe,
-            mda.Universe(self.config.inputs.target.prm7),
-            mda.Universe(self.config.inputs.receptor.prm7),
+            load_amber_universe(self.config.inputs.target.prm7),
+            load_amber_universe(self.config.inputs.receptor.prm7),
             has_glue=self.config.inputs.glue is not None,
         )
         prep_dir = self.base_dir / "prep"

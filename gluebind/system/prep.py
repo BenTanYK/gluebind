@@ -279,14 +279,13 @@ def _resolve_always_on_for_production(
 ) -> list[dict]:
     """Resolve the always-on restraints to atom indices in ``complex_prm7`` for the
     production run (via the same verified map + mode the US windows use)."""
-    import MDAnalysis as mda
-
     from gluebind.spec_builder import _ComplexMap, resolve_always_on
+    from gluebind.system.mdanalysis import load_amber_universe
 
     cmap = _ComplexMap(
-        mda.Universe(complex_prm7),
-        mda.Universe(config.inputs.target.prm7),
-        mda.Universe(config.inputs.receptor.prm7),
+        load_amber_universe(complex_prm7),
+        load_amber_universe(config.inputs.target.prm7),
+        load_amber_universe(config.inputs.receptor.prm7),
         has_glue=config.inputs.glue is not None,
     )
     return [

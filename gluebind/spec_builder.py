@@ -364,14 +364,14 @@ def build_restraint_context(
     verified-map core (:mod:`gluebind.system.atom_map`, :class:`_ComplexMap`) and
     the pure assembly it feeds (:class:`SpecBuilder`) are unit-tested.
     """
-    import MDAnalysis as mda
     import numpy as np
 
     from gluebind.selection.interface import interface_residues
+    from gluebind.system.mdanalysis import load_amber_universe
 
-    universe = mda.Universe(prepared.complex_prm7, prepared.complex_rst7)
-    target_u = mda.Universe(config.inputs.target.prm7)
-    receptor_u = mda.Universe(config.inputs.receptor.prm7)
+    universe = load_amber_universe(prepared.complex_prm7, prepared.complex_rst7)
+    target_u = load_amber_universe(config.inputs.target.prm7)
+    receptor_u = load_amber_universe(config.inputs.receptor.prm7)
     cmap = _ComplexMap(
         universe, target_u, receptor_u, has_glue=config.inputs.glue is not None
     )
@@ -443,7 +443,9 @@ def _resolve_anchors(
             "provide anchors manually via BoreschSpec.anchors"
         )
 
-    traj = mda.Universe(prepared.complex_prm7, prepared.complex_trajectory)  # noqa: F821
+    from gluebind.system.mdanalysis import load_amber_universe
+
+    traj = load_amber_universe(prepared.complex_prm7, prepared.complex_trajectory)
     structured = set(structured_residues(traj))
 
     def _candidates(ca_atoms):
@@ -492,17 +494,19 @@ def _resolve_rmsd_regions(config, prepared, cmap, glue_indices, assign):
     Custom CV selections are resolved against their protein's *input* topology and
     mapped into the complex via ``cmap`` (never against the complex directly).
     """
-    import MDAnalysis as mda
-
     restraints = config.restraints
+    from gluebind.system.mdanalysis import load_amber_universe
+
     atoms_mode = restraints.rmsd_atoms  # CA vs backbone for the US RMSD restraints
     order: list[str] = []
     bound: dict[str, list[int]] = {}
 
-    receptor_bulk = mda.Universe(
+    receptor_bulk = load_amber_universe(
         prepared.receptor_bulk_prm7, prepared.receptor_bulk_rst7
     )
-    target_bulk = mda.Universe(prepared.target_bulk_prm7, prepared.target_bulk_rst7)
+    target_bulk = load_amber_universe(
+        prepared.target_bulk_prm7, prepared.target_bulk_rst7
+    )
 
     if restraints.uses_default_all_ca:
         # Whole-protein default: every residue's CA (or backbone) via the mode.

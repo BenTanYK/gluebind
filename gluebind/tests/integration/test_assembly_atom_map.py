@@ -45,14 +45,13 @@ def _assemble(bss, fap_inputs, *, with_waters: bool, out_prefix) -> str:
 
 
 def _complex_map(complex_prm7: str, fap_inputs):
-    import MDAnalysis as mda
-
     from gluebind.spec_builder import _ComplexMap
+    from gluebind.system.mdanalysis import load_amber_universe
 
     return _ComplexMap(
-        mda.Universe(complex_prm7),
-        mda.Universe(fap_inputs["target"]["prm7"]),
-        mda.Universe(fap_inputs["receptor"]["prm7"]),
+        load_amber_universe(complex_prm7),
+        load_amber_universe(fap_inputs["target"]["prm7"]),
+        load_amber_universe(fap_inputs["receptor"]["prm7"]),
         has_glue=False,
     )
 

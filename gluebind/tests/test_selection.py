@@ -17,7 +17,6 @@ from gluebind.selection import (
 )
 from gluebind.selection.geometry import angle, circular_variance, dihedral, is_collinear
 
-
 # ---- geometry --------------------------------------------------------------
 
 
