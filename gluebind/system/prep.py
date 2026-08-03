@@ -125,10 +125,18 @@ def assemble_and_solvate(target, receptor, glue, waters, prep_config: PrepConfig
     last as solvent, never perturbing those blocks. ``waters`` may be ``None``."""
     import BioSimSpace as BSS
 
-    system = glue + receptor if glue is not None else receptor
-    system = system + target
+    # Convert all components to Molecule objects to preserve ordering
+    rec_mols = receptor.getMolecules()
+    target_mols = target.getMolecules()
+    mols = glue if glue is not None else rec_mols
+    for mol in rec_mols if glue is not None else ():
+        mols += mol
+    for mol in target_mols:
+        mols += mol
     if waters is not None:
-        system = system + waters
+        for mol in waters.getMolecules():
+            mols += mol
+    system = mols.toSystem()
 
     box_min, box_max = system.getAxisAlignedBoundingBox()
     padding = prep_config.box_padding_angstrom * BSS.Units.Length.angstrom

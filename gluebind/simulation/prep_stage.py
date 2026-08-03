@@ -151,7 +151,11 @@ def run_prep_stage(work_dir: str | pathlib.Path) -> None:
     process.start()
     process.wait()
     if process.isError():
-        raise RuntimeError(f"prep stage {spec.stage!r} failed:\n{process.stdout(20)}")
+        stdout = "\n".join(process.getStdout())
+        stderr = "\n".join(process.getStderr())
+        raise RuntimeError(
+            f"prep stage {spec.stage!r} failed.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        )
     final = process.getSystem()
 
     prefix = work_dir / spec.output_prefix
