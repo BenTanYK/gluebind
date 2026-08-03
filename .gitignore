@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+# Local dev docs
+GLUEBIND_DESIGN.md
+GRIDENGINE_BACKEND.md
+
 # Distribution / packaging
 .Python
 env/
