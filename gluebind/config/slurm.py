@@ -27,6 +27,8 @@ class SlurmConfig(pydantic.BaseModel):
 
     partition: str = "main"
     time: str = "24:00:00"
+    memory: str | None = "4G"
+    """Memory request per job. Set to ``None`` to use the partition default."""
     gres: str = "gpu:1"
     nodes: int = pydantic.Field(1, ge=1)
     ntasks_per_node: int = pydantic.Field(1, ge=1)
@@ -45,6 +47,7 @@ class SlurmConfig(pydantic.BaseModel):
             "#!/bin/bash",
             f"#SBATCH --partition={self.partition}",
             f"#SBATCH --time={self.time}",
+            *([f"#SBATCH --mem={self.memory}"] if self.memory else []),
             f"#SBATCH --gres={self.gres}",
             f"#SBATCH --nodes={self.nodes}",
             f"#SBATCH --ntasks-per-node={self.ntasks_per_node}",

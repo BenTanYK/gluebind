@@ -181,12 +181,17 @@ def test_rmsd_order_unknown_name_rejected():
 
 
 def test_slurm_render_and_submission_cmds(tmp_path):
-    slurm = SlurmConfig(partition="gpu", extra_options={"nodelist": "n1,n2"})
+    slurm = SlurmConfig(
+        partition="gpu",
+        memory="4G",
+        extra_options={"nodelist": "n1,n2"},
+    )
     cmds = slurm.get_submission_cmds("python -c pass", tmp_path)
     assert cmds[0] == "sbatch"
     assert cmds[1] == f"--chdir={tmp_path}"
     script = (tmp_path / "gluebind.sh").read_text()
     assert "#SBATCH --partition=gpu" in script
+    assert "#SBATCH --mem=4G" in script
     assert "#SBATCH --nodelist=n1,n2" in script
 
 
