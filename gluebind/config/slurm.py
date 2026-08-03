@@ -25,7 +25,7 @@ class SlurmConfig(pydantic.BaseModel):
 
     model_config = pydantic.ConfigDict(validate_assignment=True)
 
-    partition: str = "default"
+    partition: str = "main"
     time: str = "24:00:00"
     gres: str = "gpu:1"
     nodes: int = pydantic.Field(1, ge=1)
