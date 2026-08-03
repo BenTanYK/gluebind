@@ -1,7 +1,13 @@
 PACKAGE_NAME := gluebind
 PACKAGE_DIR  := gluebind
 
-CONDA_ENV_RUN   = conda run --no-capture-output --name $(PACKAGE_NAME)
+# Avoid nesting `conda run` inside an already activated gluebind environment:
+# BioSimSpace then receives the base Conda prefix as AMBERHOME.
+ifeq ($(CONDA_DEFAULT_ENV),$(PACKAGE_NAME))
+CONDA_ENV_RUN :=
+else
+CONDA_ENV_RUN := conda run --no-capture-output --name $(PACKAGE_NAME)
+endif
 
 TEST_ARGS := -v --cov=$(PACKAGE_NAME) --cov-report=term --cov-report=xml --junitxml=unit.xml --color=yes
 
