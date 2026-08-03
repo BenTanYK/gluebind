@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gluebind"
-description = "Automated geometric route binding free energy calculations for ternary complexes"
+description = "Automated Umbrella Sampling protocol for calculating the binding free energy of ternary complexes"
 dynamic = ["version"]
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,10 +21,23 @@ include = ["gluebind*"]
 
 [tool.setuptools_scm]
 
+[tool.pytest.ini_options]
+testpaths = ["gluebind/tests"]
+markers = [
+    "integration: 1FAP integration tests — real MD/cheminformatics deps; opt-in, run via LocalBackend on a GPU box or SlurmBackend on a cluster",
+    "gpu: requires a CUDA GPU (auto-skipped when absent)",
+]
+# Bare `pytest` / `make test` runs only the fast unit suite; the 1FAP integration
+# tier is opt-in via `make test-integration` (overrides -m). Scientific validation
+# on the real CRBN/BRD4 systems is a user workflow, not part of the test suite.
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+line-length = 88
+
 [tool.ruff.lint]
 ignore = ["C901"]
 select = ["B","C","E","F","W","B9"]
-ignore-init-module-imports = true
 
 [tool.coverage.run]
 omit = ["**/tests/*"]
