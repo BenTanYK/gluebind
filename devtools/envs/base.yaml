@@ -1,0 +1,30 @@
+name: gluebind
+
+channels:
+  - conda-forge
+
+dependencies:
+
+  - python >=3.10
+  - pip
+
+  # Dev / Testing
+  - setuptools_scm >=8
+
+  - pre-commit
+  - ruff
+
+  - pytest
+  - pytest-mock
+  - pytest-cov
+  - codecov
+
+  # Docs
+  - mkdocs
+  - mkdocs-material
+  - mkdocs-gen-files
+  - mkdocs-literate-nav
+  - mkdocstrings
+  - mkdocstrings-python >=1.10.8
+  - black
+  - mike
