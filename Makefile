@@ -69,12 +69,14 @@ format:
 test:
 	$(CONDA_ENV_RUN) pytest -v $(TEST_ARGS) $(PACKAGE_DIR)/tests/
 
-# The 1FAP integration tier (opt-in; overrides the default -m). Tests self-skip
-# when a dep (BSS, red, wham) or a GPU is missing, so a partial env runs a partial
-# tier rather than failing. Runs via LocalBackend by default; point at a cluster
-# to exercise SlurmBackend.
+# Full 1FAP Slurm validation (opt-in). The driver runs on the login node and
+# submits every expensive operation to Slurm. Override the local test partition:
+#   GLUEBIND_TEST_SLURM_PARTITION=main make test-integration
+# Use GLUEBIND_TEST_RUN_ROOT to select a shared filesystem location for preserved
+# calculation outputs, or GLUEBIND_TEST_RUN_DIR to resume one specific failed run.
 test-integration:
-	$(CONDA_ENV_RUN) pytest -v -m "integration" $(PACKAGE_DIR)/tests/
+	$(CONDA_ENV_RUN) pytest -v -m "integration and slurm" \
+		$(PACKAGE_DIR)/tests/integration/test_calculation_e2e_1fap.py
 
 docs:
 	$(CONDA_ENV_RUN) mkdocs build

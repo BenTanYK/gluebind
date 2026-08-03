@@ -188,6 +188,8 @@ def run_smd(work_dir: str | pathlib.Path) -> None:
     """
     work_dir = pathlib.Path(work_dir)
     spec = SmdSpec.load(work_dir / SMD_SPEC_FILENAME)
+    import openmm as mm
+
     frames = run_steered_md(
         topology=spec.topology,
         coordinates=spec.coordinates,
@@ -209,7 +211,7 @@ def run_smd(work_dir: str | pathlib.Path) -> None:
         smd_pull_margin=spec.smd_pull_margin,
         total_steps=spec.total_steps,
         increment_steps=spec.increment_steps,
-        platform=spec.platform,
+        platform=mm.Platform.getPlatformByName(spec.platform),
     )
     (work_dir / SMD_RESULT_FILENAME).write_text(json.dumps(frames, indent=2))
 

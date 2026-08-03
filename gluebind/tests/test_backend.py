@@ -1,5 +1,6 @@
 """Tests for the backend seam: LocalBackend, Scheduler, SlurmBackend helpers."""
 
+import shlex
 import sys
 import threading
 import time
@@ -213,6 +214,28 @@ def test_two_schedulers_share_one_slot_pool(tmp_path):
 def test_detached_flags():
     assert SlurmBackend.detached is True
     assert LocalBackend.detached is False
+
+
+def test_slurm_submit_shell_quotes_command(tmp_path, monkeypatch):
+    from gluebind.config.slurm import SlurmConfig
+
+    class _CompletedProcess:
+        stdout = "Submitted batch job 12345\n"
+
+    monkeypatch.setattr(
+        "gluebind.backend.slurm.subprocess.run",
+        lambda *args, **kwargs: _CompletedProcess(),
+    )
+    spec = JobSpec(
+        command=["python", "-c", "print('hello world')"],
+        work_dir=str(tmp_path),
+        name="quoted",
+    )
+
+    assert SlurmBackend(SlurmConfig()).submit(spec) == "12345"
+    script = (tmp_path / "quoted.sh").read_text()
+    command_line = script.strip().splitlines()[-1]
+    assert shlex.split(command_line) == spec.command
 
 
 def test_slurm_poll_grace_period_and_resume(monkeypatch):

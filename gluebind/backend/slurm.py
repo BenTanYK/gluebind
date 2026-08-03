@@ -11,6 +11,7 @@ outlive the driver — so a run can be resumed by reconciling handles against
 from __future__ import annotations
 
 import getpass
+import shlex
 import subprocess
 import threading
 import time
@@ -39,7 +40,7 @@ class SlurmBackend(Backend):
         self._lock = threading.Lock()  # a parallel CalcSet shares one backend
 
     def submit(self, spec: JobSpec) -> JobHandle:
-        cmd = " ".join(spec.command)
+        cmd = shlex.join(spec.command)
         submission = self.config.get_submission_cmds(
             cmd, spec.work_dir, script_name=spec.name
         )

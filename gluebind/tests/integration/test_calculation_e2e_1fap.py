@@ -1,22 +1,21 @@
-"""Integration tier: the full geometric-route pipeline on 1FAP (the heaviest test).
+"""Slurm end-to-end validation of the full geometric-route pipeline on 1FAP.
 
-Needs BioSimSpace + a GPU + the ``wham`` binary (and ``red`` for PMF truncation, else
-it falls back). Runs ``Calculation.from_config(...).run().analyse()`` on the 1FAP
-fixture end to end — prep, RMSD US, the sequential Boresch chain, steered MD, and
-separation, all via ``LocalBackend`` on the GPU — then a ΔG° from WHAM, and checks a
-re-run is idempotent (resume reuses completed windows rather than re-sampling).
+The pytest driver runs on the login node. ``Calculation`` dispatches raw system
+construction, equilibration, steered MD, and every umbrella window through
+``SlurmBackend``. It therefore validates the real installed stack, including
+shared filesystem paths, scheduler submission, CUDA/OpenMM, and resume.
 
-The sampling/window settings below are minimal placeholders to keep the run short.
-When first run against the real env, expect to tune them — especially the separation
-SMD range/spacing and per-stage window counts — for a sane wall-clock; the point of
-this test is that the *pipeline* runs end to end and returns a finite, resumable ΔG°.
+The short sampling schedule is a machinery check, not a converged free-energy
+calculation: WHAM may legitimately produce ``NaN`` when its windows lack overlap.
 """
 
-import math
+import os
+import pathlib
+import uuid
 
 import pytest
 
-pytestmark = [pytest.mark.integration, pytest.mark.gpu]
+pytestmark = [pytest.mark.integration, pytest.mark.slurm]
 
 
 def _e2e_config(fap_inputs):
@@ -30,10 +29,10 @@ def _e2e_config(fap_inputs):
                 "glue": fap_inputs["glue"],
             },
             "prep": {
-                "minimisation_steps": 20,
-                "nvt_heat_ns": 0.002,
-                "npt_ns": 0.002,
-                "equilibration_ns": 0.01,
+                "minimisation_steps": 1000,
+                "nvt_heat_ns": 0.1,
+                "npt_ns": 0.1,
+                "equilibration_ns": 0.1,
             },
         }
     )
@@ -46,27 +45,53 @@ def _e2e_config(fap_inputs):
 
 
 def _calc(cfg, base_dir):
-    from gluebind.backend import LocalBackend
+    from gluebind.backend import SlurmBackend
+    from gluebind.config.slurm import SlurmConfig
     from gluebind.runners import Calculation
 
+    slurm = SlurmConfig(
+        partition=os.environ.get("GLUEBIND_TEST_SLURM_PARTITION", "test")
+    )
     return Calculation.from_config(
-        cfg, base_dir, LocalBackend(), platform="CUDA", poll_interval=1.0
+        cfg,
+        base_dir,
+        SlurmBackend(slurm),
+        slurm_config=slurm,
+        platform="CUDA",
+        poll_interval=slurm.queue_check_interval,
     )
 
 
-def test_full_pipeline_and_resume(bss, wham_binary, fap_inputs, tmp_path):
-    cfg = _e2e_config(fap_inputs)
+def _run_dir() -> pathlib.Path:
+    """Return a shared-filesystem directory, preserving Slurm logs for diagnosis."""
+    explicit = os.environ.get("GLUEBIND_TEST_RUN_DIR")
+    if explicit:
+        return pathlib.Path(explicit).resolve()
+    root = pathlib.Path(
+        os.environ.get("GLUEBIND_TEST_RUN_ROOT", ".pytest-slurm")
+    ).resolve()
+    return root / f"1fap-e2e-{uuid.uuid4().hex}"
 
-    # run() self-prepares and self-defaults the WHAM provider for Boresch feedback.
-    calc = _calc(cfg, tmp_path)
+
+def test_full_pipeline_and_resume(bss, wham_binary, fap_inputs):
+    cfg = _e2e_config(fap_inputs)
+    run_dir = _run_dir()
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # run() self-prepares and self-defaults the WHAM provider for Boresch
+    # feedback. All computational work is submitted through Slurm.
+    calc = _calc(cfg, run_dir)
     calc.run()
     result = calc.analyse()
-    assert math.isfinite(result["dg_bind"])
     assert result["rmsd_included"] is True
+    assert "dg_bind" in result
 
-    # resume: a fresh calculation over the same dir re-runs nothing (every window is
-    # complete on disk), so re-analysing the same timeseries reproduces the ΔG°.
-    resumed = _calc(cfg, tmp_path)
+    # Resume must re-use all completed work. A Slurm submission writes one .sh
+    # file in the relevant job directory, so this detects accidental resubmission.
+    scripts_before_resume = sorted(run_dir.rglob("*.sh"))
+    assert scripts_before_resume
+    resumed = _calc(cfg, run_dir)
     resumed.run()
     result2 = resumed.analyse()
-    assert result2["dg_bind"] == pytest.approx(result["dg_bind"], abs=1e-6)
+    assert result2["rmsd_included"] is True
+    assert sorted(run_dir.rglob("*.sh")) == scripts_before_resume

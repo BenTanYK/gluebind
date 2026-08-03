@@ -15,6 +15,11 @@ from gluebind.simulation.prep_stage import (
     prep_stage_launch_command,
     run_prep_stage,
 )
+from gluebind.simulation.system_build import (
+    SystemBuildSpec,
+    run_system_build,
+    system_build_launch_command,
+)
 from gluebind.simulation.steered_md import (
     SmdSpec,
     make_steered_md_runner,
@@ -32,6 +37,9 @@ __all__ = [
     "PrepStageSpec",
     "run_prep_stage",
     "prep_stage_launch_command",
+    "SystemBuildSpec",
+    "run_system_build",
+    "system_build_launch_command",
     "SmdSpec",
     "run_smd",
     "smd_launch_command",

@@ -1,11 +1,12 @@
 """BioSimSpace preparation front-end.
 
-Parameterises the glue and assembles + solvates the complex on the driver, then
-dispatches the equilibration to a backend as one job per stage (minimisation ->
-NVT heat -> NPT -> long NVT production; see :func:`run_equilibration_stages` and
+Dispatches raw-input system construction (glue parameterisation, assembly and
+solvation) and equilibration to a backend. Construction writes the solvated
+AMBER inputs; equilibration is one job per stage (minimisation -> NVT heat ->
+NPT -> long NVT production; see :func:`run_equilibration_stages` and
 :mod:`gluebind.simulation.prep_stage`). The isolated bulk species are likewise
-equilibrated through the backend — no MD/GPU work runs on the driver at all. It
-then writes a :class:`PreparedSystem` manifest — the hand-off to Phase 4
+equilibrated through the backend. It then writes a
+:class:`PreparedSystem` manifest — the hand-off to Phase 4
 (selection) and the runner's ``spec_builder``. A single equilibration run is
 used; the paper found triplicate equilibration trajectories to be essentially
 identical.
@@ -95,6 +96,27 @@ class PreparedSystem(pydantic.BaseModel):
         return cls.model_validate_json(
             (pathlib.Path(run_dir) / PREPARED_FILENAME).read_text()
         )
+
+
+class SolvatedSystem(pydantic.BaseModel):
+    """The output and component layout of raw-input system construction."""
+
+    solvated_prm7: str
+    solvated_rst7: str
+    glue_assign_to: str | None = None
+    target_molecules: list[int]
+    receptor_molecules: list[int]
+    glue_molecule: int | None = None
+
+    def dump(self, path: str | pathlib.Path) -> pathlib.Path:
+        path = pathlib.Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self.model_dump_json(indent=2))
+        return path
+
+    @classmethod
+    def load(cls, path: str | pathlib.Path) -> "SolvatedSystem":
+        return cls.model_validate_json(pathlib.Path(path).read_text())
 
 
 # ---- BioSimSpace operations (integration-verified) -------------------------
@@ -365,6 +387,44 @@ def _save(system, prefix: pathlib.Path) -> tuple[str, str]:
     return f"{prefix}.prm7", f"{prefix}.rst7"
 
 
+def build_solvated_system(
+    config: CalculationConfig, output_dir: str | pathlib.Path
+) -> SolvatedSystem:
+    """Parameterise glue, assemble, solvate, and write complex AMBER inputs.
+
+    This intentionally contains all BioSimSpace construction work so
+    :func:`run_system_build` can execute it as one standard backend job.
+    """
+    output_dir = pathlib.Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    inputs = config.inputs
+
+    target = load_system(inputs.target.prm7, inputs.target.rst7)
+    receptor = load_system(inputs.receptor.prm7, inputs.receptor.rst7)
+    glue = None
+    assign_to = None
+    if inputs.glue is not None:
+        glue = parameterise_glue(inputs.glue.sdf, config.prep.glue_forcefield)
+        assign_to = inputs.glue.assign_to
+    waters = None
+    if inputs.waters is not None:
+        waters = load_waters(inputs.waters.prm7, inputs.waters.rst7)
+
+    layout = compute_layout(
+        count_molecules(target), count_molecules(receptor), glue is not None
+    )
+    solvated = assemble_and_solvate(target, receptor, glue, waters, config.prep)
+    solvated_prm7, solvated_rst7 = _save(solvated, output_dir / "solvated")
+    return SolvatedSystem(
+        solvated_prm7=solvated_prm7,
+        solvated_rst7=solvated_rst7,
+        glue_assign_to=assign_to,
+        target_molecules=layout.target,
+        receptor_molecules=layout.receptor,
+        glue_molecule=layout.glue,
+    )
+
+
 def _bulk_indices(
     layout: ComponentLayout, component: str, assign_to: str | None
 ) -> list[int]:
@@ -438,15 +498,11 @@ def prepare(
     platform: str = "CUDA",
     poll_interval: float = 30.0,
 ) -> PreparedSystem:
-    """Full preparation: parameterise, assemble, solvate, equilibrate, extract bulk.
+    """Full preparation: build, equilibrate, extract bulk, and write a manifest.
 
-    The cheap, CPU-bound setup (glue parameterisation, assembly, solvation, and
-    bulk isolation) runs here on the driver; every MD stage — the complex
-    equilibration and the two bulk-species equilibrations — is dispatched to
-    ``backend`` as one job per stage (see :func:`run_equilibration_stages`), so it
-    runs on compute nodes with per-stage logs and intermediate snapshots and no
-    MD/GPU work runs on the driver. A single equilibration run is used (no
-    ensemble).
+    Raw-input construction is a single backend job, followed by the existing
+    per-stage complex and bulk equilibration jobs. Consequently Slurm uses one
+    standard GPU allocation for glue charges, assembly, solvation, and all MD.
 
     Writes ``solvated.*``, ``equilibration/NN_<stage>/output.*``,
     ``{target,receptor}_bulk/{solvated.*,equilibration/NN_<stage>/output.*}`` and
@@ -454,28 +510,46 @@ def prepare(
     """
     import BioSimSpace as BSS
 
-    work_dir = pathlib.Path(work_dir)
-    work_dir.mkdir(parents=True, exist_ok=True)
-    inputs = config.inputs
-
-    target = load_system(inputs.target.prm7, inputs.target.rst7)
-    receptor = load_system(inputs.receptor.prm7, inputs.receptor.rst7)
-    glue = None
-    assign_to = None
-    if inputs.glue is not None:
-        glue = parameterise_glue(inputs.glue.sdf, config.prep.glue_forcefield)
-        assign_to = inputs.glue.assign_to
-    waters = None
-    if inputs.waters is not None:
-        waters = load_waters(inputs.waters.prm7, inputs.waters.rst7)
-
-    layout = compute_layout(
-        count_molecules(target), count_molecules(receptor), glue is not None
+    from gluebind.backend.base import JobSpec, JobState
+    from gluebind.backend.scheduler import Scheduler
+    from gluebind.simulation.system_build import (
+        SYSTEM_BUILD_RESULT_FILENAME,
+        SYSTEM_BUILD_SPEC_FILENAME,
+        SystemBuildSpec,
+        system_build_launch_command,
     )
 
-    # Driver (fast, CPU): assemble + solvate, then hand the MD stages to the backend.
-    solvated = assemble_and_solvate(target, receptor, glue, waters, config.prep)
-    solvated_prm7, solvated_rst7 = _save(solvated, work_dir / "solvated")
+    work_dir = pathlib.Path(work_dir)
+    work_dir.mkdir(parents=True, exist_ok=True)
+    build_dir = work_dir / "build"
+    build_result_path = build_dir / SYSTEM_BUILD_RESULT_FILENAME
+    try:
+        built = SolvatedSystem.load(build_result_path)
+    except FileNotFoundError:
+        build_dir.mkdir(parents=True, exist_ok=True)
+        SystemBuildSpec(config=config, output_dir=str(work_dir)).dump(
+            build_dir / SYSTEM_BUILD_SPEC_FILENAME
+        )
+        job = JobSpec(
+            command=system_build_launch_command(),
+            work_dir=str(build_dir),
+            name="prep_system_build",
+        )
+        (state,) = Scheduler(backend, poll_interval=poll_interval).run([job])
+        if state is not JobState.FINISHED or not build_result_path.exists():
+            raise RuntimeError(
+                "system-build job did not produce its result "
+                f"(state={state}); inspect {build_dir}"
+            ) from None
+        built = SolvatedSystem.load(build_result_path)
+
+    layout = ComponentLayout(
+        target=built.target_molecules,
+        receptor=built.receptor_molecules,
+        glue=built.glue_molecule,
+    )
+    solvated_prm7, solvated_rst7 = built.solvated_prm7, built.solvated_rst7
+    assign_to = built.glue_assign_to
 
     plan = equilibration_stage_plan(config.prep)
     if config.restraints.always_on:
