@@ -30,7 +30,7 @@ def _e2e_config(fap_inputs):
                 "glue": fap_inputs["glue"],
             },
             "prep": {
-                "minimisation_steps": 20,
+                "minimisation_steps": 10000,
                 "nvt_heat_ns": 0.002,
                 "npt_ns": 0.002,
                 "equilibration_ns": 0.01,
