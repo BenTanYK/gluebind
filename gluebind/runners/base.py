@@ -16,7 +16,9 @@ class SimulationRunner:
     """A node in the runner tree with a working directory and children."""
 
     def __init__(self, base_dir: str | pathlib.Path) -> None:
-        self.base_dir = pathlib.Path(base_dir)
+        # Every backend worker runs from its own work directory, so persisted
+        # paths must be absolute rather than relative to the driver's cwd.
+        self.base_dir = pathlib.Path(base_dir).expanduser().resolve()
         self.sub_runners: list[SimulationRunner] = []
 
     def setup(self) -> None:

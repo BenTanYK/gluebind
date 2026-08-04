@@ -260,9 +260,10 @@ def run_equilibration_stages(
         prep_stage_launch_command,
     )
 
-    work_dir = pathlib.Path(work_dir)
+    work_dir = pathlib.Path(work_dir).resolve()
     scheduler = Scheduler(backend, poll_interval=poll_interval)
-    input_prm7, input_rst7 = str(solvated_prm7), str(solvated_rst7)
+    input_prm7 = str(pathlib.Path(solvated_prm7).resolve())
+    input_rst7 = str(pathlib.Path(solvated_rst7).resolve())
     trajectory: str | None = None
 
     for i, entry in enumerate(plan, start=1):
@@ -292,9 +293,14 @@ def run_equilibration_stages(
                 name=f"prep_{entry['stage']}",
             )
             (state,) = scheduler.run([job])
-            if state is not JobState.FINISHED:
+            if (
+                state is not JobState.FINISHED
+                or not pathlib.Path(out_prm7).exists()
+                or not pathlib.Path(out_rst7).exists()
+            ):
                 raise RuntimeError(
-                    f"prep stage {entry['stage']!r} did not finish (state={state})"
+                    f"prep stage {entry['stage']!r} did not produce outputs "
+                    f"(state={state}); inspect {stage_dir}"
                 )
 
         input_prm7, input_rst7 = out_prm7, out_rst7
@@ -519,7 +525,7 @@ def prepare(
         system_build_launch_command,
     )
 
-    work_dir = pathlib.Path(work_dir)
+    work_dir = pathlib.Path(work_dir).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
     build_dir = work_dir / "build"
     build_result_path = build_dir / SYSTEM_BUILD_RESULT_FILENAME

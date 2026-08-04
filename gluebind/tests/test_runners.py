@@ -87,6 +87,13 @@ def test_enumerate_from_range():
     assert enumerate_centres(s) == [0.0, 0.5, 1.0]
 
 
+def test_simulation_runner_resolves_relative_base_dir(tmp_path, monkeypatch):
+    from gluebind.runners.base import SimulationRunner
+
+    monkeypatch.chdir(tmp_path)
+    assert SimulationRunner("outputs").base_dir == tmp_path / "outputs"
+
+
 def test_enumerate_explicit_centres():
     s = WindowSampling(force_constant=5.0, sampling_time_ns=1.0, centres=[1.0, 2.0])
     assert enumerate_centres(s) == [1.0, 2.0]
