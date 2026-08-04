@@ -110,7 +110,55 @@ def _repeat_dg_sem(per_repeat: dict, dg_corr: float) -> float | None:
 
 
 class Calculation(SimulationRunner):
-    """Drive one binding-free-energy calculation end to end."""
+    """Run one ternary-complex absolute binding-free-energy calculation.
+
+    A calculation owns one self-contained run workspace. It can prepare the
+    solvated system, equilibrate the complex and bulk reference systems, select
+    restraint geometry, generate separation snapshots, run umbrella-sampling
+    windows, and analyse their PMFs into a binding free-energy estimate.
+
+    Parameters
+    ----------
+    base_dir
+        Top-level run workspace. Gluebind writes the resolved configuration,
+        persistent state, preparation outputs, SMD frames, and the ``boresch/``,
+        ``rmsd/``, and ``separation/`` sampling directories beneath it.
+    config
+        Validated calculation settings: molecular inputs, system-preparation
+        settings, restraint definitions, and sampling schedules.
+    backend
+        Execution backend used for all compute jobs. Use ``LocalBackend`` for
+        direct local execution or ``SlurmBackend`` for cluster submission.
+    spec_builder
+        Optional advanced/testing hook that creates a fully resolved
+        ``WindowSpec`` for each umbrella window. Normal user workflows should
+        leave this as ``None`` and construct the calculation with
+        :meth:`from_config`; :meth:`prepare` then supplies it automatically.
+    slurm_config
+        Optional scheduler settings used for queue throttling and polling when
+        the calculation uses Slurm.
+    command_factory
+        Advanced/testing hook that supplies the command executed for each
+        umbrella window.
+    stage_centres
+        Optional precomputed umbrella centres. In a normal configured run,
+        these are derived automatically from the equilibrated trajectory and
+        steered-MD snapshots.
+    steered_md_runner
+        Optional advanced/testing hook for producing the separation-window
+        starting structures.
+    platform
+        OpenMM platform requested by compute jobs, normally ``"CUDA"``.
+    poll_interval
+        Seconds between backend status checks when no Slurm-specific interval
+        is configured.
+
+    Notes
+    -----
+    ``run()`` is resumable: completed outputs are reused and submitted job
+    handles are stored in ``.gluebind-state.json``. ``kill()`` requests
+    cancellation of all recorded jobs without deleting the workspace.
+    """
 
     def __init__(
         self,
@@ -159,17 +207,56 @@ class Calculation(SimulationRunner):
         platform: str = "CUDA",
         poll_interval: float = 30.0,
     ) -> "Calculation":
-        """Build a calculation from a config (path or object); prep/wiring deferred.
+        """Create a calculation from a validated configuration or YAML file.
 
-        ``base_dir`` is the top-level calculation workspace. When omitted, it
-        defaults to ``Path.cwd() / "outputs"``.
+        This is the recommended public constructor. It defers system preparation and
+        restraint selection until :meth:`run` or :meth:`prepare`, so construction
+        itself does not submit jobs or require BioSimSpace/OpenMM execution.
 
-        Construction is cheap — the heavy work (system prep, restraint context,
-        window centres, steered-MD hook) runs in :meth:`prepare`, which :meth:`run`
-        calls automatically. So the whole calculation runs end to end from a single
-        call: ``from_config(...).run()`` (then :meth:`analyse` for the ΔG°). Call
-        :meth:`prepare` explicitly only if you want to inspect the prepared system
-        before sampling.
+        Parameters
+        ----------
+        config
+            A :class:`CalculationConfig`, or a path to a YAML configuration file.
+            Relative molecular-input paths in a YAML file are resolved relative to
+            that file.
+        backend
+            Execution backend for preparation and sampling jobs; normally
+            ``SlurmBackend(slurm)`` on a cluster or ``LocalBackend()`` for direct
+            local execution.
+        base_dir
+            Top-level run workspace. Defaults to ``Path.cwd() / "outputs"``. Choose
+            a fresh directory for a new calculation; reuse an existing directory
+            only to resume that calculation.
+        slurm_config
+            Optional Slurm scheduler settings, including queue throttling and
+            polling. Pass the same configuration used to construct ``SlurmBackend``.
+        command_factory
+            Advanced/testing hook for the umbrella-window command.
+        platform
+            OpenMM platform requested by compute jobs, normally ``"CUDA"``.
+        poll_interval
+            Fallback seconds between job-status checks when ``slurm_config`` does
+            not set ``queue_check_interval``.
+
+        Examples
+        --------
+        A minimal cluster submission::
+
+            slurm = SlurmConfig(partition="main")
+            calc = Calculation.from_config(
+                "1FAP_config.yaml",
+                SlurmBackend(slurm),
+                slurm_config=slurm,
+            )
+            calc.run()
+            result = calc.analyse()
+
+        Notes
+        -----
+        The directory is made and the resolved configuration is written when the
+        calculation runs. Calling :meth:`run` again resumes incomplete work in
+        ``base_dir``; calling :meth:`kill` requests cancellation of its recorded
+        jobs.
         """
         if not isinstance(config, CalculationConfig):
             config_path = pathlib.Path(config)
