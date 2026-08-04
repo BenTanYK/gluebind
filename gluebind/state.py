@@ -10,7 +10,9 @@ mid-run *determined values* that later stages depend on.
 Differences from aqemia-abfe, by design:
 
 * ``handles`` is nested one level deeper (``stage -> window -> [job id per
-  repeat]``) for gluebind's umbrella-sampling hierarchy.
+  repeat]``) for gluebind's umbrella-sampling hierarchy. Non-window jobs
+  (system build, preparation, and steered MD) are stored under the reserved
+  ``"_auxiliary"`` stage, keyed by their descriptive label.
 * It additionally persists ``anchors`` and ``boresch_eq_values`` — values
   computed mid-run (from RMSF and from Boresch-US PMF minima) that sequential
   downstream stages consume. Consequently the file is updated *incrementally*,
@@ -59,6 +61,7 @@ class RunState(pydantic.BaseModel):
     stage_status: dict[str, str] = pydantic.Field(default_factory=dict)
 
     # Opaque backend job handles: stage name -> window label -> [id per repeat].
+    # ``_auxiliary`` stores non-window jobs as label -> [id].
     handles: dict[str, dict[str, list[str]]] = pydantic.Field(default_factory=dict)
 
     # Per-backend escape hatch (mirrors aqemia-abfe's RunState.backend_extra):

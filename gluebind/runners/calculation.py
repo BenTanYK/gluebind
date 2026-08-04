@@ -221,6 +221,7 @@ class Calculation(SimulationRunner):
                 self.backend,
                 platform=self.platform,
                 poll_interval=self.poll_interval,
+                handle_recorder=self._record_auxiliary_handle,
             )
         self._wire(prepared)
         return prepared
@@ -377,6 +378,7 @@ class Calculation(SimulationRunner):
             snapshot_centres=snapshot_centres,
             sampling=self.config.sampling,
             platform=self.platform,
+            handle_recorder=self._record_auxiliary_handle,
         )
         self.prepared = prepared
         self.groups = self._build_groups()
@@ -482,6 +484,53 @@ class Calculation(SimulationRunner):
                 "the original config."
             )
         return state
+
+    def _record_auxiliary_handle(self, label: str, handle: str) -> None:
+        """Persist a non-window backend handle as soon as it is submitted.
+
+        This is intentionally independent of an in-memory :class:`RunState`:
+        preparation happens before :meth:`run` initialises its state, and a
+        separate driver process must be able to call :meth:`kill` meanwhile.
+        """
+        state = self._load_or_init_state()
+        handles = state.handles.setdefault("_auxiliary", {}).setdefault(label, [])
+        if handle not in handles:
+            handles.append(handle)
+        state.save(self.base_dir)
+
+    def kill(self) -> list[str]:
+        """Best-effort cancel every job recorded for this calculation.
+
+        Submitted work is left on disk so the calculation can later be resumed.
+        Returns the de-duplicated handles passed to the backend, or an empty
+        list when this workspace has never submitted a job.
+        """
+        try:
+            state = RunState.load(self.base_dir)
+        except FileNotFoundError:
+            self._log.info("kill %s: no submitted jobs recorded", self.base_dir.name)
+            return []
+
+        handles = list(
+            dict.fromkeys(
+                handle
+                for per_stage in state.handles.values()
+                for per_window in per_stage.values()
+                for handle in per_window
+                if handle
+            )
+        )
+        for handle in handles:
+            try:
+                self.backend.cancel(handle)
+            except Exception as exc:  # noqa: BLE001 - cancellation is best-effort
+                self._log.warning("could not cancel job %s: %s", handle, exc)
+        self._log.info(
+            "kill %s: requested cancellation of %d job(s)",
+            self.base_dir.name,
+            len(handles),
+        )
+        return handles
 
     def _default_scheduler(self, job_slots: SlotPool | None = None) -> Scheduler:
         return Scheduler(
@@ -662,6 +711,9 @@ class Calculation(SimulationRunner):
             )
             per_window[replicate - 1] = handle
             state.stage_status[stage.name] = "running"
+            # A detached backend may outlive this driver; persist every handle
+            # immediately so another process can inspect or cancel it.
+            state.save(self.base_dir)
 
         states = scheduler.run(specs, on_submit=on_submit)
 

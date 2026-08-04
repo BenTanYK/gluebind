@@ -92,6 +92,14 @@ class CalcSet(SimulationRunner):
         for calc in self.calcs.values():
             calc.prepare()
 
+    def kill(self) -> dict[str, list[str]]:
+        """Best-effort cancel all submitted jobs in every calculation.
+
+        Returns the handles requested for cancellation, keyed by system name.
+        No run files are deleted, so each calculation remains resumable.
+        """
+        return {name: calc.kill() for name, calc in self.calcs.items()}
+
     def run(
         self,
         *,

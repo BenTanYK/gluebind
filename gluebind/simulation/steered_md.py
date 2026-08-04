@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+from collections.abc import Callable
 
 import pydantic
 
@@ -130,6 +131,7 @@ def make_steered_md_runner(
     snapshot_centres,
     sampling,
     platform: str = "CUDA",
+    handle_recorder: Callable[[str, str], None] | None = None,
 ):
     """Return the ``callable(boresch_eq_values)`` the runner invokes between the
     Boresch and separation stages.
@@ -169,7 +171,14 @@ def make_steered_md_runner(
         job = JobSpec(
             command=smd_launch_command(), work_dir=str(work_dir), name="steered_md"
         )
-        (state,) = scheduler_factory().run([job])
+        (state,) = scheduler_factory().run(
+            [job],
+            on_submit=(
+                (lambda _index, handle: handle_recorder("steered_md", handle))
+                if handle_recorder is not None
+                else None
+            ),
+        )
         if state is not JobState.FINISHED:
             raise RuntimeError(f"steered MD did not finish (state={state})")
         result_path = work_dir / SMD_RESULT_FILENAME

@@ -21,7 +21,7 @@ a separate, config-driven value used later.
 from __future__ import annotations
 
 import pathlib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import pydantic
 
@@ -241,6 +241,8 @@ def run_equilibration_stages(
     platform: str = "CUDA",
     poll_interval: float = 30.0,
     save_trajectory: bool = True,
+    handle_recorder: Callable[[str, str], None] | None = None,
+    handle_label_prefix: str = "",
 ) -> tuple[str, str, str | None]:
     """Run the equilibration ``plan`` as one backend job per stage.
 
@@ -292,7 +294,19 @@ def run_equilibration_stages(
                 work_dir=str(stage_dir),
                 name=f"prep_{entry['stage']}",
             )
-            (state,) = scheduler.run([job])
+            label = f"{handle_label_prefix}{entry['stage']}"
+            (state,) = scheduler.run(
+                [job],
+                on_submit=(
+                    (
+                        lambda _index, handle, _label=label: handle_recorder(
+                            _label, handle
+                        )
+                    )
+                    if handle_recorder is not None
+                    else None
+                ),
+            )
             if (
                 state is not JobState.FINISHED
                 or not pathlib.Path(out_prm7).exists()
@@ -340,6 +354,8 @@ def _run_production_stage(
     *,
     platform: str,
     poll_interval: float,
+    handle_recorder: Callable[[str, str], None] | None = None,
+    handle_label: str = "production",
 ) -> tuple[str, str, str | None]:
     """Run the OpenMM production stage (with constant restraints) as a backend job.
 
@@ -377,7 +393,14 @@ def _run_production_stage(
             work_dir=str(out_dir),
             name="prep_production",
         )
-        (state,) = Scheduler(backend, poll_interval=poll_interval).run([job])
+        (state,) = Scheduler(backend, poll_interval=poll_interval).run(
+            [job],
+            on_submit=(
+                (lambda _index, handle: handle_recorder(handle_label, handle))
+                if handle_recorder is not None
+                else None
+            ),
+        )
         if state is not JobState.FINISHED:
             raise RuntimeError(f"production stage did not finish (state={state})")
 
@@ -449,6 +472,8 @@ def _extract_bulk(
     *,
     platform: str,
     poll_interval: float,
+    handle_recorder: Callable[[str, str], None] | None = None,
+    handle_label_prefix: str = "",
 ) -> tuple[str, str]:
     """Isolate the given molecules and re-solvate them on the driver (cheap), then
     equilibrate through ``backend`` — like the complex, no MD runs on the driver.
@@ -487,6 +512,8 @@ def _extract_bulk(
         platform=platform,
         poll_interval=poll_interval,
         save_trajectory=False,
+        handle_recorder=handle_recorder,
+        handle_label_prefix=handle_label_prefix,
     )
     return final_prm7, final_rst7
 
@@ -503,6 +530,7 @@ def prepare(
     *,
     platform: str = "CUDA",
     poll_interval: float = 30.0,
+    handle_recorder: Callable[[str, str], None] | None = None,
 ) -> PreparedSystem:
     """Full preparation: build, equilibrate, extract bulk, and write a manifest.
 
@@ -541,7 +569,14 @@ def prepare(
             work_dir=str(build_dir),
             name="prep_system_build",
         )
-        (state,) = Scheduler(backend, poll_interval=poll_interval).run([job])
+        (state,) = Scheduler(backend, poll_interval=poll_interval).run(
+            [job],
+            on_submit=(
+                (lambda _index, handle: handle_recorder("system_build", handle))
+                if handle_recorder is not None
+                else None
+            ),
+        )
         if state is not JobState.FINISHED or not build_result_path.exists():
             raise RuntimeError(
                 "system-build job did not produce its result "
@@ -572,6 +607,8 @@ def prepare(
             backend,
             platform=platform,
             poll_interval=poll_interval,
+            handle_recorder=handle_recorder,
+            handle_label_prefix="complex_",
         )
         complex_prm7, complex_rst7, trajectory = _run_production_stage(
             config,
@@ -582,6 +619,8 @@ def prepare(
             backend,
             platform=platform,
             poll_interval=poll_interval,
+            handle_recorder=handle_recorder,
+            handle_label="complex_production",
         )
     else:
         complex_prm7, complex_rst7, trajectory = run_equilibration_stages(
@@ -592,6 +631,8 @@ def prepare(
             backend,
             platform=platform,
             poll_interval=poll_interval,
+            handle_recorder=handle_recorder,
+            handle_label_prefix="complex_",
         )
 
     # Bulk reference species: isolate + re-solvate on the driver (cheap), then
@@ -605,6 +646,8 @@ def prepare(
         backend,
         platform=platform,
         poll_interval=poll_interval,
+        handle_recorder=handle_recorder,
+        handle_label_prefix="target_bulk_",
     )
     receptor_bulk = _extract_bulk(
         equilibrated,
@@ -614,6 +657,8 @@ def prepare(
         backend,
         platform=platform,
         poll_interval=poll_interval,
+        handle_recorder=handle_recorder,
+        handle_label_prefix="receptor_bulk_",
     )
 
     prepared = PreparedSystem(

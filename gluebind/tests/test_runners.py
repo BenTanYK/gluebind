@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 from gluebind.backend import LocalBackend, Scheduler
+from gluebind.backend.base import Backend, JobState
 from gluebind.config import CalculationConfig, WindowSampling
 from gluebind.runners import Calculation, enumerate_centres, format_label
 from gluebind.simulation import WindowSpec
@@ -71,6 +72,22 @@ def _calc(tmp_path, config=None, command_factory=_trivial_command):
         command_factory=command_factory,
         stage_centres=CENTRES,
     )
+
+
+class _CancellableBackend(Backend):
+    """Minimal backend used to verify a persisted run can be cancelled."""
+
+    def __init__(self):
+        self.cancelled: list[str] = []
+
+    def submit(self, spec):
+        raise AssertionError("submission is not needed for this test")
+
+    def poll(self, handles):
+        return dict.fromkeys(handles, JobState.PENDING)
+
+    def cancel(self, handle):
+        self.cancelled.append(handle)
 
 
 # ---- enumeration / labels --------------------------------------------------
@@ -183,6 +200,36 @@ def test_run_completes_and_records_state(tmp_path):
     assert (tmp_path / ".gluebind-state.json").exists()
     assert state.handles  # handles recorded via on_submit
     assert state.stage_status.get("thetaA") == "done"
+
+
+def test_kill_cancels_each_persisted_handle_once(tmp_path):
+    from gluebind import RunState
+    from gluebind.state import now_utc_iso
+
+    backend = _CancellableBackend()
+    calc = Calculation(tmp_path, _config(), backend, _spec_builder)
+    state = RunState(
+        calc_id="test",
+        submitted_at=now_utc_iso(),
+        config_hash=calc.config.config_hash,
+        config_path=str(tmp_path),
+        handles={
+            "thetaA": {"1rad": ["100", "101"]},
+            "_auxiliary": {"system_build": ["101"], "steered_md": ["102"]},
+        },
+    )
+    state.save(tmp_path)
+
+    assert calc.kill() == ["100", "101", "102"]
+    assert backend.cancelled == ["100", "101", "102"]
+
+
+def test_kill_without_state_is_a_noop(tmp_path):
+    backend = _CancellableBackend()
+    calc = Calculation(tmp_path, _config(), backend, _spec_builder)
+
+    assert calc.kill() == []
+    assert backend.cancelled == []
 
 
 def test_run_surfaces_failed_windows(tmp_path):
