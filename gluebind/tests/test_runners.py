@@ -815,3 +815,90 @@ def test_orchestration_layer_is_openmm_free():
         env={**os.environ, "PYTHONPATH": str(repo_root)},
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_wire_persists_and_reuses_anchors(tmp_path, monkeypatch):
+    import types
+
+    import gluebind.simulation.steered_md as smd_mod
+    import gluebind.spec_builder as spec_builder_mod
+    import gluebind.stage_centres as stage_centres_mod
+    from gluebind.state import RunState
+
+    resolved = {"b": 10, "c": 11, "B": 12, "C": 13}
+    calls = []
+    context = types.SimpleNamespace(
+        complex_topology="complex.prm7",
+        complex_coordinates="complex.rst7",
+        rec_group=[1, 2],
+        lig_group=[3, 4],
+        anchors=dict(resolved),
+        rmsd_order=[],
+        rmsd_atoms_bound={},
+        rmsd_bulk={},
+        always_on=[],
+    )
+
+    def build_context(prepared, config, *, anchors_override=None):
+        calls.append(anchors_override)
+        if anchors_override is not None:
+            context.anchors = dict(anchors_override)
+        return context
+
+    monkeypatch.setattr(spec_builder_mod, "build_restraint_context", build_context)
+    monkeypatch.setattr(
+        stage_centres_mod,
+        "compute_stage_centres",
+        lambda prepared, context, config: {"thetaA": [1.0], "separation": [1.5]},
+    )
+    monkeypatch.setattr(smd_mod, "make_steered_md_runner", lambda **kwargs: object())
+
+    calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
+    calc._wire(object())
+    assert calls == [None]
+    assert RunState.load(tmp_path).anchors == resolved
+
+    resumed = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
+    calc._wire = None
+    resumed._wire(object())
+    assert calls[-1] == resolved
+    assert resumed.spec_builder.ctx.anchors == resolved
+
+
+def test_wire_persists_manual_anchors(tmp_path, monkeypatch):
+    import types
+
+    import gluebind.simulation.steered_md as smd_mod
+    import gluebind.spec_builder as spec_builder_mod
+    import gluebind.stage_centres as stage_centres_mod
+    from gluebind.state import RunState
+
+    anchors = {"b": 10, "c": 11, "B": 12, "C": 13}
+    context = types.SimpleNamespace(
+        complex_topology="complex.prm7",
+        complex_coordinates="complex.rst7",
+        rec_group=[1, 2],
+        lig_group=[3, 4],
+        anchors=anchors,
+        rmsd_order=[],
+        rmsd_atoms_bound={},
+        rmsd_bulk={},
+        always_on=[],
+    )
+    monkeypatch.setattr(
+        spec_builder_mod,
+        "build_restraint_context",
+        lambda *args, **kwargs: context,
+    )
+    monkeypatch.setattr(
+        stage_centres_mod,
+        "compute_stage_centres",
+        lambda prepared, context, config: {"thetaA": [1.0], "separation": [1.5]},
+    )
+    monkeypatch.setattr(smd_mod, "make_steered_md_runner", lambda **kwargs: object())
+
+    config = _config()
+    config.restraints.boresch.anchors = anchors
+    calc = Calculation.from_config(config, LocalBackend(), base_dir=tmp_path)
+    calc._wire(object())
+    assert RunState.load(tmp_path).anchors == anchors

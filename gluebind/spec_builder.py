@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import dataclasses
 import pathlib
+from collections.abc import Mapping
 
 from gluebind.config.calculation import CalculationConfig
 from gluebind.simulation.window import WindowSpec
@@ -348,7 +349,11 @@ def resolve_always_on(config: CalculationConfig, cmap: "_ComplexMap") -> list[Al
 
 
 def build_restraint_context(
-    prepared, config: CalculationConfig, *, interface_cutoff_angstrom: float = 12.0
+    prepared,
+    config: CalculationConfig,
+    *,
+    interface_cutoff_angstrom: float = 12.0,
+    anchors_override: Mapping[str, int] | None = None,
 ) -> RestraintContext:
     """Resolve a :class:`RestraintContext` from a :class:`PreparedSystem` (MDAnalysis).
 
@@ -359,7 +364,9 @@ def build_restraint_context(
     residue renumbering) cannot silently move a restraint onto the wrong atoms.
 
     Also detects the interface (Cα–Cα pairs within ``interface_cutoff_angstrom``)
-    and selects the Boresch anchors. Reuses the unit-tested pure primitives; the
+    and selects the Boresch anchors. ``anchors_override`` reuses anchors persisted
+    by a prior wiring pass after validating them against this topology. Reuses the
+    unit-tested pure primitives; the
     MDAnalysis extraction is integration-verified against real structures, but the
     verified-map core (:mod:`gluebind.system.atom_map`, :class:`_ComplexMap`) and
     the pure assembly it feeds (:class:`SpecBuilder`) are unit-tested.
@@ -397,7 +404,15 @@ def build_restraint_context(
         lig_group += glue_indices
 
     anchors = _resolve_anchors(
-        config, prepared, universe, receptor_ca, target_ca, rec_group, lig_group, np
+        config,
+        prepared,
+        universe,
+        receptor_ca,
+        target_ca,
+        rec_group,
+        lig_group,
+        np,
+        anchors_override=anchors_override,
     )
 
     rmsd_order, rmsd_atoms_bound, rmsd_bulk = _resolve_rmsd_regions(
@@ -420,12 +435,26 @@ def build_restraint_context(
 
 
 def _resolve_anchors(
-    config, prepared, universe, receptor_ca, target_ca, rec_group, lig_group, np
+    config,
+    prepared,
+    universe,
+    receptor_ca,
+    target_ca,
+    rec_group,
+    lig_group,
+    np,
+    *,
+    anchors_override: Mapping[str, int] | None = None,
 ):
     """Manual anchors (validated) or automatic selection over the trajectory."""
     from gluebind.selection.anchors import select_anchors, validate_manual_anchors
     from gluebind.selection.dssp import structured_residues
     from gluebind.selection.rmsf import compute_rmsf, stablest_candidates
+
+    if anchors_override is not None:
+        return _validate_persisted_anchors(
+            anchors_override, universe, receptor_ca, target_ca
+        )
 
     spec = config.restraints.boresch.anchors
     if spec != "auto":
@@ -471,6 +500,39 @@ def _resolve_anchors(
         A_coords=series["A"],
         coords_of=lambda i: series[i],
     )
+
+
+def _validate_persisted_anchors(
+    anchors: Mapping[str, int], universe, receptor_ca, target_ca
+) -> dict[str, int]:
+    """Validate state-file anchors against the prepared complex topology."""
+    expected = {"b", "c", "B", "C"}
+    if set(anchors) != expected:
+        raise ValueError(f"persisted anchors must have exactly keys {sorted(expected)}")
+
+    result = {}
+    for key in ("b", "c", "B", "C"):
+        index = anchors[key]
+        if not isinstance(index, int) or isinstance(index, bool):
+            raise ValueError(f"persisted anchor {key!r} must be an integer")
+        if not 0 <= index < universe.atoms.n_atoms:
+            raise ValueError(
+                f"persisted anchor {key!r}={index} is outside the complex "
+                f"atom-index range [0, {universe.atoms.n_atoms})"
+            )
+        result[key] = index
+
+    receptor_ca_indices = {int(atom.index) for atom in receptor_ca}
+    target_ca_indices = {int(atom.index) for atom in target_ca}
+    for key in ("b", "c"):
+        if result[key] not in receptor_ca_indices:
+            raise ValueError(
+                f"persisted anchor {key!r} must be a receptor C-alpha atom"
+            )
+    for key in ("B", "C"):
+        if result[key] not in target_ca_indices:
+            raise ValueError(f"persisted anchor {key!r} must be a target C-alpha atom")
+    return result
 
 
 def _collect_series(traj, rec_group, lig_group, atom_indices, np):

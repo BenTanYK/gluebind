@@ -461,3 +461,33 @@ def test_spec_builder_drives_runner(tmp_path):
     assert spec.restraints["boresch"]["anchors"] == {"b": 10, "c": 11, "B": 12, "C": 13}
     # thetaA is first, so no prior Boresch DoFs are fixed yet
     assert spec.restraints["boresch"]["fixed"] == {}
+
+
+def test_persisted_anchor_validation_checks_topology_and_protein_ca_membership():
+    from gluebind.spec_builder import _validate_persisted_anchors
+
+    class Atom:
+        def __init__(self, index):
+            self.index = index
+
+    universe = type("Universe", (), {"atoms": type("Atoms", (), {"n_atoms": 20})()})()
+    receptor_ca = [Atom(1), Atom(2)]
+    target_ca = [Atom(10), Atom(11)]
+    anchors = {"b": 1, "c": 2, "B": 10, "C": 11}
+
+    assert (
+        _validate_persisted_anchors(anchors, universe, receptor_ca, target_ca)
+        == anchors
+    )
+    with pytest.raises(ValueError, match="outside"):
+        _validate_persisted_anchors(
+            {**anchors, "C": 20}, universe, receptor_ca, target_ca
+        )
+    with pytest.raises(ValueError, match="receptor C-alpha"):
+        _validate_persisted_anchors(
+            {**anchors, "b": 3}, universe, receptor_ca, target_ca
+        )
+    with pytest.raises(ValueError, match="target C-alpha"):
+        _validate_persisted_anchors(
+            {**anchors, "B": 12}, universe, receptor_ca, target_ca
+        )

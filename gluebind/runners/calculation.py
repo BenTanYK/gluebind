@@ -439,7 +439,14 @@ class Calculation(SimulationRunner):
         from gluebind.spec_builder import SpecBuilder, build_restraint_context
         from gluebind.stage_centres import compute_stage_centres
 
-        context = build_restraint_context(prepared, self.config)
+        state = self._load_or_init_state()
+        context = build_restraint_context(
+            prepared, self.config, anchors_override=state.anchors
+        )
+        # Record both configured and automatically selected anchors immediately,
+        # before any downstream SMD or umbrella jobs are submitted.
+        state.anchors = dict(context.anchors)
+        state.save(self.base_dir)
         self.stage_centres = compute_stage_centres(prepared, context, self.config)
         # SMD saves a dense snapshot grid (decoupled from — and finer than — the US
         # window schedule), so windows can be added later without re-running SMD.

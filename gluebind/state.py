@@ -56,7 +56,7 @@ class RunState(pydantic.BaseModel):
     config_path: str
 
     # Determined mid-run and reused by later stages (no aqemia-abfe analogue).
-    anchors: dict | None = None
+    anchors: dict[str, int] | None = None
     boresch_eq_values: dict[str, float] = pydantic.Field(default_factory=dict)
     stage_status: dict[str, str] = pydantic.Field(default_factory=dict)
 
@@ -68,6 +68,24 @@ class RunState(pydantic.BaseModel):
     # e.g. an AWS Batch backend stashes its batch_id and S3 prefix here so a
     # fresh process can reconstruct where its outputs live. Opaque to the core.
     backend_extra: dict = pydantic.Field(default_factory=dict)
+
+    @pydantic.field_validator("anchors", mode="before")
+    @classmethod
+    def _valid_anchors(cls, value: object) -> object:
+        """Reject malformed persisted Boresch-anchor mappings."""
+        if value is None:
+            return value
+        expected = {"b", "c", "B", "C"}
+        if not isinstance(value, dict) or set(value) != expected:
+            raise ValueError(
+                f"anchors must have exactly keys {sorted(expected)} or be null"
+            )
+        if any(
+            not isinstance(index, int) or isinstance(index, bool)
+            for index in value.values()
+        ):
+            raise ValueError("all persisted anchor indices must be integers")
+        return value
 
     def save(self, run_dir: str | pathlib.Path) -> pathlib.Path:
         """Atomically write the state file into ``run_dir``.

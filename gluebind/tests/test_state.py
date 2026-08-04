@@ -58,3 +58,17 @@ def test_older_schema_migrates(tmp_path):
 
 def test_backend_extra_defaults_empty(tmp_path):
     assert _state(tmp_path).backend_extra == {}
+
+
+def test_anchor_state_roundtrip_and_rejects_malformed_values(tmp_path):
+    rs = _state(tmp_path)
+    rs.anchors = {"b": 10, "c": 11, "B": 12, "C": 13}
+    rs.save(tmp_path)
+    assert RunState.load(tmp_path).anchors == rs.anchors
+
+    path = tmp_path / STATE_FILENAME
+    data = json.loads(path.read_text())
+    data["anchors"] = {"b": 10, "c": 11, "B": 12, "C": "13"}
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="anchor"):
+        RunState.load(tmp_path)
