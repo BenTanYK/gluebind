@@ -3,8 +3,17 @@
 :class:`CalculationConfig` is what the user authors (one YAML file) and what
 gets dumped, fully resolved, into every run directory for provenance. It bundles
 the inputs, the system-prep parameters, the sampling protocol and the restraint
-definitions. The SLURM configuration is deliberately *not* part of this object
-(see :class:`gluebind.config.slurm.SlurmConfig`) because it is cluster-scoped.
+definitions. The SLURM configuration is kept separate (see
+:class:`gluebind.config.slurm.SlurmConfig`) because it is cluster-scoped.
+
+Overview:
+
+CalculationConfig
+├── inputs
+├── prep
+├── sampling
+└── restraints
+
 """
 
 from __future__ import annotations
