@@ -20,6 +20,8 @@ extra:
 nav:
 - Home:
   - Overview: index.md
+- Theory: theory.md
+- Getting started: geting_started.md
 - API reference: reference/
 - Development: development.md
 
