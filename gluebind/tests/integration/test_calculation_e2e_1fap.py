@@ -54,8 +54,8 @@ def _calc(cfg, base_dir):
     )
     return Calculation.from_config(
         cfg,
-        base_dir,
         SlurmBackend(slurm),
+        base_dir=base_dir,
         slurm_config=slurm,
         platform="CUDA",
         poll_interval=slurm.queue_check_interval,

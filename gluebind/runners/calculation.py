@@ -151,15 +151,18 @@ class Calculation(SimulationRunner):
     def from_config(
         cls,
         config: "CalculationConfig | str | pathlib.Path",
-        base_dir: str | pathlib.Path,
         backend: Backend,
         *,
+        base_dir: str | pathlib.Path | None = None,
         slurm_config: SlurmConfig | None = None,
         command_factory: Callable[[], list[str]] = window_launch_command,
         platform: str = "CUDA",
         poll_interval: float = 30.0,
     ) -> "Calculation":
         """Build a calculation from a config (path or object); prep/wiring deferred.
+
+        ``base_dir`` is the top-level calculation workspace. When omitted, it
+        defaults to ``Path.cwd() / "outputs"``.
 
         Construction is cheap — the heavy work (system prep, restraint context,
         window centres, steered-MD hook) runs in :meth:`prepare`, which :meth:`run`
@@ -173,6 +176,8 @@ class Calculation(SimulationRunner):
             config = CalculationConfig.load(config_path).with_resolved_input_paths(
                 config_path.parent
             )
+        if base_dir is None:
+            base_dir = pathlib.Path.cwd() / "outputs"
         return cls(
             base_dir,
             config,

@@ -59,8 +59,8 @@ class CalcSet(SimulationRunner):
         for system_dir in self._system_dirs(self.base_dir):
             self.calcs[system_dir.name] = Calculation.from_config(
                 system_dir / self.CONFIG_FILENAME,
-                system_dir,
                 backend,
+                base_dir=system_dir,
                 platform=platform,
                 poll_interval=poll_interval,
             )

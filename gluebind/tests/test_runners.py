@@ -397,7 +397,7 @@ def test_analyse_threads_sampling_temperature(tmp_path):
 
 def test_from_config_defers_wiring(tmp_path):
     # Built from a config object: cheap, no tree yet (wiring happens in prepare()).
-    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+    calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
     assert calc.spec_builder is None
     assert calc.groups == []
 
@@ -405,7 +405,7 @@ def test_from_config_defers_wiring(tmp_path):
 def test_run_auto_prepares_when_not_wired(tmp_path):
     # run() on a from_config calculation calls prepare() itself (end to end from
     # a single call). We stub prepare() to wire trivially, avoiding real MD/BSS.
-    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+    calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
     calls = {"prepare": 0}
 
     def fake_prepare():
@@ -510,7 +510,7 @@ def test_equilibrate_reuses_prep_and_does_not_wire(tmp_path):
     # or build the sampling tree (spec_builder stays None) — the manual-anchor
     # fallback. Prep is stubbed via the on-disk manifest; RMSF write stubbed (MDA).
     _dump_prepared(tmp_path)
-    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+    calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
     written = {}
     calc._write_rmsf_report = lambda prepared: written.setdefault(
         "paths", {"receptor": "rmsf_receptor.dat", "target": "rmsf_target.dat"}
@@ -529,7 +529,7 @@ def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
     # must re-wire from disk (rebuild the stage tree) so stages are iterated — not
     # silently return zero contributions. _wire is stubbed to avoid MDA.
     _dump_prepared(tmp_path)
-    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+    calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
 
     def fake_wire(prepared):
         calc.spec_builder = _spec_builder
@@ -558,9 +558,15 @@ def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
 
 
 def test_analyse_raises_when_not_prepared(tmp_path):
-    calc = Calculation.from_config(_config(), tmp_path, LocalBackend())
+    calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
     with pytest.raises(RuntimeError, match="not prepared"):
         calc.analyse(_fake_pmf, theta_a_min=1.0, theta_b_min=1.0)
+
+
+def test_from_config_defaults_base_dir_to_cwd_outputs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    calc = Calculation.from_config(_config(), LocalBackend())
+    assert calc.base_dir == tmp_path / "outputs"
 
 
 def test_analyse_r_star_falls_back_to_config(tmp_path):
