@@ -16,7 +16,8 @@
 
 ---
 
-The `gluebind` framework ...
+> [!CAUTION]
+> The `gluebind` package is still experimental and untested - not ready for production use yet!
 
 ## Installation
 
