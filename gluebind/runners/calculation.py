@@ -70,9 +70,8 @@ def _rmsf_report_header(candidates) -> str:
     """Header for the per-protein RMSF report ``.dat``.
 
     ``candidates`` is a list of ``(resid, atom_index)`` pairs, most-stable first;
-    ``atom_index`` is the 0-indexed *complex* atom index of that residue's Cα — exactly
-    what ``BoreschSpec.anchors`` expects, so a user can read a stable resid off the RMSF
-    plot and paste its atom index straight into the config. RMSF is in Ångström
+    ``resid`` is the 1-based input-topology residue ID to use in the config, while
+    ``atom_index`` is retained as a diagnostic complex index. RMSF is in Ångström
     (MDAnalysis works in Å; ``compute_rmsf`` passes those values through).
     """
     pretty = ", ".join(f"resid {r}=atom {i}" for r, i in candidates)
@@ -322,7 +321,7 @@ class Calculation(SimulationRunner):
         inspect ``prep/rmsf_{receptor,target}.dat`` (each ``resid  atom_index  rmsf``
         plus the auto-suggested stable candidates, listed as ``resid=atom``), set
         ``restraints.boresch.anchors = {"b": ..., "c": ..., "B": ..., "C": ...}`` to the
-        chosen residues' ``atom_index`` values (0-indexed complex atoms), then call
+        chosen 1-based residue IDs, then call
         :meth:`run` — which reuses this equilibration (idempotent) and wires with the
         chosen anchors.
 
@@ -361,9 +360,9 @@ class Calculation(SimulationRunner):
         """Write per-protein Cα RMSF (``resid  atom_index  rmsf``) + suggested stable
         candidates to ``prep/rmsf_<protein>.dat`` for manual anchor inspection.
 
-        ``atom_index`` is each Cα's 0-indexed complex atom index — the value
-        ``BoreschSpec.anchors`` takes — so the workflow is read-resid-off-the-plot →
-        paste-its-atom-index."""
+        ``atom_index`` is each Cα's 0-indexed complex atom index, retained for
+        diagnostics; ``BoreschSpec.anchors`` takes the corresponding 1-based residue
+        IDs from the input topology."""
         import numpy as np
 
         from gluebind.selection.rmsf import compute_rmsf, stablest_candidates

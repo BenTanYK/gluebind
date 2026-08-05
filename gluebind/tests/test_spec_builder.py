@@ -491,3 +491,37 @@ def test_persisted_anchor_validation_checks_topology_and_protein_ca_membership()
         _validate_persisted_anchors(
             {**anchors, "B": 12}, universe, receptor_ca, target_ca
         )
+
+
+def test_manual_anchors_resolve_one_based_input_residues():
+    from gluebind.spec_builder import _resolve_manual_anchors
+
+    class Map:
+        def resolve(self, protein, selection):
+            expected = {
+                ("receptor", "resid 5 and name CA"): [101],
+                ("receptor", "resid 7 and name CA"): [103],
+                ("target", "resid 12 and name CA"): [205],
+                ("target", "resid 14 and name CA"): [207],
+            }
+            return expected[(protein, selection)]
+
+    assert _resolve_manual_anchors({"b": 5, "c": 7, "B": 12, "C": 14}, Map()) == {
+        "b": 101,
+        "c": 103,
+        "B": 205,
+        "C": 207,
+    }
+
+
+def test_manual_anchor_residue_ids_must_be_positive_and_unique_ca():
+    from gluebind.spec_builder import _resolve_manual_anchors
+
+    class Map:
+        def resolve(self, protein, selection):
+            return [] if "resid 9 " in selection else [1]
+
+    with pytest.raises(ValueError, match="positive 1-based"):
+        _resolve_manual_anchors({"b": 0, "c": 2, "B": 3, "C": 4}, Map())
+    with pytest.raises(ValueError, match="exactly one"):
+        _resolve_manual_anchors({"b": 9, "c": 2, "B": 3, "C": 4}, Map())

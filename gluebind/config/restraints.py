@@ -111,7 +111,12 @@ class BoreschSpec(pydantic.BaseModel):
 
     anchors: dict[str, int] | Literal["auto"] = "auto"
     """Either ``"auto"`` or an explicit mapping with keys ``b``, ``c``, ``B``,
-    ``C`` to 0-indexed atom indices."""
+    ``C`` to 1-based residue IDs from the corresponding input topology.
+
+    ``b`` and ``c`` refer to receptor residues; ``B`` and ``C`` refer to target
+    residues. Each residue must contain exactly one Cα atom. The resolved
+    complex atom indices are stored internally in the run state.
+    """
 
     @pydantic.field_validator("anchors")
     @classmethod

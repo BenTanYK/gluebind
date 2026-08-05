@@ -412,6 +412,7 @@ def build_restraint_context(
         rec_group,
         lig_group,
         np,
+        cmap=cmap,
         anchors_override=anchors_override,
     )
 
@@ -444,6 +445,7 @@ def _resolve_anchors(
     lig_group,
     np,
     *,
+    cmap: _ComplexMap,
     anchors_override: Mapping[str, int] | None = None,
 ):
     """Manual anchors (validated) or automatic selection over the trajectory."""
@@ -458,13 +460,14 @@ def _resolve_anchors(
 
     spec = config.restraints.boresch.anchors
     if spec != "auto":
+        anchors = _resolve_manual_anchors(spec, cmap)
         mean = {
             "a": universe.atoms[rec_group].positions.mean(axis=0),
             "A": universe.atoms[lig_group].positions.mean(axis=0),
-            **{key: universe.atoms[spec[key]].position for key in ("b", "c", "B", "C")},
+            **{key: universe.atoms[anchors[key]].position for key in anchors},
         }
         validate_manual_anchors(mean)
-        return {key: int(spec[key]) for key in ("b", "c", "B", "C")}
+        return anchors
 
     if prepared.complex_trajectory is None:
         raise ValueError(
@@ -500,6 +503,28 @@ def _resolve_anchors(
         A_coords=series["A"],
         coords_of=lambda i: series[i],
     )
+
+
+def _resolve_manual_anchors(
+    spec: Mapping[str, int], cmap: _ComplexMap
+) -> dict[str, int]:
+    """Resolve configured 1-based residue IDs to complex Cα atom indices."""
+    roles = {"b": "receptor", "c": "receptor", "B": "target", "C": "target"}
+    result: dict[str, int] = {}
+    for key in ("b", "c", "B", "C"):
+        resid = spec[key]
+        if isinstance(resid, bool) or not isinstance(resid, int) or resid < 1:
+            raise ValueError(
+                f"manual anchor {key!r} must be a positive 1-based residue ID"
+            )
+        indices = cmap.resolve(roles[key], f"resid {resid} and name CA")
+        if len(indices) != 1:
+            raise ValueError(
+                f"manual anchor {key!r} residue {resid} must resolve to exactly "
+                f"one Cα atom in the {roles[key]} input topology; found {len(indices)}"
+            )
+        result[key] = int(indices[0])
+    return result
 
 
 def _validate_persisted_anchors(
