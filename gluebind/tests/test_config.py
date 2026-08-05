@@ -1,6 +1,9 @@
 """Tests for the calculation and SLURM configuration models."""
 
+import pathlib
+
 import pytest
+import yaml
 
 from gluebind import CalculationConfig, SlurmConfig
 from gluebind.config import SamplingConfig
@@ -18,6 +21,19 @@ def _min_cfg() -> CalculationConfig:
 
 def test_zero_config_defaults_to_all_ca():
     assert _min_cfg().restraints.uses_default_all_ca is True
+
+
+def test_default_config_template_matches_programmatic_defaults():
+    template_path = (
+        pathlib.Path(__file__).resolve().parents[1] / "data" / "default_config.yaml"
+    )
+    template = CalculationConfig.model_validate(
+        yaml.safe_load(template_path.read_text())
+    )
+    defaults = _min_cfg()
+    assert template.model_dump(exclude={"inputs"}) == defaults.model_dump(
+        exclude={"inputs"}
+    )
 
 
 def test_roundtrip_and_hash_stable(tmp_path):

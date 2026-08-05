@@ -1,0 +1,94 @@
+# Complete Gluebind calculation template.
+#
+# Copy this file beside your input structures and replace the paths below.
+# Input paths are resolved relative to this YAML file. Set `glue: null` when
+# modelling a binary complex, and `waters: null` when no crystal waters are kept.
+
+inputs:
+  target:
+    prm7: target.prm7
+    rst7: target.rst7
+  receptor:
+    prm7: receptor.prm7
+    rst7: receptor.rst7
+  glue:
+    sdf: glue.sdf
+    assign_to: receptor
+  waters: null
+
+prep:
+  glue_forcefield: openff_unconstrained_2.2.1
+  water_model: tip3p
+  box_type: truncatedOctahedron
+  box_padding_angstrom: 15.0
+  bulk_box_padding_angstrom: 20.0
+  ion_concentration_M: 0.15
+  neutralise: true
+  minimisation_steps: 10000
+  nvt_heat_ns: 0.2
+  npt_ns: 0.4
+  equilibration_ns: 50.0
+
+sampling:
+  timestep_fs: 4.0
+  hmr_factor: 1.5
+  pme_cutoff_nm: 1.0
+  temperature_K: 300.0
+  sample_interval_steps: 125
+  ensemble_size: 3
+  run_rmsd_us: true
+  boresch:
+    force_constant: 100.0
+    sampling_time_ns: 5.0
+    equil_discard_ns: 1.0
+    window_spacing: 0.1
+    window_min: null
+    window_max: null
+    coarse_from: null
+    coarse_spacing: null
+    smd_snapshot_spacing: null
+    smd_capture_max: null
+    smd_pull_margin: null
+    centres: null
+    auto_extend: false
+    overrides: {}
+  rmsd:
+    force_constant: 5.0
+    sampling_time_ns: 20.0
+    equil_discard_ns: 0.0
+    window_spacing: 0.2
+    window_min: 0.0
+    window_max: 2.2
+    coarse_from: null
+    coarse_spacing: null
+    smd_snapshot_spacing: null
+    smd_capture_max: null
+    smd_pull_margin: null
+    centres: null
+    auto_extend: true
+    overrides: {}
+  separation:
+    force_constant: 10.0
+    sampling_time_ns: 30.0
+    equil_discard_ns: 0.0
+    window_spacing: 0.05
+    window_min: 0.9
+    window_max: 3.0
+    coarse_from: 2.1
+    coarse_spacing: 0.1
+    smd_snapshot_spacing: 0.05
+    smd_capture_max: 4.0
+    smd_pull_margin: 0.5
+    centres: null
+    auto_extend: false
+    overrides: {}
+
+restraints:
+  # Empty lists select all-Cα RMSD restraints for each protein.
+  rmsd_cvs: []
+  rmsd_order: []
+  rmsd_atoms: CA
+  always_on: []
+  always_on_atoms: CA
+  boresch:
+    anchors: auto
