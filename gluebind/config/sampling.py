@@ -157,6 +157,15 @@ class SamplingConfig(pydantic.BaseModel):
     """Uniform production temperature (K) used for the MD, WHAM and the
     free-energy integrals — kept consistent throughout (the paper protocol)."""
     sample_interval_steps: int = 125
+    """Integration steps between recorded CV samples."""
+    state_data_interval_steps: int = 1000
+    """Integration steps between StateDataReporter CSV records."""
+    trajectory_interval_steps: int = 2500
+    """Integration steps between DCD trajectory frames."""
+    save_state_data: bool = True
+    """Write OpenMM state/energy data for each US window."""
+    save_trajectories: bool = False
+    """Write a DCD trajectory for each US window."""
     ensemble_size: int = 3
     """Number of independent replicate simulations per window."""
     run_rmsd_us: bool = True
@@ -186,7 +195,12 @@ class SamplingConfig(pydantic.BaseModel):
             raise ValueError("must be > 0")
         return v
 
-    @pydantic.field_validator("sample_interval_steps", "ensemble_size")
+    @pydantic.field_validator(
+        "sample_interval_steps",
+        "state_data_interval_steps",
+        "trajectory_interval_steps",
+        "ensemble_size",
+    )
     @classmethod
     def _positive_int(cls, v: int) -> int:
         if v <= 0:

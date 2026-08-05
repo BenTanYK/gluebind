@@ -63,6 +63,10 @@ class WindowSpec(pydantic.BaseModel):
     pme_cutoff_nm: float = 1.0
     temperature_K: float = 300.0
     sample_interval_steps: int = 125
+    state_data_interval_steps: int = 1000
+    trajectory_interval_steps: int = 2500
+    save_state_data: bool = True
+    save_trajectories: bool = False
 
     restraints: dict = pydantic.Field(default_factory=dict)
     """Resolved restraint context (atom indices already resolved against the
@@ -110,6 +114,7 @@ def run_window(work_dir: str | pathlib.Path) -> None:
     import json
 
     import numpy as np
+    import openmm.app as app
 
     # OpenMM-dependent imports are local so importing this module stays cheap.
     from gluebind.restraints import boresch, rmsd, separation
@@ -194,6 +199,32 @@ def run_window(work_dir: str | pathlib.Path) -> None:
     sb.minimise_and_set_temperature(
         simulation, integrator, target_temperature_K=spec.temperature_K
     )
+
+    # Optional diagnostics mirror the original protocol's reporters. They are
+    # attached before the equilibration discard so the complete window history is
+    # available; RED/WHAM still use only cv_timeseries.dat downstream.
+    if spec.save_state_data:
+        simulation.reporters.append(
+            app.StateDataReporter(
+                str(work_dir / "state_data.csv"),
+                spec.state_data_interval_steps,
+                step=True,
+                time=True,
+                potentialEnergy=True,
+                kineticEnergy=True,
+                totalEnergy=True,
+                temperature=True,
+                volume=True,
+                density=True,
+                speed=True,
+            )
+        )
+    if spec.save_trajectories:
+        simulation.reporters.append(
+            app.DCDReporter(
+                str(work_dir / "trajectory.dcd"), spec.trajectory_interval_steps
+            )
+        )
 
     ns_per_step = spec.timestep_fs * 1e-6
     samples = sb.collect_cv_samples(

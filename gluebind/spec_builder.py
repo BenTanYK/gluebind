@@ -134,6 +134,10 @@ class SpecBuilder:
             "pme_cutoff_nm": s.pme_cutoff_nm,
             "temperature_K": s.temperature_K,
             "sample_interval_steps": s.sample_interval_steps,
+            "state_data_interval_steps": s.state_data_interval_steps,
+            "trajectory_interval_steps": s.trajectory_interval_steps,
+            "save_state_data": s.save_state_data,
+            "save_trajectories": s.save_trajectories,
         }
 
     def _always_on_entries(self, always_ons: list[AlwaysOn]) -> list[dict]:
