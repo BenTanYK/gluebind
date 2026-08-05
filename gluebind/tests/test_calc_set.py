@@ -157,17 +157,28 @@ def test_experimental_values_from_benchmark_yaml(tmp_path):
     _system(tmp_path, "A", TERNARY_YAML)
     _system(tmp_path, "B", BINARY_YAML)
     (tmp_path / "benchmark.yaml").write_text(
-        yaml.safe_dump({"experimental_dg": {"A": -10.0, "B": -8.0}})
+        yaml.safe_dump(
+            {
+                "experimental_dg": {"A": -10.0, "B": -8.0},
+                "experimental_dg_error": {"A": 0.2, "B": 0.3},
+            }
+        )
     )
     cset = CalcSet(tmp_path, LocalBackend())
     assert cset.experimental == {"A": -10.0, "B": -8.0}
+    assert cset.experimental_errors == {"A": 0.2, "B": 0.3}
 
 
 def test_analyse_aggregates_and_writes_csv(tmp_path):
     _system(tmp_path, "A", TERNARY_YAML)
     _system(tmp_path, "B", BINARY_YAML)
     (tmp_path / "benchmark.yaml").write_text(
-        yaml.safe_dump({"experimental_dg": {"A": -10.0, "B": -8.0}})
+        yaml.safe_dump(
+            {
+                "experimental_dg": {"A": -10.0, "B": -8.0},
+                "experimental_dg_error": {"A": 0.2, "B": 0.3},
+            }
+        )
     )
     cset = CalcSet(tmp_path, LocalBackend())
 
@@ -194,6 +205,7 @@ def test_analyse_aggregates_and_writes_csv(tmp_path):
 
     assert [r["system"] for r in out["results"]] == ["A", "B"]
     assert out["results"][0]["experimental_dg"] == -10.0
+    assert out["results"][0]["experimental_dg_error"] == 0.2
     assert out["stats"]["full"]["n"] == 2
     assert out["stats"]["full"]["r2"] == pytest.approx(
         1.0

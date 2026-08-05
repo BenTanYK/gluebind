@@ -13,9 +13,11 @@ Because each system carries its own full config, systems can differ freely —
 ternary complexes with a glue, binary PPIs with none, different targets/mutants —
 without any shared-base machinery.
 
-Optional experimental ΔG° values (for correlation statistics) live in a
-``benchmark.yaml`` at ``base_dir`` (``experimental_dg: {name: value}``) — the one
-genuinely set-level input. Aggregation stays dependency-light (numpy + stdlib
+Optional experimental ΔG° values and errors live in a ``benchmark.yaml`` at
+``base_dir``: ``experimental_dg: {name: value}`` and
+``experimental_dg_error: {name: standard_error}``. Errors are carried into
+result rows and ``results.csv`` but are not currently used to weight the
+correlation statistics. Aggregation stays dependency-light (numpy + stdlib
 ``csv``); plotting is intentionally left out of the core.
 """
 
@@ -55,6 +57,9 @@ class CalcSet(SimulationRunner):
         self.experimental = self._load_experimental(
             self.base_dir / self.MANIFEST_FILENAME
         )
+        self.experimental_errors = self._load_experimental_errors(
+            self.base_dir / self.MANIFEST_FILENAME
+        )
         self.calcs: dict[str, Calculation] = {}
         for system_dir in self._system_dirs(self.base_dir):
             self.calcs[system_dir.name] = Calculation.from_config(
@@ -85,6 +90,17 @@ class CalcSet(SimulationRunner):
         data = yaml.safe_load(manifest_path.read_text()) or {}
         return {
             str(k): float(v) for k, v in (data.get("experimental_dg") or {}).items()
+        }
+
+    @staticmethod
+    def _load_experimental_errors(manifest_path: pathlib.Path) -> dict[str, float]:
+        """Optional ``{name: experimental_dg_error}`` mapping."""
+        if not manifest_path.exists():
+            return {}
+        data = yaml.safe_load(manifest_path.read_text()) or {}
+        return {
+            str(k): float(v)
+            for k, v in (data.get("experimental_dg_error") or {}).items()
         }
 
     def prepare(self) -> None:
@@ -209,6 +225,8 @@ class CalcSet(SimulationRunner):
             row = {"system": name, **result}
             if name in self.experimental:
                 row["experimental_dg"] = self.experimental[name]
+            if name in self.experimental_errors:
+                row["experimental_dg_error"] = self.experimental_errors[name]
             rows.append(row)
 
         stats = correlation_stats(rows)
