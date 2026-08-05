@@ -20,66 +20,60 @@ prep:
   glue_forcefield: openff_unconstrained_2.2.1
   water_model: tip3p
   box_type: truncatedOctahedron
-  box_padding_angstrom: 15.0
-  bulk_box_padding_angstrom: 20.0
-  ion_concentration_M: 0.15
+  box_padding_angstrom: 15.0       # Å; complex solvent padding
+  bulk_box_padding_angstrom: 20.0  # Å; isolated receptor/target padding
+  ion_concentration_M: 0.15       # mol L^-1; ionic strength for solvation
   neutralise: true
-  minimisation_steps: 10000
-  nvt_heat_ns: 0.2
-  npt_ns: 0.4
-  equilibration_ns: 50.0
+  minimisation_steps: 10000       # integration steps
+  nvt_heat_ns: 0.2                # ns; NVT heating
+  npt_ns: 0.4                     # ns; NPT equilibration
+  equilibration_ns: 50.0          # ns; production equilibration
 
 sampling:
-  timestep_fs: 4.0
-  hmr_factor: 1.5
-  pme_cutoff_nm: 1.0
-  temperature_K: 300.0
-  sample_interval_steps: 125
-  ensemble_size: 3
+  timestep_fs: 4.0              # fs
+  hmr_factor: 1.5               # dimensionless; hydrogen-mass repartitioning
+  pme_cutoff_nm: 1.0            # nm; PME real-space cutoff
+  temperature_K: 300.0          # K
+  sample_interval_steps: 125    # integration steps between saved samples
+  ensemble_size: 3              # independent replicas per window
   run_rmsd_us: true
   boresch:
-    force_constant: 100.0
-    sampling_time_ns: 5.0
-    equil_discard_ns: 1.0
-    window_spacing: 0.1
-    window_min: null
-    window_max: null
-    coarse_from: null
-    coarse_spacing: null
-    smd_snapshot_spacing: null
-    smd_capture_max: null
-    smd_pull_margin: null
-    centres: null
+    force_constant: 100.0       # kcal mol^-1 rad^-2
+    sampling_time_ns: 5.0       # ns; recorded sampling per window
+    equil_discard_ns: 1.0       # ns; discarded equilibration per window
+    window_spacing: 0.1         # rad; angular window spacing
+    window_min: null             # rad
+    window_max: null             # rad
+    coarse_from: null            # rad
+    coarse_spacing: null         # rad
+    centres: null                # rad; explicit window centres
     auto_extend: false
     overrides: {}
   rmsd:
-    force_constant: 5.0
-    sampling_time_ns: 20.0
-    equil_discard_ns: 0.0
-    window_spacing: 0.2
-    window_min: 0.0
-    window_max: 2.2
-    coarse_from: null
-    coarse_spacing: null
-    smd_snapshot_spacing: null
-    smd_capture_max: null
-    smd_pull_margin: null
-    centres: null
+    force_constant: 5.0         # kcal mol^-1 Å^-2
+    sampling_time_ns: 20.0       # ns; recorded sampling per window
+    equil_discard_ns: 0.0        # ns; discarded equilibration per window
+    window_spacing: 0.2          # Å; RMSD window spacing
+    window_min: 0.0              # Å
+    window_max: 2.2              # Å
+    coarse_from: null            # Å
+    coarse_spacing: null         # Å
+    centres: null                # Å; explicit window centres
     auto_extend: true
     overrides: {}
   separation:
-    force_constant: 10.0
-    sampling_time_ns: 30.0
-    equil_discard_ns: 0.0
-    window_spacing: 0.05
-    window_min: 0.9
-    window_max: 3.0
-    coarse_from: 2.1
-    coarse_spacing: 0.1
-    smd_snapshot_spacing: 0.05
-    smd_capture_max: 4.0
-    smd_pull_margin: 0.5
-    centres: null
+    force_constant: 10.0        # kcal mol^-1 Å^-2
+    sampling_time_ns: 30.0       # ns; recorded sampling per window
+    equil_discard_ns: 0.0        # ns; discarded equilibration per window
+    window_spacing: 0.05         # nm; separation window spacing
+    window_min: 0.9              # nm
+    window_max: 3.0              # nm
+    coarse_from: 2.1             # nm
+    coarse_spacing: 0.1          # nm
+    smd_snapshot_spacing: 0.05   # nm; SMD snapshot grid
+    smd_capture_max: 4.0         # nm; largest SMD snapshot separation
+    smd_pull_margin: 0.5         # nm; extra SMD pull distance
+    centres: null                # nm; explicit window centres
     auto_extend: false
     overrides: {}
 
