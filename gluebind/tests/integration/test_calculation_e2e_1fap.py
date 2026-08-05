@@ -50,7 +50,8 @@ def _calc(cfg, base_dir):
     from gluebind.runners import Calculation
 
     slurm = SlurmConfig(
-        partition=os.environ.get("GLUEBIND_TEST_SLURM_PARTITION", "test")
+        partition=os.environ.get("GLUEBIND_TEST_SLURM_PARTITION", "test"),
+        time="00:25:00",
     )
     return Calculation.from_config(
         cfg,
