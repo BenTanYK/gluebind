@@ -118,7 +118,15 @@ def test_separation_plateau_reached():
 
     sloped = -2.0 * x  # never flattens
     reached2, grad2 = fe.separation_plateau_reached(x, sloped)
-    assert not reached2 and abs(grad2) > 0.1
+    assert not reached2 and abs(grad2) > 0.5
+
+    accepted = -0.4 * x
+    reached3, grad3 = fe.separation_plateau_reached(x, accepted)
+    assert reached3 and abs(grad3) == pytest.approx(0.4)
+
+    rejected = -0.6 * x
+    reached4, grad4 = fe.separation_plateau_reached(x, rejected)
+    assert not reached4 and abs(grad4) == pytest.approx(0.6)
 
 
 def test_contribution_converged_bracketed_well():

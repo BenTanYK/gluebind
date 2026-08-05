@@ -161,7 +161,7 @@ def integrands(x, pmf, force_constant: float, *, temperature: float = TEMPERATUR
 
 
 def separation_plateau_reached(
-    cv, pmf, *, window_nm: float = 0.4, tol: float = 0.1
+    cv, pmf, *, window_nm: float = 0.4, tol: float = 0.5
 ) -> tuple[bool, float]:
     """Whether the separation PMF has flattened at large separation.
 
