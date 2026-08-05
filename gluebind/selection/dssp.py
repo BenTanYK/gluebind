@@ -8,6 +8,7 @@ verified); ``is_structured`` (pure) classifies a DSSP code.
 from __future__ import annotations
 
 # DSSP one-letter codes considered "structured": helices (H/G/I) and sheets (E/B).
+# pi and 3-10 helices are allowed.
 STRUCTURED_CODES = frozenset({"H", "G", "I", "E", "B"})
 
 

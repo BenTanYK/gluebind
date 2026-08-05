@@ -31,6 +31,12 @@ def test_box_length():
     assert box_length([0, 0, 0], [1, 2, 3], 1.5) == 6.0  # max dim 3 + 2*1.5
 
 
+def test_bulk_padding_default_is_larger_than_complex_padding():
+    config = PrepConfig()
+    assert config.box_padding_angstrom == 15.0
+    assert config.bulk_box_padding_angstrom == 20.0
+
+
 def test_normalise_ff_name():
     assert (
         normalise_ff_name("openff_unconstrained-2.2.1") == "openff_unconstrained_2_2_1"

@@ -494,7 +494,7 @@ def _extract_bulk(
             prep_config.box_type,
             box_length(
                 *_bounding_box(isolated),
-                prep_config.box_padding_angstrom * BSS.Units.Length.angstrom,
+                prep_config.bulk_box_padding_angstrom * BSS.Units.Length.angstrom,
             ),
         )[0],
         is_neutral=prep_config.neutralise,

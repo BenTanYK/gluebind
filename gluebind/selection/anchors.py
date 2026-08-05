@@ -1,4 +1,4 @@
-"""Automated Boresch anchor selection (new code — the template did this by eye).
+"""Automated Boresch anchor selection.
 
 Given candidate receptor/ligand Cα atoms (RMSF minima, secondary-structure
 filtered) and their coordinates over the equilibration trajectory, enumerate the

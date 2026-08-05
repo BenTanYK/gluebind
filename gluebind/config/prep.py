@@ -25,6 +25,13 @@ class PrepConfig(pydantic.BaseModel):
     water_model: str = "tip3p"
     box_type: str = "truncatedOctahedron"
     box_padding_angstrom: float = 15.0
+    """Solvent padding for the assembled complex."""
+    bulk_box_padding_angstrom: float = 20.0
+    """Solvent padding for isolated receptor/target bulk reference systems.
+
+    This is intentionally larger than the complex padding to reduce periodic-image
+    artefacts in the unbound RMSD umbrella windows.
+    """
     ion_concentration_M: float = 0.15
     neutralise: bool = True
 
@@ -42,6 +49,7 @@ class PrepConfig(pydantic.BaseModel):
 
     @pydantic.field_validator(
         "box_padding_angstrom",
+        "bulk_box_padding_angstrom",
         "nvt_heat_ns",
         "npt_ns",
         "equilibration_ns",
