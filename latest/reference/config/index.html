@@ -4548,7 +4548,10 @@ default to automatic selection from RMSF minima.</p>
     <div class="doc doc-contents ">
 
         <p>Either <code>"auto"</code> or an explicit mapping with keys <code>b</code>, <code>c</code>, <code>B</code>,
-<code>C</code> to 0-indexed atom indices.</p>
+<code>C</code> to 1-based residue IDs from the corresponding input topology.</p>
+<p><code>b</code> and <code>c</code> refer to receptor residues; <code>B</code> and <code>C</code> refer to target
+residues. Each residue must contain exactly one Cα atom. The resolved
+complex atom indices are stored internally in the run state.</p>
 
     </div>
 
