@@ -75,5 +75,4 @@ To get started, see the [documentation](https://BenTanYK.github.io/gluebind/late
 
 ### Acknowledgements
 
-Project based on the
-[Computational Molecular Science Python Cookiecutter](https://github.com/molssi/cookiecutter-cms) version 1.1, with help from [Finlay Clark](https://github.com/fjclark)'s [useful tutorial](https://github.com/fjclark/python_package_tutorial).
+Project based on the Simon Boothroyd's excellent [cookiecutter](https://github.com/SimonBoothroyd/python-template/tree/main), with help from [Finlay Clark](https://github.com/fjclark)'s [useful tutorial](https://github.com/fjclark/python_package_tutorial).
