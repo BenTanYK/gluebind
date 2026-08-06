@@ -44,15 +44,27 @@ def _e2e_config(fap_inputs):
     return cfg
 
 
+def _test_slurm_config():
+    """Load a user-supplied SlurmConfig, or use generic test defaults."""
+    from gluebind.config.slurm import SlurmConfig
+
+    config_path = os.environ.get("GLUEBIND_TEST_SLURM_CONFIG")
+    if config_path:
+        import yaml
+
+        data = yaml.safe_load(pathlib.Path(config_path).read_text()) or {}
+        return SlurmConfig.model_validate(data)
+    return SlurmConfig(
+        partition=os.environ.get("GLUEBIND_TEST_SLURM_PARTITION", "test"),
+        time=os.environ.get("GLUEBIND_TEST_SLURM_TIME", "00:30:00"),
+    )
+
+
 def _calc(cfg, base_dir):
     from gluebind.backend import SlurmBackend
-    from gluebind.config.slurm import SlurmConfig
     from gluebind.runners import Calculation
 
-    slurm = SlurmConfig(
-        partition=os.environ.get("GLUEBIND_TEST_SLURM_PARTITION", "test"),
-        time="00:25:00",
-    )
+    slurm = _test_slurm_config()
     return Calculation.from_config(
         cfg,
         SlurmBackend(slurm),

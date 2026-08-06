@@ -25,12 +25,8 @@ class SlurmConfig(pydantic.BaseModel):
 
     model_config = pydantic.ConfigDict(validate_assignment=True)
 
-    partition: str = pydantic.Field(
-        "main", description="SLURM partition to submit to."
-    )
-    time: str = pydantic.Field(
-        "24:00:00", description="Time limit for each SLURM job."
-    )
+    partition: str = pydantic.Field("main", description="SLURM partition to submit to.")
+    time: str = pydantic.Field("24:00:00", description="Time limit for each SLURM job.")
     memory: str | None = pydantic.Field(
         "4G",
         description=(
