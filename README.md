@@ -72,3 +72,8 @@ anywhere on your `PATH`; gluebind resolves it the same way.
 ## Getting Started
 
 To get started, see the [documentation](https://BenTanYK.github.io/gluebind/latest/).
+
+### Acknowledgements
+
+Project based on the
+[Computational Molecular Science Python Cookiecutter](https://github.com/molssi/cookiecutter-cms) version 1.1, with help from [Finlay Clark](https://github.com/fjclark)'s [useful tutorial](https://github.com/fjclark/python_package_tutorial).
