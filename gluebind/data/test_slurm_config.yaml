@@ -11,7 +11,8 @@ gres: gpu:1
 nodes: 1
 ntasks_per_node: 1
 output: slurm-%A.%a.out
-extra_options: {}
+extra_options:
+  cpus-per-task: "32"
 queue_check_interval: 30
 job_submission_wait: 300
 queue_len_lim: 2000
