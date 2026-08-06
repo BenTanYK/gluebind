@@ -25,21 +25,48 @@ class SlurmConfig(pydantic.BaseModel):
 
     model_config = pydantic.ConfigDict(validate_assignment=True)
 
-    partition: str = "main"
-    time: str = "24:00:00"
-    memory: str | None = "4G"
-    """Memory request per job. Set to ``None`` to use the partition default."""
-    gres: str = "gpu:1"
-    nodes: int = pydantic.Field(1, ge=1)
-    ntasks_per_node: int = pydantic.Field(1, ge=1)
-    output: str = "slurm-%A.%a.out"
-    extra_options: dict[str, str] = pydantic.Field(default_factory=dict)
-    queue_check_interval: int = pydantic.Field(30, ge=1)
-    """Seconds between ``squeue`` polls."""
-    job_submission_wait: int = pydantic.Field(300, ge=1)
-    """Seconds to wait for a submitted job to appear in the real queue."""
-    queue_len_lim: int = pydantic.Field(2000, ge=1)
-    """Max jobs the scheduler keeps in the real SLURM queue at once."""
+    partition: str = pydantic.Field(
+        "main", description="SLURM partition to submit to."
+    )
+    time: str = pydantic.Field(
+        "24:00:00", description="Time limit for each SLURM job."
+    )
+    memory: str | None = pydantic.Field(
+        "4G",
+        description=(
+            "Memory to request for each SLURM job; use None to accept the "
+            "partition default."
+        ),
+    )
+    gres: str = pydantic.Field(
+        "gpu:1", description="Generic resources to request, normally one GPU."
+    )
+    nodes: int = pydantic.Field(
+        1, ge=1, description="Number of nodes to request for each SLURM job."
+    )
+    ntasks_per_node: int = pydantic.Field(
+        1, ge=1, description="Number of tasks to run on each allocated node."
+    )
+    output: str = pydantic.Field(
+        "slurm-%A.%a.out", description="Output file pattern for each SLURM job."
+    )
+    extra_options: dict[str, str] = pydantic.Field(
+        default_factory=dict,
+        description="Additional sbatch options rendered as key-value directives.",
+    )
+    queue_check_interval: int = pydantic.Field(
+        30, ge=1, description="Seconds between SLURM queue polls."
+    )
+    job_submission_wait: int = pydantic.Field(
+        300,
+        ge=1,
+        description="Seconds to wait for a submitted job to appear in the queue.",
+    )
+    queue_len_lim: int = pydantic.Field(
+        2000,
+        ge=1,
+        description="Maximum number of jobs allowed in the SLURM queue at once.",
+    )
 
     def render_script(self, cmd: str) -> str:
         """Render an sbatch script body for ``cmd``."""
