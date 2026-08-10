@@ -306,7 +306,8 @@ def run_steered_md(
         "k_smd", k_smd * unit.kilocalories_per_mole / unit.angstrom**2
     )
     steer.addGlobalParameter(
-        "r0", initial_r0_nm * unit.nanometers  # ty: ignore[unresolved-attribute]
+        "r0",
+        initial_r0_nm * unit.nanometers,  # ty: ignore[unresolved-attribute]
     )
     steer.addCollectiveVariable("cv", cv)
     system.addForce(steer)
@@ -341,7 +342,8 @@ def run_steered_md(
             break
         r0 += per_increment
         simulation.context.setParameter(
-            "r0", r0 * unit.nanometers  # ty: ignore[unresolved-attribute]
+            "r0",
+            r0 * unit.nanometers,  # ty: ignore[unresolved-attribute]
         )
         simulation.step(increment_steps)
         current = steer.getCollectiveVariableValues(simulation.context)[0]

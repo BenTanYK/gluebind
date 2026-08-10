@@ -28,8 +28,7 @@ def build_system(prmtop_path, *, hmr_factor: float = 1.5, pme_cutoff_nm: float =
     system = prmtop.createSystem(
         nonbondedMethod=app.PME,
         hydrogenMass=hmr_factor * unit.amu,  # ty: ignore[unsupported-operator]
-        nonbondedCutoff=pme_cutoff_nm
-        * unit.nanometer,  # ty: ignore[unresolved-attribute]
+        nonbondedCutoff=pme_cutoff_nm * unit.nanometer,  # ty: ignore[unresolved-attribute]
         constraints=app.HBonds,
     )
     return prmtop, system
@@ -38,12 +37,9 @@ def build_system(prmtop_path, *, hmr_factor: float = 1.5, pme_cutoff_nm: float =
 def build_simulation(prmtop, system, *, timestep_fs: float, platform=None):
     """Create a ``Simulation`` with a Langevin-middle integrator at 6 K."""
     integrator = mm.LangevinMiddleIntegrator(
-        INITIAL_TEMPERATURE_K
-        * unit.kelvin,  # ty: ignore[unsupported-operator]
-        FRICTION_PER_PS
-        / unit.picosecond,  # ty: ignore[unresolved-attribute]
-        timestep_fs
-        * unit.femtoseconds,  # ty: ignore[unresolved-attribute]
+        INITIAL_TEMPERATURE_K * unit.kelvin,  # ty: ignore[unsupported-operator]
+        FRICTION_PER_PS / unit.picosecond,  # ty: ignore[unresolved-attribute]
+        timestep_fs * unit.femtoseconds,  # ty: ignore[unresolved-attribute]
     )
     if platform is None:
         simulation = app.Simulation(prmtop.topology, system, integrator)
