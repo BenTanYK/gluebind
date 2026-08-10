@@ -80,9 +80,7 @@ def test_parameterise_glue_charge_is_optional(monkeypatch):
         calls.append(kwargs)
         return _Parameterised()
 
-    monkeypatch.setattr(
-        "gluebind.system.prep.available_forcefields", lambda: ["gaff2"]
-    )
+    monkeypatch.setattr("gluebind.system.prep.available_forcefields", lambda: ["gaff2"])
     monkeypatch.setattr("gluebind.system.prep.load_glue", lambda path: "molecule")
     monkeypatch.setattr(BSS.Parameters, "gaff2", fake_gaff2)
 

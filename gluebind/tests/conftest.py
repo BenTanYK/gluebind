@@ -47,7 +47,7 @@ def fap_inputs() -> dict:
             "rst7": str(d / "receptor.rst7"),
         },
         "target": {"prm7": str(d / "target.prm7"), "rst7": str(d / "target.rst7")},
-        "glue": {"sdf": str(d / "glue.sdf"), "assign_to": "receptor"},
+        "glue": {"mol2": str(d / "glue.mol2"), "assign_to": "receptor"},
         "waters": {"prm7": str(d / "waters.prm7"), "rst7": str(d / "waters.rst7")},
     }
 

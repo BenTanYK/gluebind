@@ -135,8 +135,9 @@ def parameterise_glue(
     ligand_charge: int | str = "auto",
 ):
     """Parameterise the glue small molecule with the named force field."""
-    import BioSimSpace as BSS
     import inspect
+
+    import BioSimSpace as BSS
 
     norm = validate_forcefield(forcefield, available_forcefields())
     molecule = load_glue(path)

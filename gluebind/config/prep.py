@@ -9,8 +9,9 @@ force field, solvation, and the pre-equilibration / equilibration schedule.
 
 from __future__ import annotations
 
-import pydantic
 from typing import Literal
+
+import pydantic
 
 
 class PrepConfig(pydantic.BaseModel):

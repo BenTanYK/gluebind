@@ -18,7 +18,7 @@ return a sane ΔG), not a benchmark against published affinities.
 |------|----------|-----------|------|
 | `receptor.prm7` / `receptor.rst7` | FKBP12 | chain A, residues 1–107 | receptor (glue-presenting protein) |
 | `target.prm7` / `target.rst7` | FRB domain of mTOR | chain B, residues 2018–2112 | target |
-| `glue.sdf` | rapamycin | ligand `RAP`, bound pose | glue (`assign_to: receptor`) |
+| `glue.mol2` | rapamycin | ligand `RAP`, bound pose, precomputed partial charges | glue (`assign_to: receptor`) |
 | `waters.prm7` / `waters.rst7` | crystal waters | `HOH`, 23 waters | optional `waters` input |
 
 Rapamycin binds FKBP12 tightly and the FKBP12·rapamycin surface then recruits
@@ -36,10 +36,13 @@ C₅₁H₇₉NO₁₃, 65 heavy atoms (144 with H), net-neutral; waters 23 TIP3
 ## Provenance / regeneration
 
 Proteins parameterised with `ff19SB` (dry — gluebind assembles and solvates the
-complex itself). tleap renumbers FRB to 1–95. The glue SDF keeps the crystal
-**bound pose**; bond orders were assigned from the RCSB ideal-ligand template
-(`RAP_ideal.sdf`) and hydrogens added — its perceived stereochemistry is the
-crystal's, not the idealised CCD structure. The crystal waters are parameterised
+complex itself). tleap renumbers FRB to 1–95. The source glue SDF keeps the
+crystal **bound pose**; bond orders were assigned from the RCSB ideal-ligand
+template (`RAP_ideal.sdf`) and hydrogens added — its perceived stereochemistry
+is the crystal's, not the idealised CCD structure. For the heavy integration
+tests, `glue.mol2` is generated from that SDF with BioSimSpace/GAFF2 and retains
+the resulting partial charges; `sdf_to_mol2.py` documents that conversion. The
+crystal waters are parameterised
 as `TIP3P` at their crystallographic positions (1FAP already models the water
 hydrogens). Rebuild with `build_inputs.sh` (needs AmberTools + RDKit + network
 access to RCSB).

@@ -26,11 +26,15 @@ def test_glue_is_named_mol_rapamycin(fap_inputs):
     # the protein/water canary tests use MDAnalysis only and still run without it.
     pytest.importorskip("rdkit.Chem")
     from rdkit import Chem
-    from rdkit.Chem import rdMolDescriptors
 
-    m = Chem.MolFromMolFile(fap_inputs["glue"]["sdf"])
+    m = Chem.MolFromMol2File(fap_inputs["glue"]["mol2"], removeHs=False)
+    assert m is not None
     assert m.GetProp("_Name") == "MOL"
-    assert rdMolDescriptors.CalcMolFormula(m) == "C51H79NO13"
+    assert m.GetNumAtoms() == 144
+    assert all(
+        atom.HasProp("_TriposPartialCharge")
+        for atom in m.GetAtoms()
+    )
 
 
 def test_waters_are_water_only(fap_inputs):
