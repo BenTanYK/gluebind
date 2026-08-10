@@ -22,10 +22,11 @@ jobs:
         apt update && apt install -y git make
 
         make env
-        
+
         make lint
+        make typecheck
         make test
-        
+
         make docs
 
     - name: CodeCov
