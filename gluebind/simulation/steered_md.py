@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import sys
 from collections.abc import Callable
 
 import pydantic
@@ -97,6 +98,8 @@ class SmdSpec(pydantic.BaseModel):
     """Distance (nm) to steer past the furthest snapshot target so it is reached."""
     total_steps: int = 750_000
     increment_steps: int = 100
+    state_data_interval_steps: int = 1000
+    """Live progress-report interval, in MD steps."""
     platform: str = "CUDA"
 
     def dump(self, path: str | pathlib.Path) -> pathlib.Path:
@@ -164,6 +167,7 @@ def make_steered_md_runner(
             pme_cutoff_nm=sampling.pme_cutoff_nm,
             timestep_fs=sampling.timestep_fs,
             temperature_K=sampling.temperature_K,
+            state_data_interval_steps=sampling.state_data_interval_steps,
             smd_pull_margin=sampling.separation.smd_pull_margin or 0.5,
             platform=platform,
         )
@@ -220,6 +224,7 @@ def run_smd(work_dir: str | pathlib.Path) -> None:
         smd_pull_margin=spec.smd_pull_margin,
         total_steps=spec.total_steps,
         increment_steps=spec.increment_steps,
+        state_data_interval_steps=spec.state_data_interval_steps,
         platform=mm.Platform.getPlatformByName(spec.platform),
     )
     (work_dir / SMD_RESULT_FILENAME).write_text(json.dumps(frames, indent=2))
@@ -247,6 +252,7 @@ def run_steered_md(
     smd_pull_margin: float = 0.5,
     total_steps: int = 750_000,
     increment_steps: int = 100,
+    state_data_interval_steps: int = 1000,
     platform=None,
 ) -> dict[float, str]:
     """Steer the interface separation outward, saving an rst7 per window centre.
@@ -256,6 +262,7 @@ def run_steered_md(
     builder and restraint modules so the geometry is identical to sampling.
     """
     import openmm as mm
+    import openmm.app as app
     import openmm.unit as unit
 
     from gluebind.restraints import boresch as boresch_mod
@@ -302,6 +309,20 @@ def run_steered_md(
     steer.addCollectiveVariable("cv", cv)
     system.addForce(steer)
     simulation.context.reinitialize(preserveState=True)
+    simulation.reporters.append(
+        app.StateDataReporter(
+            sys.stdout,
+            state_data_interval_steps,
+            step=True,
+            time=True,
+            temperature=True,
+            speed=True,
+            progress=True,
+            remainingTime=True,
+            totalSteps=total_steps,
+            separator="\t",
+        )
+    )
 
     # Pull r0 from the initial value out past the furthest target, snapshotting
     # each target the first time the measured distance reaches it.

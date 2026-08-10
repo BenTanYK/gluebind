@@ -159,7 +159,7 @@ class SamplingConfig(pydantic.BaseModel):
     sample_interval_steps: int = 125
     """Integration steps between recorded CV samples."""
     state_data_interval_steps: int = 1000
-    """Integration steps between StateDataReporter CSV records."""
+    """Integration steps between live StateDataReporter records."""
     trajectory_interval_steps: int = 2500
     """Integration steps between DCD trajectory frames."""
     save_state_data: bool = True

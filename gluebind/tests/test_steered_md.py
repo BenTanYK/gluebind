@@ -99,6 +99,7 @@ class _Sampling:
     pme_cutoff_nm = 1.0
     timestep_fs = 4.0
     temperature_K = 298.15
+    state_data_interval_steps = 1000
 
     class separation:
         smd_pull_margin = 0.5

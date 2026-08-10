@@ -19,6 +19,7 @@ scheduler knowledge — so the same function backs every execution path:
 from __future__ import annotations
 
 import pathlib
+import sys
 from typing import Literal
 
 import pydantic
@@ -200,23 +201,41 @@ def run_window(work_dir: str | pathlib.Path) -> None:
         simulation, integrator, target_temperature_K=spec.temperature_K
     )
 
-    # Optional diagnostics mirror the original protocol's reporters. They are
-    # attached before the equilibration discard so the complete window history is
-    # available; RED/WHAM still use only cv_timeseries.dat downstream.
+    # State data is always streamed to stdout so detached Slurm jobs expose live
+    # progress in their job logs. An optional CSV mirror preserves the detailed
+    # per-window diagnostic artifact. Reporters are attached before the
+    # equilibration discard so the complete window history is available.
+    ns_per_step = spec.timestep_fs * 1e-6
+    equil_steps = int(spec.equil_discard_ns / ns_per_step)
+    sampling_steps = int(spec.sampling_time_ns / ns_per_step)
+    state_reporter_kwargs = {
+        "step": True,
+        "time": True,
+        "potentialEnergy": True,
+        "kineticEnergy": True,
+        "totalEnergy": True,
+        "temperature": True,
+        "volume": True,
+        "density": True,
+        "speed": True,
+        "progress": True,
+        "remainingTime": True,
+        "totalSteps": equil_steps + sampling_steps,
+        "separator": "\t",
+    }
+    simulation.reporters.append(
+        app.StateDataReporter(
+            sys.stdout,
+            spec.state_data_interval_steps,
+            **state_reporter_kwargs,
+        )
+    )
     if spec.save_state_data:
         simulation.reporters.append(
             app.StateDataReporter(
                 str(work_dir / "state_data.csv"),
                 spec.state_data_interval_steps,
-                step=True,
-                time=True,
-                potentialEnergy=True,
-                kineticEnergy=True,
-                totalEnergy=True,
-                temperature=True,
-                volume=True,
-                density=True,
-                speed=True,
+                **state_reporter_kwargs,
             )
         )
     if spec.save_trajectories:
@@ -226,12 +245,11 @@ def run_window(work_dir: str | pathlib.Path) -> None:
             )
         )
 
-    ns_per_step = spec.timestep_fs * 1e-6
     samples = sb.collect_cv_samples(
         simulation,
         bias,
-        equil_steps=int(spec.equil_discard_ns / ns_per_step),
-        sampling_steps=int(spec.sampling_time_ns / ns_per_step),
+        equil_steps=equil_steps,
+        sampling_steps=sampling_steps,
         record_steps=spec.sample_interval_steps,
     )
 
