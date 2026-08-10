@@ -92,8 +92,8 @@ def load_system(prm7: str | pathlib.Path, rst7: str | pathlib.Path):
     return BSS.IO.readMolecules([str(prm7), str(rst7)])
 
 
-def load_glue(sdf: str | pathlib.Path):
-    """Load the glue small molecule from an SDF (unparameterised BSS molecule).
+def load_glue(path: str | pathlib.Path):
+    """Load the glue small molecule from an SDF or MOL2 file.
 
     Enforces the :data:`GLUE_RESNAME` (``MOL``) convention up front, so a
     mis-named glue residue fails at load rather than silently disappearing from
@@ -101,7 +101,12 @@ def load_glue(sdf: str | pathlib.Path):
     """
     import BioSimSpace as BSS
 
-    molecule = BSS.IO.readMolecules(str(sdf))[0]
+    path = pathlib.Path(path)
+    if path.suffix.lower() not in {".sdf", ".mol2"}:
+        raise ValueError(
+            f"glue input must have an .sdf or .mol2 extension, got {path.name!r}"
+        )
+    molecule = BSS.IO.readMolecules(str(path))[0]
     validate_glue_resname([res.name() for res in molecule.getResidues()])
     return molecule
 

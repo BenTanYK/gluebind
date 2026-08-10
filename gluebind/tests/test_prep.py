@@ -80,6 +80,13 @@ def test_validate_glue_resname_rejects_other():
         validate_glue_resname([])  # no residues
 
 
+def test_load_glue_rejects_unknown_extension():
+    from gluebind.system.inputs import load_glue
+
+    with pytest.raises(ValueError, match=".sdf or .mol2"):
+        load_glue("glue.pdb")
+
+
 def test_validate_waters_resnames_accepts_water_names():
     from gluebind.system.inputs import validate_waters_resnames
 

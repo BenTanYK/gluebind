@@ -128,12 +128,12 @@ def available_forcefields() -> list[str]:
     return BSS.Parameters.forceFields()
 
 
-def parameterise_glue(sdf: str | pathlib.Path, forcefield: str):
+def parameterise_glue(path: str | pathlib.Path, forcefield: str):
     """Parameterise the glue small molecule with the named force field."""
     import BioSimSpace as BSS
 
     norm = validate_forcefield(forcefield, available_forcefields())
-    molecule = load_glue(sdf)
+    molecule = load_glue(path)
     return getattr(BSS.Parameters, norm)(molecule).getMolecule()
 
 
@@ -434,7 +434,8 @@ def build_solvated_system(
     glue = None
     assign_to = None
     if inputs.glue is not None:
-        glue = parameterise_glue(inputs.glue.sdf, config.prep.glue_forcefield)
+        glue_path = inputs.glue.sdf or inputs.glue.mol2
+        glue = parameterise_glue(glue_path, config.prep.glue_forcefield)
         assign_to = inputs.glue.assign_to
     waters = None
     if inputs.waters is not None:

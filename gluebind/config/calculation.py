@@ -45,21 +45,28 @@ class MoleculeInput(pydantic.BaseModel):
 
 
 class GlueInput(pydantic.BaseModel):
-    """The molecular glue, supplied as an SDF, and the protein it belongs to.
+    """The molecular glue, supplied as an SDF or MOL2, and its protein partner.
 
     ``assign_to`` records which protein's RMSD CV the glue heavy atoms join
     (chosen by whichever protein the glue binds more strongly). It also drives
     the all-Cα default: the assigned protein's default CV includes the glue.
 
-    Requirement: the glue residue must be named ``MOL`` in the SDF. gluebind
+    Requirement: the glue residue must be named ``MOL`` in the input file. gluebind
     resolves the glue's heavy atoms by that residue name throughout (matching the
     template convention), so any other name will silently miss the glue.
     """
 
     model_config = _CONFIG
 
-    sdf: str
+    sdf: str | None = None
+    mol2: str | None = None
     assign_to: Literal["target", "receptor"]
+
+    @pydantic.model_validator(mode="after")
+    def _exactly_one_file(self):
+        if (self.sdf is None) == (self.mol2 is None):
+            raise ValueError("glue requires exactly one of 'sdf' or 'mol2'")
+        return self
 
 
 class Inputs(pydantic.BaseModel):
@@ -139,7 +146,9 @@ class CalculationConfig(pydantic.BaseModel):
             inputs[molecule]["prm7"] = _abs(inputs[molecule]["prm7"])
             inputs[molecule]["rst7"] = _abs(inputs[molecule]["rst7"])
         if inputs.get("glue"):
-            inputs["glue"]["sdf"] = _abs(inputs["glue"]["sdf"])
+            for key in ("sdf", "mol2"):
+                if inputs["glue"].get(key) is not None:
+                    inputs["glue"][key] = _abs(inputs["glue"][key])
         if inputs.get("waters"):
             inputs["waters"]["prm7"] = _abs(inputs["waters"]["prm7"])
             inputs["waters"]["rst7"] = _abs(inputs["waters"]["rst7"])

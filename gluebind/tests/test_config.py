@@ -58,6 +58,36 @@ def test_waters_input_optional_and_paths_resolve(tmp_path):
     assert resolved.inputs.target.prm7 == str((tmp_path / "t.prm7").resolve())
 
 
+def test_mol2_glue_input_and_path_resolution(tmp_path):
+    cfg = CalculationConfig.model_validate(
+        {
+            "inputs": {
+                **MIN_INPUTS,
+                "glue": {"mol2": "g.mol2", "assign_to": "receptor"},
+            }
+        }
+    )
+    assert cfg.inputs.glue.sdf is None
+    assert cfg.inputs.glue.mol2 == "g.mol2"
+    resolved = cfg.with_resolved_input_paths(tmp_path)
+    assert resolved.inputs.glue.mol2 == str((tmp_path / "g.mol2").resolve())
+
+
+def test_glue_requires_exactly_one_file():
+    base = {"assign_to": "receptor"}
+    with pytest.raises(ValueError, match="exactly one"):
+        CalculationConfig.model_validate({"inputs": {**MIN_INPUTS, "glue": base}})
+    with pytest.raises(ValueError, match="exactly one"):
+        CalculationConfig.model_validate(
+            {
+                "inputs": {
+                    **MIN_INPUTS,
+                    "glue": {**base, "sdf": "g.sdf", "mol2": "g.mol2"},
+                }
+            }
+        )
+
+
 def test_config_hash_changes_with_content():
     a = _min_cfg()
     b = _min_cfg()
