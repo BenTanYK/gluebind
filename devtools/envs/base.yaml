@@ -17,12 +17,13 @@ dependencies:
   - pydantic >=2
   - numpy
   - pyyaml
-  - mdanalysis >=2.8      
-  - parmed                
-  - openmm >=8            
-  - red-molsim           
+  - mdanalysis >=2.8
+  - parmed
+  - openmm =8.2
+  - cuda-version =12.4.*
+  - red-molsim
 
-  - biosimspace       
+  - biosimspace
   - ambertools
   - gromacs
 

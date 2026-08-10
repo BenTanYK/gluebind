@@ -18,7 +18,8 @@ dependencies:
   - pyyaml
   - mdanalysis >=2.8
   - parmed
-  - openmm >=8
+  - openmm =8.2
+  - cuda-version =12.4.*
   - red-molsim
 
   - biosimspace
