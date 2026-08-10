@@ -39,6 +39,13 @@ line-length = 88
 ignore = ["C901"]
 select = ["B","C","E","F","W","B9"]
 
+[tool.ty.environment]
+python-version = "3.10"
+
+[tool.ty.src]
+include = ["gluebind"]
+exclude = ["gluebind/tests/**"]
+
 [tool.coverage.run]
 omit = ["**/tests/*"]
 

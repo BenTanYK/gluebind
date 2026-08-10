@@ -21,6 +21,7 @@ import pathlib
 import subprocess
 import threading
 from collections.abc import Sequence
+from typing import TextIO
 
 from gluebind.backend.base import Backend, JobHandle, JobSpec, JobState
 
@@ -53,7 +54,9 @@ class LocalBackend(Backend):
             self._max_concurrent = None  # unlimited (the default testing behaviour)
         self._counter = itertools.count(1)
         self._pending: list[tuple[str, JobSpec]] = []
-        self._running: dict[str, tuple[subprocess.Popen, object, int | None]] = {}
+        self._running: dict[
+            str, tuple[subprocess.Popen[bytes], TextIO, int | None]
+        ] = {}
         self._terminal: dict[str, JobState] = {}
         self._free_gpus: list[int] | None = (
             list(self._gpu_ids) if self._gpu_ids else None

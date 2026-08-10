@@ -114,8 +114,12 @@ def run_production(work_dir: str | pathlib.Path) -> None:
     # integrator cold (INITIAL_TEMPERATURE_K, for the heated window path), so set the
     # Langevin thermostat bath — not just the initial velocities — to the target here;
     # otherwise the thermostat would drive the whole run down to that cold temperature.
-    integrator.setTemperature(spec.temperature_K * unit.kelvin)
-    simulation.context.setVelocitiesToTemperature(spec.temperature_K * unit.kelvin)
+    integrator.setTemperature(
+        spec.temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
+    )
+    simulation.context.setVelocitiesToTemperature(
+        spec.temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
+    )
     n_steps = int(round(spec.runtime_ns / (spec.timestep_fs * 1e-6)))
     simulation.reporters.append(
         app.DCDReporter(f"{prefix}.dcd", spec.sample_interval_steps)

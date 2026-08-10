@@ -454,6 +454,8 @@ def build_solvated_system(
     assign_to = None
     if inputs.glue is not None:
         glue_path = inputs.glue.sdf or inputs.glue.mol2
+        if glue_path is None:
+            raise RuntimeError("glue input must provide an SDF or MOL2 path")
         glue = parameterise_glue(
             glue_path,
             config.prep.glue_forcefield,
@@ -512,15 +514,15 @@ def _extract_bulk(
     isolated = system[indices[0]]
     for i in indices[1:]:
         isolated = isolated + system[i]
+    box_min, box_max = _bounding_box(isolated)
+    padding = prep_config.bulk_box_padding_angstrom * BSS.Units.Length.angstrom
+    edge = box_length(box_min, box_max, padding)
     solvated = BSS.Solvent.solvate(
         prep_config.water_model,
         molecule=isolated.toSystem() if hasattr(isolated, "toSystem") else isolated,
         box=BSS.Box.generateBoxParameters(
             prep_config.box_type,
-            box_length(
-                *_bounding_box(isolated),
-                prep_config.bulk_box_padding_angstrom * BSS.Units.Length.angstrom,
-            ),
+            edge,
         )[0],
         is_neutral=prep_config.neutralise,
         ion_conc=prep_config.ion_concentration_M,

@@ -18,7 +18,7 @@ WHAM_REPO ?= https://github.com/agrossfield/wham.git
 WHAM_REF  ?= v2.1.1
 WHAM_SRC  ?=
 
-.PHONY: env wham lint format test test-integration docs docs-deploy
+.PHONY: env wham lint typecheck format test test-integration docs docs-deploy
 
 env:
 	mamba create     --name $(PACKAGE_NAME)
@@ -61,6 +61,9 @@ wham:
 
 lint:
 	$(CONDA_ENV_RUN) ruff check $(PACKAGE_DIR)
+
+typecheck:
+	$(CONDA_ENV_RUN) ty check
 
 format:
 	$(CONDA_ENV_RUN) ruff format $(PACKAGE_DIR)

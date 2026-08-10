@@ -61,6 +61,6 @@ def add_file_handler(
     handler = logging.FileHandler(path)
     handler.setLevel(level)
     handler.setFormatter(logging.Formatter(_FORMAT))
-    handler._gluebind_path = str(path)  # type: ignore[attr-defined]
+    handler.__dict__["_gluebind_path"] = str(path)
     logger.addHandler(handler)
     return handler

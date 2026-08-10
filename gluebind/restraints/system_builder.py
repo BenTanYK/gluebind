@@ -27,8 +27,9 @@ def build_system(prmtop_path, *, hmr_factor: float = 1.5, pme_cutoff_nm: float =
     prmtop = app.AmberPrmtopFile(str(prmtop_path))
     system = prmtop.createSystem(
         nonbondedMethod=app.PME,
-        hydrogenMass=hmr_factor * unit.amu,
-        nonbondedCutoff=pme_cutoff_nm * unit.nanometer,
+        hydrogenMass=hmr_factor * unit.amu,  # ty: ignore[unsupported-operator]
+        nonbondedCutoff=pme_cutoff_nm
+        * unit.nanometer,  # ty: ignore[unresolved-attribute]
         constraints=app.HBonds,
     )
     return prmtop, system
@@ -37,9 +38,12 @@ def build_system(prmtop_path, *, hmr_factor: float = 1.5, pme_cutoff_nm: float =
 def build_simulation(prmtop, system, *, timestep_fs: float, platform=None):
     """Create a ``Simulation`` with a Langevin-middle integrator at 6 K."""
     integrator = mm.LangevinMiddleIntegrator(
-        INITIAL_TEMPERATURE_K * unit.kelvin,
-        FRICTION_PER_PS / unit.picosecond,
-        timestep_fs * unit.femtoseconds,
+        INITIAL_TEMPERATURE_K
+        * unit.kelvin,  # ty: ignore[unsupported-operator]
+        FRICTION_PER_PS
+        / unit.picosecond,  # ty: ignore[unresolved-attribute]
+        timestep_fs
+        * unit.femtoseconds,  # ty: ignore[unresolved-attribute]
     )
     if platform is None:
         simulation = app.Simulation(prmtop.topology, system, integrator)
@@ -74,8 +78,12 @@ def minimise_and_set_temperature(
     target here.
     """
     simulation.minimizeEnergy()
-    integrator.setTemperature(target_temperature_K * unit.kelvin)
-    simulation.context.setVelocitiesToTemperature(target_temperature_K * unit.kelvin)
+    integrator.setTemperature(
+        target_temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
+    )
+    simulation.context.setVelocitiesToTemperature(
+        target_temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
+    )
 
 
 def minimise_and_heat(simulation, integrator, *, target_temperature_K: float) -> None:
@@ -85,11 +93,17 @@ def minimise_and_heat(simulation, integrator, *, target_temperature_K: float) ->
     increment is skipped.
     """
     simulation.minimizeEnergy()
-    simulation.context.setVelocitiesToTemperature(INITIAL_TEMPERATURE_K * unit.kelvin)
+    simulation.context.setVelocitiesToTemperature(
+        INITIAL_TEMPERATURE_K * unit.kelvin  # ty: ignore[unsupported-operator]
+    )
     for temperature in heating_schedule(target_temperature_K):
-        integrator.setTemperature(temperature * unit.kelvin)
+        integrator.setTemperature(
+            temperature * unit.kelvin  # ty: ignore[unsupported-operator]
+        )
         simulation.step(HEATING_STEPS_PER_INCREMENT)
-    integrator.setTemperature(target_temperature_K * unit.kelvin)
+    integrator.setTemperature(
+        target_temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
+    )
 
 
 def glue_heavy_atoms(topology, resname: str = "MOL") -> list[int]:

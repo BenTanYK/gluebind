@@ -25,7 +25,7 @@ from gluebind.analysis.wham import (
     run_wham,
     write_metafile,
 )
-from gluebind.backend.base import JobSpec
+from gluebind.backend.base import Backend, JobSpec
 from gluebind.backend.scheduler import Scheduler
 from gluebind.config.calculation import CalculationConfig
 from gluebind.simulation.window import CV_TIMESERIES_FILENAME
@@ -63,7 +63,7 @@ class WhamPmfProvider:
         *,
         wham_binary: str | pathlib.Path = "wham",
         location: str = "local",
-        backend=None,
+        backend: Backend | None = None,
         num_bins: int | dict | None = None,
         tol: float = 1e-6,
         numpad: int = 0,
@@ -183,4 +183,6 @@ class WhamPmfProvider:
         spec = JobSpec(
             command=cmd, work_dir=str(pathlib.Path(pmf_out).parent), name="wham"
         )
+        if self.backend is None:
+            raise RuntimeError("a backend is required for Slurm WHAM execution")
         Scheduler(self.backend, poll_interval=5.0).run([spec])

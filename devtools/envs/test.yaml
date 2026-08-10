@@ -38,6 +38,10 @@ dependencies:
   - pytest-cov
   - codecov
 
+  # Static type checking
+  - pip:
+      - ty
+
   # Docs
   - mkdocs
   - mkdocs-material

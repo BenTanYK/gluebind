@@ -42,7 +42,9 @@ def add_rmsd_restraint(
         k_name, force_constant * unit.kilocalories_per_mole / unit.angstrom**2
     )
     if centre is not None:
-        force.addGlobalParameter(centre_name, centre * unit.angstrom)
+        force.addGlobalParameter(
+            centre_name, centre * unit.angstrom  # ty: ignore[unsupported-operator]
+        )
     force.addCollectiveVariable("rmsd", mm.RMSDForce(reference_positions, list(atoms)))
     system.addForce(force)
     return force

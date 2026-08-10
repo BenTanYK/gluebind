@@ -480,6 +480,9 @@ class Calculation(SimulationRunner):
     # ---- tree construction -------------------------------------------------
 
     def _build_groups(self) -> list[Group]:
+        spec_builder = self.spec_builder
+        if spec_builder is None:
+            raise RuntimeError("cannot build groups before wiring the calculation")
         groups: list[Group] = []
         for cv_type, stage_specs in self._stage_layout().items():
             stages = [
@@ -490,7 +493,7 @@ class Calculation(SimulationRunner):
                     dof=dof,
                     centres=centres,
                     ensemble_size=self.config.sampling.ensemble_size,
-                    spec_builder=self.spec_builder,
+                    spec_builder=spec_builder,
                     command_factory=self.command_factory,
                 )
                 for name, dof, centres in stage_specs
@@ -746,6 +749,12 @@ class Calculation(SimulationRunner):
                 if stage.dof in state.boresch_eq_values:
                     continue  # already determined on a previous run (resume)
                 self._run_stage(stage, dict(state.boresch_eq_values), state, scheduler)
+                if pmf_provider is None:
+                    raise RuntimeError("a PMF provider is required for Boresch stages")
+                if stage.dof is None:
+                    raise RuntimeError(
+                        f"Boresch stage {stage.name!r} has no degree of freedom"
+                    )
                 cv, pmf, *_ = pmf_provider(stage)  # ignore per-replicate PMFs here
                 state.boresch_eq_values[stage.dof] = pmf_minimum(cv, pmf)
                 state.save(self.base_dir)

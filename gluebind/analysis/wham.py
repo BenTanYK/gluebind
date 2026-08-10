@@ -67,12 +67,13 @@ def run_wham(
 ) -> pathlib.Path:
     """Run ``wham`` to produce ``pmf_out`` from ``metafile``."""
     cmd = build_wham_command(wham_binary, wham_params, metafile, pmf_out)
-    log_handle = open(log, "w") if log is not None else subprocess.DEVNULL
-    try:
-        subprocess.run(cmd, check=True, stdout=log_handle, stderr=subprocess.STDOUT)
-    finally:
-        if log is not None:
-            log_handle.close()
+    if log is None:
+        subprocess.run(
+            cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+        )
+    else:
+        with open(log, "w") as log_handle:
+            subprocess.run(cmd, check=True, stdout=log_handle, stderr=subprocess.STDOUT)
     return pathlib.Path(pmf_out)
 
 
