@@ -10,6 +10,7 @@ force field, solvation, and the pre-equilibration / equilibration schedule.
 from __future__ import annotations
 
 import pydantic
+from typing import Literal
 
 
 class PrepConfig(pydantic.BaseModel):
@@ -22,6 +23,12 @@ class PrepConfig(pydantic.BaseModel):
     ``BSS.Parameters.forceFields()`` with a clear error if unavailable (so an
     env without OpenFF 2.2.1 fails fast rather than silently). Set ``gaff2`` to
     reproduce the paper (GAFF2 + AM1-BCC)."""
+    ligand_charge: int | Literal["auto"] = "auto"
+    """Net charge passed to the small-molecule parameteriser.
+
+    ``"auto"`` omits ``net_charge`` so the selected BioSimSpace parameteriser
+    determines the charge. An integer adds ``net_charge=<value>`` to the call.
+    """
     water_model: str = "tip3p"
     box_type: str = "truncatedOctahedron"
     box_padding_angstrom: float = 15.0

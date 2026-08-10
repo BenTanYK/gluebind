@@ -128,13 +128,31 @@ def available_forcefields() -> list[str]:
     return BSS.Parameters.forceFields()
 
 
-def parameterise_glue(path: str | pathlib.Path, forcefield: str):
+def parameterise_glue(
+    path: str | pathlib.Path,
+    forcefield: str,
+    *,
+    ligand_charge: int | str = "auto",
+):
     """Parameterise the glue small molecule with the named force field."""
     import BioSimSpace as BSS
+    import inspect
 
     norm = validate_forcefield(forcefield, available_forcefields())
     molecule = load_glue(path)
-    return getattr(BSS.Parameters, norm)(molecule).getMolecule()
+    parameteriser = getattr(BSS.Parameters, norm)
+    kwargs = {}
+    if ligand_charge != "auto":
+        parameters = inspect.signature(parameteriser).parameters
+        if "net_charge" not in parameters and not any(
+            p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()
+        ):
+            raise ValueError(
+                f"force field {forcefield!r} does not support an explicit "
+                "net_charge; use ligand_charge='auto'"
+            )
+        kwargs["net_charge"] = ligand_charge
+    return parameteriser(molecule, **kwargs).getMolecule()
 
 
 def assemble_and_solvate(target, receptor, glue, waters, prep_config: PrepConfig):
@@ -435,7 +453,11 @@ def build_solvated_system(
     assign_to = None
     if inputs.glue is not None:
         glue_path = inputs.glue.sdf or inputs.glue.mol2
-        glue = parameterise_glue(glue_path, config.prep.glue_forcefield)
+        glue = parameterise_glue(
+            glue_path,
+            config.prep.glue_forcefield,
+            ligand_charge=config.prep.ligand_charge,
+        )
         assign_to = inputs.glue.assign_to
     waters = None
     if inputs.waters is not None:

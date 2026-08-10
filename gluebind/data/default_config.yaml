@@ -18,6 +18,7 @@ inputs:
 
 prep:
   glue_forcefield: openff_unconstrained_2.2.1
+  ligand_charge: auto       # auto, or an integer passed as net_charge
   water_model: tip3p
   box_type: truncatedOctahedron
   box_padding_angstrom: 15.0       # Å; complex solvent padding

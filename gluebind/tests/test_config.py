@@ -119,6 +119,21 @@ def test_default_force_constants():
     assert s.separation.force_constant == 10.0
 
 
+def test_ligand_charge_defaults_to_auto_and_accepts_integer():
+    assert _min_cfg().prep.ligand_charge == "auto"
+    cfg = CalculationConfig.model_validate(
+        {"inputs": MIN_INPUTS, "prep": {"ligand_charge": -1}}
+    )
+    assert cfg.prep.ligand_charge == -1
+
+
+def test_ligand_charge_rejects_invalid_value():
+    with pytest.raises(ValueError):
+        CalculationConfig.model_validate(
+            {"inputs": MIN_INPUTS, "prep": {"ligand_charge": "guess"}}
+        )
+
+
 def test_extra_top_level_key_forbidden():
     with pytest.raises(ValueError):
         CalculationConfig.model_validate({"inputs": MIN_INPUTS, "bogus": 1})

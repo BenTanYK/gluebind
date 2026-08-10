@@ -65,6 +65,33 @@ def test_validate_forcefield_unknown_raises():
         )
 
 
+def test_parameterise_glue_charge_is_optional(monkeypatch):
+    import BioSimSpace as BSS
+
+    from gluebind.system.prep import parameterise_glue
+
+    calls = []
+
+    class _Parameterised:
+        def getMolecule(self):
+            return "parameterised"
+
+    def fake_gaff2(molecule, **kwargs):
+        calls.append(kwargs)
+        return _Parameterised()
+
+    monkeypatch.setattr(
+        "gluebind.system.prep.available_forcefields", lambda: ["gaff2"]
+    )
+    monkeypatch.setattr("gluebind.system.prep.load_glue", lambda path: "molecule")
+    monkeypatch.setattr(BSS.Parameters, "gaff2", fake_gaff2)
+
+    parameterise_glue("glue.mol2", "gaff2")
+    parameterise_glue("glue.mol2", "gaff2", ligand_charge=-1)
+
+    assert calls == [{}, {"net_charge": -1}]
+
+
 def test_validate_glue_resname_accepts_mol():
     from gluebind.system.inputs import validate_glue_resname
 
