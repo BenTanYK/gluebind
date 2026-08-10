@@ -43,6 +43,7 @@ def _tiny_config(fap_inputs, *, with_waters):
         {
             "inputs": inputs,
             "prep": {
+                "glue_forcefield": "gaff2",
                 "minimisation_steps": 1000,
                 "nvt_heat_ns": 0.1,
                 "npt_ns": 0.1,

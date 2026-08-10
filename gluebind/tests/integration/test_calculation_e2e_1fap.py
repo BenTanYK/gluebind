@@ -29,6 +29,7 @@ def _e2e_config(fap_inputs):
                 "glue": fap_inputs["glue"],
             },
             "prep": {
+                "glue_forcefield": "gaff2",
                 "minimisation_steps": 1000,
                 "nvt_heat_ns": 0.1,
                 "npt_ns": 0.1,
