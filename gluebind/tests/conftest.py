@@ -34,6 +34,11 @@ def data_dir() -> pathlib.Path:
 
 
 @pytest.fixture(scope="session")
+def lenalidomide_sdf() -> pathlib.Path:
+    return DATA_DIR / "8rqa" / "lenalidomide.sdf"
+
+
+@pytest.fixture(scope="session")
 def fap_inputs() -> dict:
     """Paths to the vendored 1FAP fixture (FKBP12·rapamycin·FRB, + crystal waters).
 
