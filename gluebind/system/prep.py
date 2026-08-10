@@ -384,6 +384,7 @@ def _run_production_stage(
             timestep_fs=config.sampling.timestep_fs,
             hmr_factor=config.sampling.hmr_factor,
             pme_cutoff_nm=config.sampling.pme_cutoff_nm,
+            state_data_interval_steps=config.sampling.state_data_interval_steps,
             temperature_K=stage["temperature_end_K"],
             platform=platform,
         )
@@ -534,9 +535,11 @@ def prepare(
 ) -> PreparedSystem:
     """Full preparation: build, equilibrate, extract bulk, and write a manifest.
 
-    Raw-input construction is a single backend job, followed by the existing
-    per-stage complex and bulk equilibration jobs. Consequently Slurm uses one
-    standard GPU allocation for glue charges, assembly, solvation, and all MD.
+    Raw-input construction is a single backend job, followed by the complex and
+    bulk equilibration jobs. The final long complex NVT stage always uses the
+    direct OpenMM production worker; all other equilibration stages use the
+    BioSimSpace worker. Consequently Slurm uses one standard GPU allocation for
+    glue charges, assembly, solvation, and all MD.
 
     Writes ``solvated.*``, ``equilibration/NN_<stage>/output.*``,
     ``{target,receptor}_bulk/{solvated.*,equilibration/NN_<stage>/output.*}`` and
@@ -593,47 +596,31 @@ def prepare(
     assign_to = built.glue_assign_to
 
     plan = equilibration_stage_plan(config.prep)
-    if config.restraints.always_on:
-        # Constant restraints (e.g. the DDB1 surrogate) must be present during the
-        # production run, so run min/heat/NPT in BSS and the production stage in
-        # OpenMM — where the restraint is applied on verified-mapped indices, the
-        # same way the US windows resolve it (BSS's assembly re-indexing never
-        # touches the restrained run).
-        npt_prm7, npt_rst7, _ = run_equilibration_stages(
-            solvated_prm7,
-            solvated_rst7,
-            plan[:3],
-            work_dir / "equilibration",
-            backend,
-            platform=platform,
-            poll_interval=poll_interval,
-            handle_recorder=handle_recorder,
-            handle_label_prefix="complex_",
-        )
-        complex_prm7, complex_rst7, trajectory = _run_production_stage(
-            config,
-            npt_prm7,
-            npt_rst7,
-            plan[3],
-            work_dir / "equilibration" / "04_production",
-            backend,
-            platform=platform,
-            poll_interval=poll_interval,
-            handle_recorder=handle_recorder,
-            handle_label="complex_production",
-        )
-    else:
-        complex_prm7, complex_rst7, trajectory = run_equilibration_stages(
-            solvated_prm7,
-            solvated_rst7,
-            plan,
-            work_dir / "equilibration",
-            backend,
-            platform=platform,
-            poll_interval=poll_interval,
-            handle_recorder=handle_recorder,
-            handle_label_prefix="complex_",
-        )
+    # Keep minimisation, heating, and NPT as BioSimSpace stages, then always run
+    # the final long NVT stage through the direct OpenMM production worker.
+    npt_prm7, npt_rst7, _ = run_equilibration_stages(
+        solvated_prm7,
+        solvated_rst7,
+        plan[:3],
+        work_dir / "equilibration",
+        backend,
+        platform=platform,
+        poll_interval=poll_interval,
+        handle_recorder=handle_recorder,
+        handle_label_prefix="complex_",
+    )
+    complex_prm7, complex_rst7, trajectory = _run_production_stage(
+        config,
+        npt_prm7,
+        npt_rst7,
+        plan[3],
+        work_dir / "equilibration" / "04_production",
+        backend,
+        platform=platform,
+        poll_interval=poll_interval,
+        handle_recorder=handle_recorder,
+        handle_label="complex_production",
+    )
 
     # Bulk reference species: isolate + re-solvate on the driver (cheap), then
     # equilibrate through the backend — no MD runs on the driver.

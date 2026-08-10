@@ -34,6 +34,7 @@ def test_production_spec_defaults():
     spec = ProductionSpec(topology="t.prm7", coordinates="t.rst7", runtime_ns=10.0)
     assert spec.restraints == []  # no constant restraints by default
     assert spec.sample_interval_steps == 2500  # coarse trajectory interval
+    assert spec.state_data_interval_steps == 1000
 
 
 def test_production_launch_command():
@@ -109,6 +110,11 @@ def test_run_production_sets_integrator_bath_to_target(tmp_path, monkeypatch):
     monkeypatch.setattr(rmsd, "add_rmsd_restraint", lambda *a, **k: None)
     monkeypatch.setattr(prod, "_platform", lambda name: None)
     monkeypatch.setattr("openmm.app.DCDReporter", lambda *a, **k: object())
+    reporters = []
+    monkeypatch.setattr(
+        "openmm.app.StateDataReporter",
+        lambda *a, **k: reporters.append((a, k)) or object(),
+    )
 
     topology = tmp_path / "complex.prm7"
     topology.write_text("prm7")  # for the final shutil.copyfile
@@ -131,3 +137,5 @@ def test_run_production_sets_integrator_bath_to_target(tmp_path, monkeypatch):
     # velocities are seeded at the target too
     got = simulation.context.velocity_temperature.value_in_unit(unit.kelvin)
     assert got == pytest.approx(310.0)
+    assert len(reporters) == 1
+    assert reporters[0][1]["totalSteps"] == 2500

@@ -1,12 +1,13 @@
 """OpenMM production-run driver for the final equilibration stage.
 
 The long production run that seeds the US windows (and feeds RMSF/anchor
-selection) is run here in OpenMM — not BioSimSpace — so that any constant
-restraints (e.g. the DDB1-scaffold surrogate for DCAF16) can be applied during
-it, on atom indices resolved exactly as the US windows resolve them. Running it
-in OpenMM (``AmberPrmtopFile`` reads the ``.prm7`` in file order) keeps the
-restraint indexing identical to the US windows and immune to any re-indexing
-BioSimSpace applies (see :mod:`gluebind.system.atom_map`).
+selection) is always run here in OpenMM — not BioSimSpace — so systems with and
+without constant restraints use the same dynamics and live progress output.
+Constant restraints (e.g. the DDB1-scaffold surrogate for DCAF16) are applied
+when configured, on atom indices resolved exactly as the US windows resolve
+them. Running it in OpenMM (``AmberPrmtopFile`` reads the ``.prm7`` in file
+order) keeps the restraint indexing identical to the US windows and immune to
+any re-indexing BioSimSpace applies (see :mod:`gluebind.system.atom_map`).
 
 The run reuses the shared system builder and RMSD restraint module, so the
 geometry is identical to sampling. It is NVT (canonical ensemble, matching the
@@ -18,6 +19,7 @@ are imported lazily inside the run function.
 from __future__ import annotations
 
 import pathlib
+import sys
 
 import pydantic
 
@@ -43,6 +45,8 @@ class ProductionSpec(pydantic.BaseModel):
     temperature_K: float = 300.0
     sample_interval_steps: int = 2500
     """Trajectory (DCD) write interval, in MD steps."""
+    state_data_interval_steps: int = 1000
+    """Live progress-report interval, in MD steps."""
     platform: str = "CUDA"
 
     def dump(self, path: str | pathlib.Path) -> pathlib.Path:
@@ -112,11 +116,24 @@ def run_production(work_dir: str | pathlib.Path) -> None:
     # otherwise the thermostat would drive the whole run down to that cold temperature.
     integrator.setTemperature(spec.temperature_K * unit.kelvin)
     simulation.context.setVelocitiesToTemperature(spec.temperature_K * unit.kelvin)
+    n_steps = int(round(spec.runtime_ns / (spec.timestep_fs * 1e-6)))
     simulation.reporters.append(
         app.DCDReporter(f"{prefix}.dcd", spec.sample_interval_steps)
     )
-
-    n_steps = int(round(spec.runtime_ns / (spec.timestep_fs * 1e-6)))
+    simulation.reporters.append(
+        app.StateDataReporter(
+            sys.stdout,
+            spec.state_data_interval_steps,
+            step=True,
+            time=True,
+            temperature=True,
+            speed=True,
+            progress=True,
+            remainingTime=True,
+            totalSteps=n_steps,
+            separator="\t",
+        )
+    )
     simulation.step(n_steps)
 
     final = simulation.context.getState(getPositions=True)
