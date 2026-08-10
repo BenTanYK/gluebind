@@ -16,6 +16,7 @@ external-input gating here.
 from __future__ import annotations
 
 import importlib.util
+import os
 import pathlib
 import shutil
 
@@ -49,6 +50,23 @@ def fap_inputs() -> dict:
         "glue": {"sdf": str(d / "glue.sdf"), "assign_to": "receptor"},
         "waters": {"prm7": str(d / "waters.prm7"), "rst7": str(d / "waters.rst7")},
     }
+
+
+@pytest.fixture(scope="session")
+def slurm_config():
+    """Slurm settings shared by integration tests that submit MD jobs."""
+    from gluebind.config.slurm import SlurmConfig
+
+    config_path = os.environ.get("GLUEBIND_TEST_SLURM_CONFIG")
+    if config_path:
+        import yaml
+
+        data = yaml.safe_load(pathlib.Path(config_path).read_text()) or {}
+        return SlurmConfig.model_validate(data)
+    return SlurmConfig(
+        partition=os.environ.get("GLUEBIND_TEST_SLURM_PARTITION", "test"),
+        time=os.environ.get("GLUEBIND_TEST_SLURM_TIME", "00:30:00"),
+    )
 
 
 # ---- dependency gating (skip when absent) ----------------------------------

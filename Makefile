@@ -69,15 +69,16 @@ format:
 test:
 	$(CONDA_ENV_RUN) pytest -v $(TEST_ARGS) $(PACKAGE_DIR)/tests/
 
-# Full 1FAP Slurm validation (opt-in). The driver runs on the login node and
-# submits every expensive operation to Slurm. Override the local test partition:
+# Full 1FAP integration validation (opt-in). Expensive preparation and MD work
+# is submitted to Slurm; lightweight fixture/assembly/WHAM checks run in pytest.
+# Override the local test partition:
 #   GLUEBIND_TEST_SLURM_CONFIG=/path/to/slurm_config.yaml make test-integration
 #   GLUEBIND_TEST_SLURM_PARTITION=main GLUEBIND_TEST_SLURM_TIME=02:00:00 make test-integration
 # Use GLUEBIND_TEST_RUN_ROOT to select a shared filesystem location for preserved
 # calculation outputs, or GLUEBIND_TEST_RUN_DIR to resume one specific failed run.
 test-integration:
-	$(CONDA_ENV_RUN) pytest -v -m "integration and slurm" \
-		$(PACKAGE_DIR)/tests/integration/test_calculation_e2e_1fap.py
+	$(CONDA_ENV_RUN) pytest -v -m "integration" \
+		$(PACKAGE_DIR)/tests/integration
 
 docs:
 	$(CONDA_ENV_RUN) mkdocs build

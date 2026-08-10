@@ -44,27 +44,10 @@ def _e2e_config(fap_inputs):
     return cfg
 
 
-def _test_slurm_config():
-    """Load a user-supplied SlurmConfig, or use generic test defaults."""
-    from gluebind.config.slurm import SlurmConfig
-
-    config_path = os.environ.get("GLUEBIND_TEST_SLURM_CONFIG")
-    if config_path:
-        import yaml
-
-        data = yaml.safe_load(pathlib.Path(config_path).read_text()) or {}
-        return SlurmConfig.model_validate(data)
-    return SlurmConfig(
-        partition=os.environ.get("GLUEBIND_TEST_SLURM_PARTITION", "test"),
-        time=os.environ.get("GLUEBIND_TEST_SLURM_TIME", "00:30:00"),
-    )
-
-
-def _calc(cfg, base_dir):
+def _calc(cfg, base_dir, slurm):
     from gluebind.backend import SlurmBackend
     from gluebind.runners import Calculation
 
-    slurm = _test_slurm_config()
     return Calculation.from_config(
         cfg,
         SlurmBackend(slurm),
@@ -86,14 +69,14 @@ def _run_dir() -> pathlib.Path:
     return root / f"1fap-e2e-{uuid.uuid4().hex}"
 
 
-def test_full_pipeline_and_resume(bss, wham_binary, fap_inputs):
+def test_full_pipeline_and_resume(bss, wham_binary, fap_inputs, slurm_config):
     cfg = _e2e_config(fap_inputs)
     run_dir = _run_dir()
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # run() self-prepares and self-defaults the WHAM provider for Boresch
     # feedback. All computational work is submitted through Slurm.
-    calc = _calc(cfg, run_dir)
+    calc = _calc(cfg, run_dir, slurm_config)
     calc.run()
     result = calc.analyse()
     assert result["rmsd_included"] is True
@@ -103,7 +86,7 @@ def test_full_pipeline_and_resume(bss, wham_binary, fap_inputs):
     # file in the relevant job directory, so this detects accidental resubmission.
     scripts_before_resume = sorted(run_dir.rglob("*.sh"))
     assert scripts_before_resume
-    resumed = _calc(cfg, run_dir)
+    resumed = _calc(cfg, run_dir, slurm_config)
     resumed.run()
     result2 = resumed.analyse()
     assert result2["rmsd_included"] is True

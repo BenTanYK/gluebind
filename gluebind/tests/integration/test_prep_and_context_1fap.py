@@ -15,7 +15,7 @@ import pathlib
 
 import pytest
 
-pytestmark = [pytest.mark.integration, pytest.mark.gpu]
+pytestmark = [pytest.mark.integration, pytest.mark.slurm, pytest.mark.gpu]
 
 
 def _tiny_config(fap_inputs, *, with_waters):
@@ -44,14 +44,20 @@ def _tiny_config(fap_inputs, *, with_waters):
 
 
 @pytest.mark.parametrize("with_waters", [False, True], ids=["dry", "wet"])
-def test_prepare_produces_manifest_and_context(bss, fap_inputs, tmp_path, with_waters):
-    from gluebind.backend import LocalBackend
+def test_prepare_produces_manifest_and_context(
+    bss, fap_inputs, slurm_config, tmp_path, with_waters
+):
+    from gluebind.backend import SlurmBackend
     from gluebind.spec_builder import build_restraint_context
     from gluebind.system.prep import prepare
 
     cfg = _tiny_config(fap_inputs, with_waters=with_waters)
     prepared = prepare(
-        cfg, tmp_path, LocalBackend(), platform="CUDA", poll_interval=1.0
+        cfg,
+        tmp_path,
+        SlurmBackend(slurm_config),
+        platform="CUDA",
+        poll_interval=slurm_config.queue_check_interval,
     )
 
     # prep produced the assembled complex + both isolated bulk species
