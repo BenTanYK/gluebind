@@ -11,11 +11,22 @@ real env, expect to lengthen the equilibration if auto anchor selection needs mo
 trajectory frames.
 """
 
+import os
 import pathlib
+import uuid
 
 import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.slurm, pytest.mark.gpu]
+
+
+def _run_dir(*, with_waters: bool) -> pathlib.Path:
+    """Return a shared-filesystem directory, preserving Slurm logs for diagnosis."""
+    root = pathlib.Path(
+        os.environ.get("GLUEBIND_TEST_RUN_ROOT", ".pytest-slurm")
+    ).resolve()
+    case = "wet" if with_waters else "dry"
+    return root / f"1fap-prep-{case}-{uuid.uuid4().hex}"
 
 
 def _tiny_config(fap_inputs, *, with_waters):
@@ -45,16 +56,17 @@ def _tiny_config(fap_inputs, *, with_waters):
 
 @pytest.mark.parametrize("with_waters", [False, True], ids=["dry", "wet"])
 def test_prepare_produces_manifest_and_context(
-    bss, fap_inputs, slurm_config, tmp_path, with_waters
+    bss, fap_inputs, slurm_config, with_waters
 ):
     from gluebind.backend import SlurmBackend
     from gluebind.spec_builder import build_restraint_context
     from gluebind.system.prep import prepare
 
     cfg = _tiny_config(fap_inputs, with_waters=with_waters)
+    run_dir = _run_dir(with_waters=with_waters)
     prepared = prepare(
         cfg,
-        tmp_path,
+        run_dir,
         SlurmBackend(slurm_config),
         platform="CUDA",
         poll_interval=slurm_config.queue_check_interval,
