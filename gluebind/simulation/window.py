@@ -64,7 +64,7 @@ class WindowSpec(pydantic.BaseModel):
     pme_cutoff_nm: float = 1.0
     temperature_K: float = 300.0
     sample_interval_steps: int = 125
-    state_data_interval_steps: int = 1000
+    state_data_interval_steps: int = 10000
     trajectory_interval_steps: int = 2500
     save_state_data: bool = True
     save_trajectories: bool = False

@@ -158,7 +158,7 @@ class SamplingConfig(pydantic.BaseModel):
     free-energy integrals — kept consistent throughout (the paper protocol)."""
     sample_interval_steps: int = 125
     """Integration steps between recorded CV samples."""
-    state_data_interval_steps: int = 1000
+    state_data_interval_steps: int = 10000
     """Integration steps between live StateDataReporter records."""
     trajectory_interval_steps: int = 2500
     """Integration steps between DCD trajectory frames."""
