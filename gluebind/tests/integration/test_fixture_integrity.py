@@ -31,10 +31,7 @@ def test_glue_is_named_mol_rapamycin(fap_inputs):
     assert m is not None
     assert m.GetProp("_Name") == "MOL"
     assert m.GetNumAtoms() == 144
-    assert all(
-        atom.HasProp("_TriposPartialCharge")
-        for atom in m.GetAtoms()
-    )
+    assert all(atom.HasProp("_TriposPartialCharge") for atom in m.GetAtoms())
 
 
 def test_waters_are_water_only(fap_inputs):

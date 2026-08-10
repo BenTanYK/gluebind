@@ -34,7 +34,7 @@ def test_production_spec_defaults():
     spec = ProductionSpec(topology="t.prm7", coordinates="t.rst7", runtime_ns=10.0)
     assert spec.restraints == []  # no constant restraints by default
     assert spec.sample_interval_steps == 2500  # coarse trajectory interval
-    assert spec.state_data_interval_steps == 1000
+    assert spec.state_data_interval_steps == 10000
 
 
 def test_production_launch_command():
@@ -138,4 +138,8 @@ def test_run_production_sets_integrator_bath_to_target(tmp_path, monkeypatch):
     got = simulation.context.velocity_temperature.value_in_unit(unit.kelvin)
     assert got == pytest.approx(310.0)
     assert len(reporters) == 1
+    reporter_args, reporter_kwargs = reporters[0]
+    assert reporter_args[1] == 10000
+    assert reporter_kwargs["potentialEnergy"] is True
+    assert reporter_kwargs["density"] is True
     assert reporters[0][1]["totalSteps"] == 2500

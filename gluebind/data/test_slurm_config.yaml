@@ -4,15 +4,15 @@
 # Cluster users can copy this file, adjust the scheduler-specific fields, and
 # point the integration test at it with GLUEBIND_TEST_SLURM_CONFIG.
 
-partition: test
-time: "00:30:00"
+partition: RTX4060
+time: "24:00:00"
 memory: 4G
 gres: gpu:1
 nodes: 1
 ntasks_per_node: 1
 output: slurm-%A.%a.out
 extra_options:
-  cpus-per-task: "32"
+  cpus-per-task: "16"
 queue_check_interval: 30
 job_submission_wait: 300
 queue_len_lim: 2000

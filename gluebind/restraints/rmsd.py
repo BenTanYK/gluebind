@@ -43,7 +43,8 @@ def add_rmsd_restraint(
     )
     if centre is not None:
         force.addGlobalParameter(
-            centre_name, centre * unit.angstrom  # ty: ignore[unsupported-operator]
+            centre_name,
+            centre * unit.angstrom,  # ty: ignore[unsupported-operator]
         )
     force.addCollectiveVariable("rmsd", mm.RMSDForce(reference_positions, list(atoms)))
     system.addForce(force)

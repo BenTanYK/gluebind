@@ -5,9 +5,7 @@ import pytest
 pytestmark = pytest.mark.integration
 
 
-def test_biosimspace_parameterises_lenalidomide_sdf(
-    bss, lenalidomide_sdf, tmp_path
-):
+def test_biosimspace_parameterises_lenalidomide_sdf(bss, lenalidomide_sdf, tmp_path):
     ligand = bss.IO.readMolecules(str(lenalidomide_sdf))[0]
     process = bss.Parameters.gaff2(ligand, work_dir=str(tmp_path))
     parameterised = process.getMolecule()

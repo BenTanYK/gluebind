@@ -45,7 +45,7 @@ class ProductionSpec(pydantic.BaseModel):
     temperature_K: float = 300.0
     sample_interval_steps: int = 2500
     """Trajectory (DCD) write interval, in MD steps."""
-    state_data_interval_steps: int = 1000
+    state_data_interval_steps: int = 10000
     """Live progress-report interval, in MD steps."""
     platform: str = "CUDA"
 
@@ -130,7 +130,9 @@ def run_production(work_dir: str | pathlib.Path) -> None:
             spec.state_data_interval_steps,
             step=True,
             time=True,
+            potentialEnergy=True,
             temperature=True,
+            density=True,
             speed=True,
             progress=True,
             remainingTime=True,

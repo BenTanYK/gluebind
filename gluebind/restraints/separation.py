@@ -42,7 +42,8 @@ def add_bias(
         "k_r", force_constant * unit.kilocalories_per_mole / unit.angstrom**2
     )
     bias.addGlobalParameter(
-        "r0", r0_nm * unit.nanometers  # ty: ignore[unresolved-attribute]
+        "r0",
+        r0_nm * unit.nanometers,  # ty: ignore[unresolved-attribute]
     )
     bias.addCollectiveVariable("cv", make_cv(rec_group, lig_group))
     system.addForce(bias)

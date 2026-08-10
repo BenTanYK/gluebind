@@ -98,7 +98,7 @@ class SmdSpec(pydantic.BaseModel):
     """Distance (nm) to steer past the furthest snapshot target so it is reached."""
     total_steps: int = 750_000
     increment_steps: int = 100
-    state_data_interval_steps: int = 1000
+    state_data_interval_steps: int = 10000
     """Live progress-report interval, in MD steps."""
     platform: str = "CUDA"
 
@@ -252,7 +252,7 @@ def run_steered_md(
     smd_pull_margin: float = 0.5,
     total_steps: int = 750_000,
     increment_steps: int = 100,
-    state_data_interval_steps: int = 1000,
+    state_data_interval_steps: int = 10000,
     platform=None,
 ) -> dict[float, str]:
     """Steer the interface separation outward, saving an rst7 per window centre.
@@ -306,7 +306,8 @@ def run_steered_md(
         "k_smd", k_smd * unit.kilocalories_per_mole / unit.angstrom**2
     )
     steer.addGlobalParameter(
-        "r0", initial_r0_nm * unit.nanometers  # ty: ignore[unresolved-attribute]
+        "r0",
+        initial_r0_nm * unit.nanometers,  # ty: ignore[unresolved-attribute]
     )
     steer.addCollectiveVariable("cv", cv)
     system.addForce(steer)
@@ -317,7 +318,9 @@ def run_steered_md(
             state_data_interval_steps,
             step=True,
             time=True,
+            potentialEnergy=True,
             temperature=True,
+            density=True,
             speed=True,
             progress=True,
             remainingTime=True,
@@ -339,7 +342,8 @@ def run_steered_md(
             break
         r0 += per_increment
         simulation.context.setParameter(
-            "r0", r0 * unit.nanometers  # ty: ignore[unresolved-attribute]
+            "r0",
+            r0 * unit.nanometers,  # ty: ignore[unresolved-attribute]
         )
         simulation.step(increment_steps)
         current = steer.getCollectiveVariableValues(simulation.context)[0]

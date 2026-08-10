@@ -36,7 +36,7 @@ sampling:
   pme_cutoff_nm: 1.0            # nm; PME real-space cutoff
   temperature_K: 300.0          # K
   sample_interval_steps: 125    # integration steps between saved CV samples
-  state_data_interval_steps: 1000  # integration steps between CSV records
+  state_data_interval_steps: 10000  # integration steps between state reports
   trajectory_interval_steps: 2500  # integration steps between DCD frames
   save_state_data: true          # write per-window energy/thermodynamic CSV
   save_trajectories: false       # write per-window DCD trajectories
