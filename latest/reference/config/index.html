@@ -2748,6 +2748,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gluebind.config.PrepConfig.ligand_charge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;ligand_charge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gluebind.config.PrepConfig.box_padding_angstrom" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4089,6 +4100,20 @@ kept in the complex as solvent and are not carried into the bulk references.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;ligand_charge&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-class-attribute&quot;&gt;&lt;code&gt;class-attribute&lt;/code&gt;&lt;/small&gt;
+      &lt;small class=&quot;doc doc-label doc-label-instance-attribute&quot;&gt;&lt;code&gt;instance-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.config.PrepConfig.ligand_charge&lt;/code&gt;)" href="#gluebind.config.PrepConfig.ligand_charge">ligand_charge</a></code></b>
+              (<code><span title="int">int</span> | <span title="typing.Literal">Literal</span>[&#39;auto&#39;]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Net charge passed to the small-molecule parameteriser.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
           <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;box_padding_angstrom&lt;/span&gt;
 
 
@@ -4194,6 +4219,33 @@ kept in the complex as solvent and are not carried into the bulk references.</p>
 <code>BSS.Parameters.forceFields()</code> with a clear error if unavailable (so an
 env without OpenFF 2.2.1 fails fast rather than silently). Set <code>gaff2</code> to
 reproduce the paper (GAFF2 + AM1-BCC).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="gluebind.config.PrepConfig.ligand_charge" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">ligand_charge</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#gluebind.config.PrepConfig.ligand_charge" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">ligand_charge</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">|</span> <span class="n"><span title="typing.Literal">Literal</span></span><span class="p">[</span><span class="s1">&#39;auto&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Net charge passed to the small-molecule parameteriser.</p>
+<p><code>"auto"</code> omits <code>net_charge</code> so the selected BioSimSpace parameteriser
+determines the charge. An integer adds <code>net_charge=&lt;value&gt;</code> to the call.</p>
 
     </div>
 
