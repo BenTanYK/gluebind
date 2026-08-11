@@ -142,7 +142,10 @@ def run_production(work_dir: str | pathlib.Path) -> None:
     )
     simulation.step(n_steps)
 
-    final = simulation.context.getState(getPositions=True)
+    final = simulation.context.getState(
+        getPositions=True,
+        enforcePeriodicBox=True,
+    )
     sb.save_rst7(
         spec.topology,
         final.getPositions(),
