@@ -31,6 +31,16 @@ RESULT_FILENAME = "result.json"
 CVType = Literal["boresch", "rmsd", "separation"]
 
 
+def remap_periodic_values(values, reference: float):
+    """Map angular values to the nearest 2π-periodic image around ``reference``."""
+    import numpy as np
+
+    values = np.asarray(values, dtype=float)
+    return reference + np.arctan2(
+        np.sin(values - reference), np.cos(values - reference)
+    )
+
+
 class WindowSpec(pydantic.BaseModel):
     """Everything one umbrella-sampling window needs to run, self-contained.
 
@@ -253,6 +263,10 @@ def run_window(work_dir: str | pathlib.Path) -> None:
         record_steps=spec.sample_interval_steps,
     )
 
+    from gluebind.boresch_geometry import DIHEDRAL_DOFS
+
+    if spec.cv_type == "boresch" and spec.dof in DIHEDRAL_DOFS:
+        samples[:, 1] = remap_periodic_values(samples[:, 1], spec.cv_centre)
     np.savetxt(work_dir / CV_TIMESERIES_FILENAME, samples)
     result = {
         "cv_type": spec.cv_type,

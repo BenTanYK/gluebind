@@ -53,8 +53,13 @@ class WindowSampling(pydantic.BaseModel):
     smd_pull_margin: float | None = None
     """(separation) Extra distance (nm) SMD steers past ``smd_capture_max`` to
     guarantee the final snapshot is reached."""
-    centres: list[float] | None = None
-    """Explicit window centres — an escape hatch overriding spacing/range."""
+    centres: list[float] | dict[str, list[float]] | None = None
+    """Explicit window centres — an escape hatch overriding spacing/range.
+
+    For Boresch schedules, a mapping may provide centres for individual DoFs
+    (``thetaA``, ``thetaB``, ``phiA``, ``phiB``, ``phiC``); unspecified DoFs are
+    still derived from the equilibration trajectory.
+    """
     auto_extend: bool = False
     """Add windows beyond ``window_max`` until the ΔG contribution converges."""
     overrides: dict[str, dict] = pydantic.Field(default_factory=dict)

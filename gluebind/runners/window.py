@@ -43,6 +43,10 @@ def enumerate_centres(schedule) -> list[float]:
     is fine (``window_spacing``) up to ``coarse_from`` and coarse
     (``coarse_spacing``) beyond it.
     """
+    if isinstance(schedule.centres, dict):
+        raise ValueError(
+            "per-DoF centres mappings are only valid for Boresch schedules"
+        )
     if schedule.centres is not None:
         return [round(c, 4) for c in schedule.centres]
     if (

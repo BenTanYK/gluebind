@@ -51,7 +51,7 @@ sampling:
     window_max: null             # rad
     coarse_from: null            # rad
     coarse_spacing: null         # rad
-    centres: null                # rad; explicit window centres
+    centres: null                # rad; explicit centres (list or per-DoF mapping)
     auto_extend: false
     overrides: {}
   rmsd:

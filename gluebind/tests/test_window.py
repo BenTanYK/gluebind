@@ -1,9 +1,13 @@
 """Tests for the WindowSpec model and the run_window entry-point contract."""
 
+import numpy as np
 import pytest
 
 from gluebind.simulation import WindowSpec, run_window, window_launch_command
-from gluebind.simulation.window import WINDOW_SPEC_FILENAME
+from gluebind.simulation.window import (
+    WINDOW_SPEC_FILENAME,
+    remap_periodic_values,
+)
 
 
 def _spec() -> WindowSpec:
@@ -50,3 +54,10 @@ def test_windowspec_extra_field_forbidden():
     data = {**_spec().model_dump(), "bogus": 1}
     with pytest.raises(ValueError):
         WindowSpec.model_validate(data)
+
+
+def test_remap_periodic_values_uses_window_centre_image():
+    values = np.array([-3.10, -3.05, 3.05, 3.10])
+    remapped = remap_periodic_values(values, 3.1)
+    assert np.ptp(remapped) < 0.2
+    assert np.allclose(remapped, [3.18318531, 3.23318531, 3.05, 3.1])

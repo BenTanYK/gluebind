@@ -27,9 +27,14 @@ def test_boresch_centres_respects_spacing():
     assert centres[-1] >= 0.5
 
 
-def test_boresch_centres_raises_on_branch_cut_straddle():
-    # A dihedral clustered near both -pi and +pi: raw [min,max] spans ~2pi but the
-    # true circular spread is tiny -> naive grid would cover a huge unsampled arc.
+def test_boresch_centres_periodically_unwrap_dihedral_branch_cut():
+    # A dihedral clustered near both -pi and +pi is compact on the circle.
+    series = np.array([-3.10, -3.08, -3.05, 3.05, 3.10, 3.12])
+    centres = boresch_centres_from_series(series, 0.1, periodic=True)
+    assert max(centres) - min(centres) < 0.4
+
+
+def test_boresch_centres_linear_mode_rejects_branch_cut_straddle():
     series = np.array([-3.10, -3.05, 3.05, 3.10])
     with pytest.raises(ValueError, match="straddle"):
         boresch_centres_from_series(series, 0.1)
