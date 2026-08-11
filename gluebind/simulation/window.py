@@ -76,7 +76,6 @@ class WindowSpec(pydantic.BaseModel):
     sample_interval_steps: int = 125
     state_data_interval_steps: int = 10000
     trajectory_interval_steps: int = 2500
-    save_state_data: bool = True
     save_trajectories: bool = False
 
     restraints: dict = pydantic.Field(default_factory=dict)
@@ -211,9 +210,8 @@ def run_window(work_dir: str | pathlib.Path) -> None:
         simulation, integrator, target_temperature_K=spec.temperature_K
     )
 
-    # State data is always streamed to stdout so detached Slurm jobs expose live
-    # progress in their job logs. An optional CSV mirror preserves the detailed
-    # per-window diagnostic artifact. Reporters are attached before the
+    # State data is streamed only to stdout so detached Slurm jobs expose live
+    # progress in their job logs. The reporter is attached before the
     # equilibration discard so the complete window history is available.
     ns_per_step = spec.timestep_fs * 1e-6
     equil_steps = int(spec.equil_discard_ns / ns_per_step)
@@ -240,14 +238,6 @@ def run_window(work_dir: str | pathlib.Path) -> None:
             **state_reporter_kwargs,
         )
     )
-    if spec.save_state_data:
-        simulation.reporters.append(
-            app.StateDataReporter(
-                str(work_dir / "state_data.csv"),
-                spec.state_data_interval_steps,
-                **state_reporter_kwargs,
-            )
-        )
     if spec.save_trajectories:
         simulation.reporters.append(
             app.DCDReporter(

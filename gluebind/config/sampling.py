@@ -167,8 +167,6 @@ class SamplingConfig(pydantic.BaseModel):
     """Integration steps between live StateDataReporter records."""
     trajectory_interval_steps: int = 2500
     """Integration steps between DCD trajectory frames."""
-    save_state_data: bool = True
-    """Write OpenMM state/energy data for each US window."""
     save_trajectories: bool = False
     """Write a DCD trajectory for each US window."""
     ensemble_size: int = 3
