@@ -75,7 +75,7 @@ class _FakeContext:
     def setVelocitiesToTemperature(self, t):
         self.velocity_temperature = t
 
-    def getState(self, getPositions=False):
+    def getState(self, getPositions=False, enforcePeriodicBox=False):
         return _FakeState()
 
 
