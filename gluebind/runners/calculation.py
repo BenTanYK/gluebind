@@ -431,10 +431,6 @@ class Calculation(SimulationRunner):
         hook from a prepared system, and construct the group tree. Driver-side only
         (reads the trajectory; runs no MD) — shared by :meth:`prepare` and the
         re-wiring :meth:`analyse` does in a fresh process."""
-        from gluebind.simulation.steered_md import (
-            make_steered_md_runner,
-            smd_snapshot_targets,
-        )
         from gluebind.spec_builder import SpecBuilder, build_restraint_context
         from gluebind.stage_centres import compute_stage_centres
 
@@ -447,32 +443,40 @@ class Calculation(SimulationRunner):
         state.anchors = dict(context.anchors)
         state.save(self.base_dir)
         self.stage_centres = compute_stage_centres(prepared, context, self.config)
-        # SMD saves a dense snapshot grid (decoupled from — and finer than — the US
-        # window schedule), so windows can be added later without re-running SMD.
-        snapshot_centres = smd_snapshot_targets(
-            self.config.sampling.for_cv("separation", "separation")
-        )
-
         smd_frames_dir = self.base_dir / "smd_frames"
         self.spec_builder = SpecBuilder(
             context, self.config, smd_frames_dir=smd_frames_dir
         )
-        self.steered_md_runner = make_steered_md_runner(
-            backend=self.backend,
-            scheduler_factory=self._default_scheduler,
-            work_dir=self.base_dir / "smd",
-            out_dir=smd_frames_dir,
-            topology=context.complex_topology,
-            coordinates=context.complex_coordinates,
-            rec_group=context.rec_group,
-            lig_group=context.lig_group,
-            anchors=context.anchors,
-            rmsd_atoms_bound=context.rmsd_atoms_bound,
-            snapshot_centres=snapshot_centres,
-            sampling=self.config.sampling,
-            platform=self.platform,
-            handle_recorder=self._record_auxiliary_handle,
-        )
+        if self.config.sampling.run_separation_us:
+            from gluebind.simulation.steered_md import (
+                make_steered_md_runner,
+                smd_snapshot_targets,
+            )
+
+            # SMD saves a dense snapshot grid (decoupled from — and finer than —
+            # the US window schedule), so windows can be added later without
+            # re-running SMD.
+            snapshot_centres = smd_snapshot_targets(
+                self.config.sampling.for_cv("separation", "separation")
+            )
+            self.steered_md_runner = make_steered_md_runner(
+                backend=self.backend,
+                scheduler_factory=self._default_scheduler,
+                work_dir=self.base_dir / "smd",
+                out_dir=smd_frames_dir,
+                topology=context.complex_topology,
+                coordinates=context.complex_coordinates,
+                rec_group=context.rec_group,
+                lig_group=context.lig_group,
+                anchors=context.anchors,
+                rmsd_atoms_bound=context.rmsd_atoms_bound,
+                snapshot_centres=snapshot_centres,
+                sampling=self.config.sampling,
+                platform=self.platform,
+                handle_recorder=self._record_auxiliary_handle,
+            )
+        else:
+            self.steered_md_runner = None
         self.prepared = prepared
         self.groups = self._build_groups()
         self.sub_runners = list(self.groups)
@@ -520,7 +524,10 @@ class Calculation(SimulationRunner):
             layout["rmsd"].append((name, None, centres))
 
         # Separation: single stage; centres from the SMD frames.
-        if "separation" in self.stage_centres:
+        if (
+            self.config.sampling.run_separation_us
+            and "separation" in self.stage_centres
+        ):
             layout["separation"].append(
                 ("separation", None, list(self.stage_centres["separation"]))
             )
@@ -701,8 +708,9 @@ class Calculation(SimulationRunner):
 
         Order: the independent RMSD stages; then the **sequential** Boresch stages
         (each DoF's equilibrium value is the minimum of its PMF, fed forward as a
-        fixed restraint to the next DoF and to separation); then the separation
-        stage. Idempotent and resumable: replicates already complete on disk are
+        fixed restraint to the next DoF and, when enabled, separation); then the
+        optional steered-MD/separation leg. Idempotent and resumable: replicates
+        already complete on disk are
         skipped, and Boresch DoFs whose equilibrium value is already recorded in
         the state are not re-run — so an interrupted run continues mid-sequence.
 
@@ -888,6 +896,13 @@ class Calculation(SimulationRunner):
         prepared system (rebuilding the stage tree + centres, no MD) so the stages
         are actually iterated. Raises if the system was never prepared.
         """
+        if not self.config.sampling.run_separation_us:
+            raise ValueError(
+                "cannot calculate a binding free energy because separation umbrella "
+                "sampling is disabled; enable sampling.run_separation_us and resume "
+                "the calculation first"
+            )
+
         if self.spec_builder is None:
             prepared = self._load_prepared()
             if prepared is None:

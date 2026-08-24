@@ -189,13 +189,15 @@ def test_always_on_requires_explicit_rmsd_cvs():
     )
 
 
-def test_config_hash_ignores_run_rmsd_us_but_catches_real_changes():
-    # run_rmsd_us is a scope flag, not physics — flipping it must NOT change the
-    # hash (so a separation-only run can be upgraded to full RMSD on resume)...
+def test_config_hash_ignores_sampling_scope_flags_but_catches_real_changes():
+    # Sampling scope flags are not physics — flipping them must NOT change the
+    # hash so a staged run can be upgraded on resume.
     base = CalculationConfig.model_validate({"inputs": MIN_INPUTS})
     base.sampling.run_rmsd_us = False
+    base.sampling.run_separation_us = False
     h_off = base.config_hash
     base.sampling.run_rmsd_us = True
+    base.sampling.run_separation_us = True
     assert base.config_hash == h_off
     # ...but a genuine physics change still shifts the hash (drift guard intact).
     base.sampling.rmsd.force_constant = 99.0

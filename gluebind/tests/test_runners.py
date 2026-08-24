@@ -659,6 +659,27 @@ def test_separation_only_mode_skips_rmsd_stages(tmp_path):
     )
 
 
+def test_boresch_only_mode_skips_rmsd_smd_and_separation(tmp_path):
+    cfg = _config()
+    cfg.sampling.run_rmsd_us = False
+    cfg.sampling.run_separation_us = False
+    calc = _calc(tmp_path, config=cfg)
+
+    assert {g.cv_type for g in calc.groups} == {"boresch"}
+    assert calc._group("rmsd") is None
+    assert calc._group("separation") is None
+
+    state = calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
+    assert state.stage_status.get("steered_md") is None
+    assert not (tmp_path / "smd").exists()
+
+    with pytest.raises(ValueError, match="separation umbrella sampling is disabled"):
+        calc.analyse(_fake_pmf)
+
+
 def test_rmsd_included_true_by_default(tmp_path):
     result = _calc(tmp_path).analyse(
         _fake_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0

@@ -76,6 +76,7 @@ class WindowSpec(pydantic.BaseModel):
     sample_interval_steps: int = 125
     state_data_interval_steps: int = 10000
     trajectory_interval_steps: int = 2500
+    save_state_data: bool = True
     save_trajectories: bool = False
 
     restraints: dict = pydantic.Field(default_factory=dict)

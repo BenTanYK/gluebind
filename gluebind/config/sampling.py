@@ -167,6 +167,8 @@ class SamplingConfig(pydantic.BaseModel):
     """Integration steps between live StateDataReporter records."""
     trajectory_interval_steps: int = 2500
     """Integration steps between DCD trajectory frames."""
+    save_state_data: bool = True
+    """Deprecated compatibility field; state data is always stdout-only."""
     save_trajectories: bool = False
     """Write a DCD trajectory for each US window."""
     ensemble_size: int = 3
@@ -184,6 +186,16 @@ class SamplingConfig(pydantic.BaseModel):
     resumes and adds only the RMSD stages (the already-sampled Boresch/SMD/
     separation windows are unaffected by this flag). Ideal for running N systems
     cheaply, then completing the RMSD leg for a promising subset."""
+    run_separation_us: bool = True
+    """Whether to run steered MD and separation umbrella sampling.
+
+    Set ``False`` together with ``run_rmsd_us=False`` for the
+    equilibration-plus-Boresch workflow. GlueBind still selects anchors and runs
+    all sequential Boresch DoFs, including PMF-minimum feedback, but does not
+    launch SMD or construct separation windows. This is a staging workflow, not
+    a binding-free-energy calculation; it can later be upgraded by setting this
+    field to ``True`` and resuming the same run.
+    """
 
     boresch: WindowSampling = pydantic.Field(default_factory=_boresch_default)
     rmsd: WindowSampling = pydantic.Field(default_factory=_rmsd_default)

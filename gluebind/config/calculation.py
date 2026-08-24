@@ -169,7 +169,10 @@ class CalculationConfig(pydantic.BaseModel):
         adds the RMSD stages rather than aborting as config drift.
         """
         canonical = json.dumps(
-            self.model_dump(mode="json", exclude={"sampling": {"run_rmsd_us"}}),
+            self.model_dump(
+                mode="json",
+                exclude={"sampling": {"run_rmsd_us", "run_separation_us"}},
+            ),
             sort_keys=True,
             separators=(",", ":"),
         )

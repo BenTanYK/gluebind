@@ -41,6 +41,7 @@ sampling:
   save_trajectories: false       # write per-window DCD trajectories
   ensemble_size: 3              # independent replicas per window
   run_rmsd_us: true
+  run_separation_us: true       # false + run_rmsd_us=false: equilibration + Boresch US only
   boresch:
     force_constant: 100.0       # kcal mol^-1 rad^-2
     sampling_time_ns: 5.0       # ns; recorded sampling per window
