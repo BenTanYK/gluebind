@@ -9,6 +9,7 @@ __pycache__/
 # Local dev docs
 GLUEBIND_DESIGN.md
 GRIDENGINE_BACKEND.md
+PRE_RELEASE_COMPATIBILITY_CLEANUP.md
 
 # Distribution / packaging
 .Python
