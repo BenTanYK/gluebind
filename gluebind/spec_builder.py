@@ -69,9 +69,9 @@ class RestraintContext:
     complex_topology: str
     complex_coordinates: str
     rec_group: list[int]
-    """Receptor interface Cα atoms (+ glue heavy atoms if assigned to receptor)."""
+    """Receptor interface CA atoms (+ glue heavy atoms if assigned to receptor)."""
     lig_group: list[int]
-    """Ligand interface Cα atoms (+ glue heavy atoms if assigned to target)."""
+    """Ligand interface CA atoms (+ glue heavy atoms if assigned to target)."""
     anchors: dict[str, int]
     """The four non-bonded Boresch anchors: keys ``b``, ``c``, ``B``, ``C``."""
     rmsd_order: list[str]
@@ -278,7 +278,7 @@ class SpecBuilder:
 
 
 _ATOM_FILTER = {"CA": "name CA", "backbone": "name C N CA"}
-"""MDAnalysis atom-name filter for each restraint-atom mode (backbone = C, N, Cα,
+"""MDAnalysis atom-name filter for each restraint-atom mode (backbone = C, N, CA,
 matching the reference ``restraint_type`` scheme)."""
 
 
@@ -367,7 +367,7 @@ def build_restraint_context(
     (:class:`_ComplexMap`), so BioSimSpace's assembly re-indexing (``TER`` splits,
     residue renumbering) cannot silently move a restraint onto the wrong atoms.
 
-    Also detects the interface (Cα–Cα pairs within ``interface_cutoff_angstrom``)
+    Also detects the interface (CA–CA pairs within ``interface_cutoff_angstrom``)
     and selects the Boresch anchors. ``anchors_override`` reuses anchors persisted
     by a prior wiring pass after validating them against this topology. Reuses the
     unit-tested pure primitives; the
@@ -387,7 +387,7 @@ def build_restraint_context(
         universe, target_u, receptor_u, has_glue=config.inputs.glue is not None
     )
 
-    # Interface Cα groups: resolve "name CA" on each input topology, map to complex.
+    # Interface CA groups: resolve "name CA" on each input topology, map to complex.
     target_ca = universe.atoms[cmap.resolve("target", "name CA")]
     receptor_ca = universe.atoms[cmap.resolve("receptor", "name CA")]
 
@@ -512,7 +512,7 @@ def _resolve_anchors(
 def _resolve_manual_anchors(
     spec: Mapping[str, int], cmap: _ComplexMap
 ) -> dict[str, int]:
-    """Resolve configured 1-based residue IDs to complex Cα atom indices."""
+    """Resolve configured 1-based residue IDs to complex CA atom indices."""
     roles = {"b": "receptor", "c": "receptor", "B": "target", "C": "target"}
     result: dict[str, int] = {}
     for key in ("b", "c", "B", "C"):
@@ -525,7 +525,7 @@ def _resolve_manual_anchors(
         if len(indices) != 1:
             raise ValueError(
                 f"manual anchor {key!r} residue {resid} must resolve to exactly "
-                f"one Cα atom in the {roles[key]} input topology; found {len(indices)}"
+                f"one CA atom in the {roles[key]} input topology; found {len(indices)}"
             )
         result[key] = int(indices[0])
     return result
@@ -556,11 +556,11 @@ def _validate_persisted_anchors(
     for key in ("b", "c"):
         if result[key] not in receptor_ca_indices:
             raise ValueError(
-                f"persisted anchor {key!r} must be a receptor C-alpha atom"
+                f"persisted anchor {key!r} must be a receptor C-A atom"
             )
     for key in ("B", "C"):
         if result[key] not in target_ca_indices:
-            raise ValueError(f"persisted anchor {key!r} must be a target C-alpha atom")
+            raise ValueError(f"persisted anchor {key!r} must be a target C-A atom")
     return result
 
 
