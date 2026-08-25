@@ -119,6 +119,11 @@ def test_default_force_constants():
     assert s.separation.force_constant == 10.0
 
 
+def test_auto_extend_is_rejected():
+    with pytest.raises(ValueError, match="auto_extend"):
+        SamplingConfig.model_validate({"rmsd": {"auto_extend": True}})
+
+
 def test_ligand_charge_defaults_to_auto_and_accepts_integer():
     assert _min_cfg().prep.ligand_charge == "auto"
     cfg = CalculationConfig.model_validate(

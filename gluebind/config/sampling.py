@@ -60,8 +60,6 @@ class WindowSampling(pydantic.BaseModel):
     (``thetaA``, ``thetaB``, ``phiA``, ``phiB``, ``phiC``); unspecified DoFs are
     still derived from the equilibration trajectory.
     """
-    auto_extend: bool = False
-    """Add windows beyond ``window_max`` until the ΔG contribution converges."""
     overrides: dict[str, dict] = pydantic.Field(default_factory=dict)
     """Per-stage overrides, keyed by stage name (e.g. ``"BD1_bulk"``)."""
 
@@ -126,7 +124,6 @@ def _rmsd_default() -> WindowSampling:
         window_min=0.0,
         window_max=2.2,
         sampling_time_ns=20.0,
-        auto_extend=True,
     )
 
 

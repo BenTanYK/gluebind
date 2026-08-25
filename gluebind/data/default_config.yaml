@@ -52,7 +52,6 @@ sampling:
     coarse_from: null            # rad
     coarse_spacing: null         # rad
     centres: null                # rad; explicit centres (list or per-DoF mapping)
-    auto_extend: false
     overrides: {}
   rmsd:
     force_constant: 5.0         # kcal mol^-1 Å^-2
@@ -64,7 +63,6 @@ sampling:
     coarse_from: null            # Å
     coarse_spacing: null         # Å
     centres: null                # Å; explicit window centres
-    auto_extend: true
     overrides: {}
   separation:
     force_constant: 10.0        # kcal mol^-1 Å^-2
@@ -79,7 +77,6 @@ sampling:
     smd_capture_max: 4.0         # nm; largest SMD snapshot separation
     smd_pull_margin: 0.5         # nm; extra SMD pull distance
     centres: null                # nm; explicit window centres
-    auto_extend: false
     overrides: {}
 
 restraints:
