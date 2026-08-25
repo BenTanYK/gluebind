@@ -483,11 +483,11 @@ def test_persisted_anchor_validation_checks_topology_and_protein_ca_membership()
         _validate_persisted_anchors(
             {**anchors, "C": 20}, universe, receptor_ca, target_ca
         )
-    with pytest.raises(ValueError, match="receptor C-alpha"):
+    with pytest.raises(ValueError, match="receptor CA atom"):
         _validate_persisted_anchors(
             {**anchors, "b": 3}, universe, receptor_ca, target_ca
         )
-    with pytest.raises(ValueError, match="target C-alpha"):
+    with pytest.raises(ValueError, match="target CA atom"):
         _validate_persisted_anchors(
             {**anchors, "B": 12}, universe, receptor_ca, target_ca
         )
