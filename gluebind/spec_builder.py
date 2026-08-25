@@ -556,11 +556,11 @@ def _validate_persisted_anchors(
     for key in ("b", "c"):
         if result[key] not in receptor_ca_indices:
             raise ValueError(
-                f"persisted anchor {key!r} must be a receptor C-A atom"
+                f"persisted anchor {key!r} must be a receptor CA atom"
             )
     for key in ("B", "C"):
         if result[key] not in target_ca_indices:
-            raise ValueError(f"persisted anchor {key!r} must be a target C-A atom")
+            raise ValueError(f"persisted anchor {key!r} must be a target CA atom")
     return result
 
 
