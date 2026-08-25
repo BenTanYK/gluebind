@@ -37,7 +37,7 @@ from gluebind.analysis.free_energy import (
     standard_state_correction,
 )
 from gluebind.analysis.pmf import pmf_minimum
-from gluebind.backend.base import Backend
+from gluebind.backend.base import Backend, JobSpec, JobState
 from gluebind.backend.scheduler import Scheduler, SlotPool
 from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.config.calculation import CalculationConfig
@@ -277,14 +277,14 @@ class Calculation(SimulationRunner):
     def prepare(self):
         """Prepare the system and wire the runner from the config alone.
 
-        Runs system prep through the backend (no MD on the driver), resolves the
-        restraint context, computes the Boresch/separation window centres, and
-        builds the ``spec_builder`` and the backend-dispatched steered-MD hook.
+        Runs system prep and trajectory-dependent restraint resolution through the
+        backend, then loads the resulting context/centres and builds the
+        ``spec_builder`` and the backend-dispatched steered-MD hook.
         Returns the :class:`~gluebind.system.prep.PreparedSystem`.
 
         Idempotent: if the system is already prepared (``prep/prepared.json``
-        exists) the equilibration is not re-run — the manifest is loaded and only
-        the cheap driver-side wiring (context/centres) is rebuilt. This is what
+        exists) the equilibration is not re-run — the manifest and resolved
+        restraint context are reused before lightweight driver-side wiring. This is what
         lets :meth:`run` auto-prepare safely on a resumed run. Called
         automatically by :meth:`run` when the calculation is not yet wired.
         """
@@ -309,6 +309,7 @@ class Calculation(SimulationRunner):
                 poll_interval=self.poll_interval,
                 handle_recorder=self._record_auxiliary_handle,
             )
+        self._resolve_restraint_context(prepared)
         self._wire(prepared)
         return prepared
 
@@ -348,13 +349,56 @@ class Calculation(SimulationRunner):
                 platform=self.platform,
                 poll_interval=self.poll_interval,
             )
-        report = self._write_rmsf_report(prepared)
+        report = self._submit_rmsf_report(prepared)
         self._log.info(
             "equilibrate %s: RMSF report for anchor selection -> %s",
             self.base_dir.name,
             ", ".join(report.values()),
         )
         return prepared
+
+    def _submit_rmsf_report(self, prepared) -> dict[str, str]:
+        """Generate manual-anchor RMSF reports through the normal backend."""
+        import json
+
+        from gluebind.backend.scheduler import Scheduler
+        from gluebind.simulation.restraint_resolution import (
+            RMSF_REPORT_RESULT_FILENAME,
+            RMSF_REPORT_SPEC_FILENAME,
+            RmsfReportSpec,
+            rmsf_report_launch_command,
+        )
+
+        prep_dir = self.base_dir / "prep"
+        work_dir = prep_dir / "rmsf_report"
+        result_path = work_dir / RMSF_REPORT_RESULT_FILENAME
+        if not result_path.exists():
+            work_dir.mkdir(parents=True, exist_ok=True)
+            RmsfReportSpec(
+                config=self.config,
+                prep_dir=str(prep_dir),
+                output_dir=str(prep_dir),
+            ).dump(work_dir / RMSF_REPORT_SPEC_FILENAME)
+            (job_state,) = Scheduler(
+                self.backend, poll_interval=self.poll_interval
+            ).run(
+                [
+                    JobSpec(
+                        command=rmsf_report_launch_command(),
+                        work_dir=str(work_dir),
+                        name="rmsf_report",
+                    )
+                ],
+                on_submit=lambda _index, handle: self._record_auxiliary_handle(
+                    "rmsf_report", handle
+                ),
+            )
+            if job_state is not JobState.FINISHED or not result_path.exists():
+                raise RuntimeError(
+                    "RMSF-report job did not produce its result; inspect "
+                    f"{work_dir}"
+                )
+        return json.loads(result_path.read_text())
 
     def _write_rmsf_report(self, prepared) -> dict[str, str]:
         """Write per-protein Cα RMSF (``resid  atom_index  rmsf``) + suggested stable
@@ -363,59 +407,9 @@ class Calculation(SimulationRunner):
         ``atom_index`` is each Cα's 0-indexed complex atom index, retained for
         diagnostics; ``BoreschSpec.anchors`` takes the corresponding 1-based residue
         IDs from the input topology."""
-        import numpy as np
+        from gluebind.simulation.restraint_resolution import write_rmsf_report
 
-        from gluebind.selection.rmsf import compute_rmsf, stablest_candidates
-        from gluebind.spec_builder import _ComplexMap
-        from gluebind.system.mdanalysis import load_amber_universe
-
-        if prepared.complex_trajectory is None:
-            raise RuntimeError(
-                "cannot write an RMSF report: the equilibration produced no "
-                "trajectory (prepared.complex_trajectory is None)"
-            )
-        universe = load_amber_universe(
-            prepared.complex_prm7, prepared.complex_trajectory
-        )
-        cmap = _ComplexMap(
-            universe,
-            load_amber_universe(self.config.inputs.target.prm7),
-            load_amber_universe(self.config.inputs.receptor.prm7),
-            has_glue=self.config.inputs.glue is not None,
-        )
-        prep_dir = self.base_dir / "prep"
-        report: dict[str, str] = {}
-        for protein in ("receptor", "target"):
-            ca_selection = "index " + " ".join(
-                map(str, cmap.resolve(protein, "name CA"))
-            )
-            resids, rmsf = compute_rmsf(universe, selection=ca_selection)
-            # Complex atom indices of those Cα atoms, aligned with resids/rmsf (same
-            # AtomGroup order) — this is what BoreschSpec.anchors takes.
-            atom_indices = universe.select_atoms(ca_selection).indices
-            resid_to_atom = {
-                int(r): int(i) for r, i in zip(resids, atom_indices, strict=True)
-            }
-            # Preserve stablest_candidates' rank order (most stable first).
-            candidates = [
-                (r, resid_to_atom[r]) for r in stablest_candidates(resids, rmsf)
-            ]
-            path = prep_dir / f"rmsf_{protein}.dat"
-            header = _rmsf_report_header(candidates)
-            np.savetxt(
-                path,
-                np.column_stack(
-                    [
-                        np.asarray(resids),
-                        np.asarray(atom_indices),
-                        np.asarray(rmsf, float),
-                    ]
-                ),
-                fmt=["%d", "%d", "%.4f"],
-                header=header,
-            )
-            report[protein] = str(path)
-        return report
+        return write_rmsf_report(prepared, self.config, self.base_dir / "prep")
 
     def _load_prepared(self):
         """Return the on-disk :class:`PreparedSystem`, or ``None`` if not prepared."""
@@ -426,23 +420,116 @@ class Calculation(SimulationRunner):
         except FileNotFoundError:
             return None
 
+    def _restraint_context_path(self) -> pathlib.Path:
+        from gluebind.restraint_context import RESTRAINT_CONTEXT_FILENAME
+
+        return self.base_dir / "prep" / RESTRAINT_CONTEXT_FILENAME
+
+    def _load_resolved_restraint_context(self, prepared):
+        """Load a valid compute-node restraint-resolution result, if available."""
+        from gluebind.restraint_context import ResolvedRestraintContext, prepared_hash
+
+        path = self._restraint_context_path()
+        try:
+            resolved = ResolvedRestraintContext.load(path)
+        except FileNotFoundError:
+            return None
+        if (
+            resolved.config_hash != self.config.config_hash
+            or resolved.prepared_hash != prepared_hash(prepared)
+        ):
+            return None
+        return resolved
+
+    def _resolve_restraint_context(self, prepared) -> None:
+        """Submit the MDAnalysis-heavy restraint-resolution worker if needed.
+
+        This deliberately uses the calculation's normal backend unchanged.  On
+        Slurm, the short resolution job therefore inherits the user's complete
+        ``SlurmConfig`` (including ``gres=gpu:1``), avoiding assumptions about
+        whether a site's GPU partition permits CPU-only jobs.
+        """
+        if self._load_resolved_restraint_context(prepared) is not None:
+            self._log.info(
+                "prepare %s: reusing resolved restraint context", self.base_dir.name
+            )
+            return
+
+        from gluebind.backend.scheduler import Scheduler
+        from gluebind.simulation.restraint_resolution import (
+            RESTRAINT_RESOLUTION_RESULT_FILENAME,
+            RESTRAINT_RESOLUTION_SPEC_FILENAME,
+            RestraintResolutionSpec,
+            restraint_resolution_launch_command,
+        )
+
+        state = self._load_or_init_state()
+        work_dir = self.base_dir / "prep" / "restraint_resolution"
+        work_dir.mkdir(parents=True, exist_ok=True)
+        RestraintResolutionSpec(
+            config=self.config,
+            prep_dir=str(self.base_dir / "prep"),
+            output_path=str(self._restraint_context_path()),
+            config_hash=self.config.config_hash,
+            anchors_override=state.anchors,
+        ).dump(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
+        self._log.info(
+            "prepare %s: resolving restraint geometry on the backend",
+            self.base_dir.name,
+        )
+        (job_state,) = Scheduler(
+            self.backend, poll_interval=self.poll_interval
+        ).run(
+            [
+                JobSpec(
+                    command=restraint_resolution_launch_command(),
+                    work_dir=str(work_dir),
+                    name="restraint_resolution",
+                )
+            ],
+            on_submit=lambda _index, handle: self._record_auxiliary_handle(
+                "restraint_resolution", handle
+            ),
+        )
+        if (
+            job_state is not JobState.FINISHED
+            or not (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).exists()
+            or self._load_resolved_restraint_context(prepared) is None
+        ):
+            raise RuntimeError(
+                "restraint-resolution job did not produce a valid context; inspect "
+                f"{work_dir}"
+            )
+
     def _wire(self, prepared) -> None:
         """Build the restraint context, window centres, spec builder and steered-MD
-        hook from a prepared system, and construct the group tree. Driver-side only
-        (reads the trajectory; runs no MD) — shared by :meth:`prepare` and the
-        re-wiring :meth:`analyse` does in a fresh process."""
+        hook from a prepared system, and construct the group tree. New configured
+        runs load the compute-node resolution artifact without trajectory analysis;
+        the local resolver remains as compatibility for pre-existing runs and
+        advanced direct callers. Shared by :meth:`prepare` and the re-wiring
+        :meth:`analyse` does in a fresh process."""
         from gluebind.spec_builder import SpecBuilder, build_restraint_context
         from gluebind.stage_centres import compute_stage_centres
 
+        resolved = self._load_resolved_restraint_context(prepared)
         state = self._load_or_init_state()
-        context = build_restraint_context(
-            prepared, self.config, anchors_override=state.anchors
-        )
+        if resolved is not None:
+            from gluebind.restraint_context import context_from_data
+
+            context = context_from_data(resolved.context)
+            self.stage_centres = resolved.stage_centres
+        else:
+            # Compatibility for pre-existing prepared runs and direct advanced
+            # callers of _wire(). New configured runs create the durable context
+            # through _resolve_restraint_context() before reaching here.
+            context = build_restraint_context(
+                prepared, self.config, anchors_override=state.anchors
+            )
+            self.stage_centres = compute_stage_centres(prepared, context, self.config)
         # Record both configured and automatically selected anchors immediately,
         # before any downstream SMD or umbrella jobs are submitted.
         state.anchors = dict(context.anchors)
         state.save(self.base_dir)
-        self.stage_centres = compute_stage_centres(prepared, context, self.config)
         smd_frames_dir = self.base_dir / "smd_frames"
         self.spec_builder = SpecBuilder(
             context, self.config, smd_frames_dir=smd_frames_dir
@@ -892,9 +979,9 @@ class Calculation(SimulationRunner):
         ``rmsd_included=False`` in the returned dict.
 
         Works in a fresh process (the detached submit → come back later → analyse
-        workflow): if the calculation isn't wired, it re-wires from the on-disk
-        prepared system (rebuilding the stage tree + centres, no MD) so the stages
-        are actually iterated. Raises if the system was never prepared.
+        workflow): if the calculation isn't wired, it re-wires from the persisted
+        restraint context (rebuilding the stage tree without trajectory analysis)
+        so the stages are actually iterated. Raises if the system was never prepared.
         """
         if not self.config.sampling.run_separation_us:
             raise ValueError(

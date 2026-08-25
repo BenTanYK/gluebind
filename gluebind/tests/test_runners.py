@@ -559,7 +559,7 @@ def test_equilibrate_reuses_prep_and_does_not_wire(tmp_path):
     _dump_prepared(tmp_path)
     calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
     written = {}
-    calc._write_rmsf_report = lambda prepared: written.setdefault(
+    calc._submit_rmsf_report = lambda prepared: written.setdefault(
         "paths", {"receptor": "rmsf_receptor.dat", "target": "rmsf_target.dat"}
     )
 
