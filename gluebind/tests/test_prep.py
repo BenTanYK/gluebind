@@ -11,6 +11,12 @@ import pytest
 
 from gluebind.backend.base import Backend, JobState
 from gluebind.config.prep import PrepConfig
+from gluebind.simulation.bulk_build import (
+    BULK_BUILD_SPEC_FILENAME,
+    BulkBuildResult,
+    BulkBuildSpec,
+    bulk_build_launch_command,
+)
 from gluebind.simulation.prep_stage import (
     PREP_STAGE_SPEC_FILENAME,
     PrepStageSpec,
@@ -175,6 +181,112 @@ def test_prepared_system_roundtrip(tmp_path):
     )
     prepared.dump(tmp_path)
     assert PreparedSystem.load(tmp_path) == prepared
+
+
+def test_bulk_build_spec_roundtrip_and_command(tmp_path):
+    spec = BulkBuildSpec(
+        complex_prm7="complex.prm7",
+        complex_rst7="complex.rst7",
+        molecule_indices=[1, 2],
+        prep=PrepConfig(),
+        output_dir="target_bulk",
+    )
+    path = spec.dump(tmp_path / BULK_BUILD_SPEC_FILENAME)
+    assert BulkBuildSpec.load(path) == spec
+    command = bulk_build_launch_command()
+    assert command[:2] == ["python", "-c"]
+    assert "run_bulk_build" in command[2]
+
+
+def test_bulk_build_resume_reuses_manifest_without_backend_submission(
+    tmp_path, monkeypatch
+):
+    import gluebind.system.prep as prep
+
+    out_dir = tmp_path / "target_bulk"
+    build_dir = out_dir / "build"
+    prm7 = out_dir / "solvated.prm7"
+    rst7 = out_dir / "solvated.rst7"
+    prm7.parent.mkdir(parents=True)
+    prm7.touch()
+    rst7.touch()
+    BulkBuildResult(solvated_prm7=str(prm7), solvated_rst7=str(rst7)).dump(
+        build_dir / "result.json"
+    )
+    calls = []
+
+    def fake_equil(prm, rst, plan, work, backend, **kwargs):
+        calls.append((prm, rst, kwargs["handle_label_prefix"]))
+        return "final.prm7", "final.rst7", None
+
+    monkeypatch.setattr(prep, "run_equilibration_stages", fake_equil)
+
+    class NoSubmitBackend(Backend):
+        def submit(self, spec):
+            raise AssertionError("bulk build should have been reused")
+
+        def poll(self, handles):
+            return {}
+
+        def cancel(self, handle):
+            pass
+
+    result = prep._build_and_equilibrate_bulk(
+        component="target",
+        complex_prm7="complex.prm7",
+        complex_rst7="complex.rst7",
+        indices=[1],
+        prep_config=PrepConfig(),
+        out_dir=out_dir,
+        backend=NoSubmitBackend(),
+        platform="CUDA",
+        poll_interval=1.0,
+    )
+
+    assert result == ("final.prm7", "final.rst7")
+    assert calls == [(str(prm7), str(rst7), "target_bulk_")]
+
+
+def test_bulk_build_adopts_legacy_solvated_files(tmp_path, monkeypatch):
+    import gluebind.system.prep as prep
+
+    out_dir = tmp_path / "receptor_bulk"
+    prm7 = out_dir / "solvated.prm7"
+    rst7 = out_dir / "solvated.rst7"
+    prm7.parent.mkdir(parents=True)
+    prm7.touch()
+    rst7.touch()
+    monkeypatch.setattr(
+        prep,
+        "run_equilibration_stages",
+        lambda *args, **kwargs: ("final.prm7", "final.rst7", None),
+    )
+
+    class NoSubmitBackend(Backend):
+        def submit(self, spec):
+            raise AssertionError("legacy solvated files should have been adopted")
+
+        def poll(self, handles):
+            return {}
+
+        def cancel(self, handle):
+            pass
+
+    prep._build_and_equilibrate_bulk(
+        component="receptor",
+        complex_prm7="complex.prm7",
+        complex_rst7="complex.rst7",
+        indices=[1],
+        prep_config=PrepConfig(),
+        out_dir=out_dir,
+        backend=NoSubmitBackend(),
+        platform="CUDA",
+        poll_interval=1.0,
+    )
+
+    adopted = BulkBuildResult.load(out_dir / "build" / "result.json")
+    assert adopted.solvated_prm7 == str(prm7)
+    assert adopted.solvated_rst7 == str(rst7)
 
 
 # ---- equilibration staging (per-stage jobs) --------------------------------

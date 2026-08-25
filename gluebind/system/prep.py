@@ -490,49 +490,100 @@ def _bulk_indices(
     return indices
 
 
-def _extract_bulk(
-    system,
-    indices,
-    prep_config,
-    out_dir,
-    backend,
+def _build_and_equilibrate_bulk(
     *,
+    component: str,
+    complex_prm7: str,
+    complex_rst7: str,
+    indices: list[int],
+    prep_config: PrepConfig,
+    out_dir: str | pathlib.Path,
+    backend,
     platform: str,
     poll_interval: float,
     handle_recorder: Callable[[str, str], None] | None = None,
-    handle_label_prefix: str = "",
 ) -> tuple[str, str]:
-    """Isolate the given molecules and re-solvate them on the driver (cheap), then
-    equilibrate through ``backend`` — like the complex, no MD runs on the driver.
+    """Build one bulk reference through the backend, then equilibrate it.
 
-    Uses the short pre-equilibration (minimisation -> NVT heat -> NPT, the first
-    three stages) — not the long production run — and keeps no trajectory.
+    The BioSimSpace/Sire extraction and solvation live entirely in the
+    ``bulk_build`` worker.  The driver only writes a small serialisable spec,
+    waits for its result manifest, and schedules the existing MD stages.
     """
-    import BioSimSpace as BSS
+    from gluebind.backend.base import JobSpec, JobState
+    from gluebind.backend.scheduler import Scheduler
+    from gluebind.simulation.bulk_build import (
+        BULK_BUILD_RESULT_FILENAME,
+        BULK_BUILD_SPEC_FILENAME,
+        BulkBuildResult,
+        BulkBuildSpec,
+        bulk_build_launch_command,
+    )
 
     out_dir = pathlib.Path(out_dir)
-    isolated = system[indices[0]]
-    for i in indices[1:]:
-        isolated = isolated + system[i]
-    box_min, box_max = _bounding_box(isolated)
-    padding = prep_config.bulk_box_padding_angstrom * BSS.Units.Length.angstrom
-    edge = box_length(box_min, box_max, padding)
-    solvated = BSS.Solvent.solvate(
-        prep_config.water_model,
-        molecule=isolated.toSystem() if hasattr(isolated, "toSystem") else isolated,
-        box=BSS.Box.generateBoxParameters(
-            prep_config.box_type,
-            edge,
-        )[0],
-        is_neutral=prep_config.neutralise,
-        ion_conc=prep_config.ion_concentration_M,
-    )
-    solvated_prm7, solvated_rst7 = _save(solvated, out_dir / "solvated")
+    build_dir = out_dir / "build"
+    result_path = build_dir / BULK_BUILD_RESULT_FILENAME
+    try:
+        built = BulkBuildResult.load(result_path)
+        if not (
+            pathlib.Path(built.solvated_prm7).exists()
+            and pathlib.Path(built.solvated_rst7).exists()
+        ):
+            raise FileNotFoundError(result_path)
+    except FileNotFoundError:
+        # Runs created before bulk construction became a backend worker already
+        # have these files, but no build manifest. Adopt them without reopening a
+        # BioSimSpace system on the driver or repeating their solvation.
+        legacy_prm7 = out_dir / "solvated.prm7"
+        legacy_rst7 = out_dir / "solvated.rst7"
+        if legacy_prm7.exists() and legacy_rst7.exists():
+            built = BulkBuildResult(
+                solvated_prm7=str(legacy_prm7), solvated_rst7=str(legacy_rst7)
+            )
+            built.dump(result_path)
+        else:
+            build_dir.mkdir(parents=True, exist_ok=True)
+            BulkBuildSpec(
+                complex_prm7=complex_prm7,
+                complex_rst7=complex_rst7,
+                molecule_indices=indices,
+                prep=prep_config,
+                output_dir=str(out_dir),
+            ).dump(build_dir / BULK_BUILD_SPEC_FILENAME)
+            job = JobSpec(
+                command=bulk_build_launch_command(),
+                work_dir=str(build_dir),
+                name=f"{component}_bulk_build",
+            )
+            (state,) = Scheduler(backend, poll_interval=poll_interval).run(
+                [job],
+                on_submit=(
+                    (
+                        lambda _index, handle: handle_recorder(
+                            f"{component}_bulk_build", handle
+                        )
+                    )
+                    if handle_recorder is not None
+                    else None
+                ),
+            )
+            if state is not JobState.FINISHED or not result_path.exists():
+                raise RuntimeError(
+                    f"{component}-bulk build job did not produce its result; inspect "
+                    f"{build_dir}"
+                ) from None
+            built = BulkBuildResult.load(result_path)
+            if not (
+                pathlib.Path(built.solvated_prm7).exists()
+                and pathlib.Path(built.solvated_rst7).exists()
+            ):
+                raise RuntimeError(
+                    f"{component}-bulk build result references missing solvated inputs"
+                ) from None
 
-    bulk_plan = equilibration_stage_plan(prep_config)[:3]  # min -> NVT heat -> NPT
+    bulk_plan = equilibration_stage_plan(prep_config)[:3]
     final_prm7, final_rst7, _ = run_equilibration_stages(
-        solvated_prm7,
-        solvated_rst7,
+        built.solvated_prm7,
+        built.solvated_rst7,
         bulk_plan,
         out_dir / "equilibration",
         backend,
@@ -540,14 +591,9 @@ def _extract_bulk(
         poll_interval=poll_interval,
         save_trajectory=False,
         handle_recorder=handle_recorder,
-        handle_label_prefix=handle_label_prefix,
+        handle_label_prefix=f"{component}_bulk_",
     )
     return final_prm7, final_rst7
-
-
-def _bounding_box(molecule):
-    box_min, box_max = molecule.getAxisAlignedBoundingBox()
-    return box_min, box_max
 
 
 def prepare(
@@ -562,17 +608,16 @@ def prepare(
     """Full preparation: build, equilibrate, extract bulk, and write a manifest.
 
     Raw-input construction is a single backend job, followed by the complex and
-    bulk equilibration jobs. The final long complex NVT stage always uses the
+    bulk-build/equilibration jobs. The final long complex NVT stage always uses the
     direct OpenMM production worker; all other equilibration stages use the
     BioSimSpace worker. Consequently Slurm uses one standard GPU allocation for
     glue charges, assembly, solvation, and all MD.
 
     Writes ``solvated.*``, ``equilibration/NN_<stage>/output.*``,
-    ``{target,receptor}_bulk/{solvated.*,equilibration/NN_<stage>/output.*}`` and
+    ``{target,receptor}_bulk/{build/result.json,solvated.*,
+    equilibration/NN_<stage>/output.*}`` and
     the ``prepared.json`` manifest into ``work_dir``, and returns the manifest.
     """
-    import BioSimSpace as BSS
-
     from gluebind.backend.base import JobSpec, JobState
     from gluebind.backend.scheduler import Scheduler
     from gluebind.simulation.system_build import (
@@ -648,30 +693,31 @@ def prepare(
         handle_label="complex_production",
     )
 
-    # Bulk reference species: isolate + re-solvate on the driver (cheap), then
-    # equilibrate through the backend — no MD runs on the driver.
-    equilibrated = BSS.IO.readMolecules([complex_prm7, complex_rst7])
-    target_bulk = _extract_bulk(
-        equilibrated,
-        _bulk_indices(layout, "target", assign_to),
-        config.prep,
-        work_dir / "target_bulk",
-        backend,
+    # Each bulk extraction/solvation is an isolated backend worker. This keeps
+    # BioSimSpace/Sire entirely out of concurrent CalcSet driver threads.
+    target_bulk = _build_and_equilibrate_bulk(
+        component="target",
+        complex_prm7=complex_prm7,
+        complex_rst7=complex_rst7,
+        indices=_bulk_indices(layout, "target", assign_to),
+        prep_config=config.prep,
+        out_dir=work_dir / "target_bulk",
+        backend=backend,
         platform=platform,
         poll_interval=poll_interval,
         handle_recorder=handle_recorder,
-        handle_label_prefix="target_bulk_",
     )
-    receptor_bulk = _extract_bulk(
-        equilibrated,
-        _bulk_indices(layout, "receptor", assign_to),
-        config.prep,
-        work_dir / "receptor_bulk",
-        backend,
+    receptor_bulk = _build_and_equilibrate_bulk(
+        component="receptor",
+        complex_prm7=complex_prm7,
+        complex_rst7=complex_rst7,
+        indices=_bulk_indices(layout, "receptor", assign_to),
+        prep_config=config.prep,
+        out_dir=work_dir / "receptor_bulk",
+        backend=backend,
         platform=platform,
         poll_interval=poll_interval,
         handle_recorder=handle_recorder,
-        handle_label_prefix="receptor_bulk_",
     )
 
     prepared = PreparedSystem(
