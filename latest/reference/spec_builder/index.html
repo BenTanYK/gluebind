@@ -3396,7 +3396,7 @@ restraints whose atoms live in this bulk topology (so they still cancel).</p>
               (<code><span title="list">list</span>[<span title="int">int</span>]</code>)
           –
           <div class="doc-md-description">
-            <p>Receptor interface Cα atoms (+ glue heavy atoms if assigned to receptor).</p>
+            <p>Receptor interface CA atoms (+ glue heavy atoms if assigned to receptor).</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3409,7 +3409,7 @@ restraints whose atoms live in this bulk topology (so they still cancel).</p>
               (<code><span title="list">list</span>[<span title="int">int</span>]</code>)
           –
           <div class="doc-md-description">
-            <p>Ligand interface Cα atoms (+ glue heavy atoms if assigned to target).</p>
+            <p>Ligand interface CA atoms (+ glue heavy atoms if assigned to target).</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3519,7 +3519,7 @@ restraints whose atoms live in this bulk topology (so they still cancel).</p>
 
     <div class="doc doc-contents ">
 
-        <p>Receptor interface Cα atoms (+ glue heavy atoms if assigned to receptor).</p>
+        <p>Receptor interface CA atoms (+ glue heavy atoms if assigned to receptor).</p>
 
     </div>
 
@@ -3543,7 +3543,7 @@ restraints whose atoms live in this bulk topology (so they still cancel).</p>
 
     <div class="doc doc-contents ">
 
-        <p>Ligand interface Cα atoms (+ glue heavy atoms if assigned to target).</p>
+        <p>Ligand interface CA atoms (+ glue heavy atoms if assigned to target).</p>
 
     </div>
 
@@ -3868,7 +3868,7 @@ the US resolver and the production run so both hold the same atoms.</p>
 and mapped into the assembled complex via a verified atom map
 (:class:<code>_ComplexMap</code>), so BioSimSpace's assembly re-indexing (<code>TER</code> splits,
 residue renumbering) cannot silently move a restraint onto the wrong atoms.</p>
-<p>Also detects the interface (Cα–Cα pairs within <code>interface_cutoff_angstrom</code>)
+<p>Also detects the interface (CA–CA pairs within <code>interface_cutoff_angstrom</code>)
 and selects the Boresch anchors. <code>anchors_override</code> reuses anchors persisted
 by a prior wiring pass after validating them against this topology. Reuses the
 unit-tested pure primitives; the
@@ -3978,7 +3978,7 @@ the pure assembly it feeds (:class:<code>SpecBuilder</code>) are unit-tested.</p
 </span><span id="__span-0-367"><a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="sd">    (:class:`_ComplexMap`), so BioSimSpace's assembly re-indexing (``TER`` splits,</span>
 </span><span id="__span-0-368"><a id="__codelineno-0-368" name="__codelineno-0-368"></a><span class="sd">    residue renumbering) cannot silently move a restraint onto the wrong atoms.</span>
 </span><span id="__span-0-369"><a id="__codelineno-0-369" name="__codelineno-0-369"></a>
-</span><span id="__span-0-370"><a id="__codelineno-0-370" name="__codelineno-0-370"></a><span class="sd">    Also detects the interface (Cα–Cα pairs within ``interface_cutoff_angstrom``)</span>
+</span><span id="__span-0-370"><a id="__codelineno-0-370" name="__codelineno-0-370"></a><span class="sd">    Also detects the interface (CA–CA pairs within ``interface_cutoff_angstrom``)</span>
 </span><span id="__span-0-371"><a id="__codelineno-0-371" name="__codelineno-0-371"></a><span class="sd">    and selects the Boresch anchors. ``anchors_override`` reuses anchors persisted</span>
 </span><span id="__span-0-372"><a id="__codelineno-0-372" name="__codelineno-0-372"></a><span class="sd">    by a prior wiring pass after validating them against this topology. Reuses the</span>
 </span><span id="__span-0-373"><a id="__codelineno-0-373" name="__codelineno-0-373"></a><span class="sd">    unit-tested pure primitives; the</span>
@@ -3998,7 +3998,7 @@ the pure assembly it feeds (:class:<code>SpecBuilder</code>) are unit-tested.</p
 </span><span id="__span-0-387"><a id="__codelineno-0-387" name="__codelineno-0-387"></a>        <span class="n">universe</span><span class="p">,</span> <span class="n">target_u</span><span class="p">,</span> <span class="n">receptor_u</span><span class="p">,</span> <span class="n">has_glue</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">glue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 </span><span id="__span-0-388"><a id="__codelineno-0-388" name="__codelineno-0-388"></a>    <span class="p">)</span>
 </span><span id="__span-0-389"><a id="__codelineno-0-389" name="__codelineno-0-389"></a>
-</span><span id="__span-0-390"><a id="__codelineno-0-390" name="__codelineno-0-390"></a>    <span class="c1"># Interface Cα groups: resolve "name CA" on each input topology, map to complex.</span>
+</span><span id="__span-0-390"><a id="__codelineno-0-390" name="__codelineno-0-390"></a>    <span class="c1"># Interface CA groups: resolve "name CA" on each input topology, map to complex.</span>
 </span><span id="__span-0-391"><a id="__codelineno-0-391" name="__codelineno-0-391"></a>    <span class="n">target_ca</span> <span class="o">=</span> <span class="n">universe</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">cmap</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">"target"</span><span class="p">,</span> <span class="s2">"name CA"</span><span class="p">)]</span>
 </span><span id="__span-0-392"><a id="__codelineno-0-392" name="__codelineno-0-392"></a>    <span class="n">receptor_ca</span> <span class="o">=</span> <span class="n">universe</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">cmap</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">"receptor"</span><span class="p">,</span> <span class="s2">"name CA"</span><span class="p">)]</span>
 </span><span id="__span-0-393"><a id="__codelineno-0-393" name="__codelineno-0-393"></a>
