@@ -66,21 +66,6 @@ def _sem(values) -> float:
     return float(a.std(ddof=1) / np.sqrt(n)) if n > 1 else 0.0
 
 
-def _rmsf_report_header(candidates) -> str:
-    """Header for the per-protein RMSF report ``.dat``.
-
-    ``candidates`` is a list of ``(resid, atom_index)`` pairs, most-stable first;
-    ``resid`` is the 1-based input-topology residue ID to use in the config, while
-    ``atom_index`` is retained as a diagnostic complex index. RMSF is in Ångström
-    (MDAnalysis works in Å; ``compute_rmsf`` passes those values through).
-    """
-    pretty = ", ".join(f"resid {r}=atom {i}" for r, i in candidates)
-    return (
-        f"suggested stable anchor candidates (low-RMSF local minima, most stable "
-        f"first): {pretty}\nresid  atom_index  rmsf(Angstrom)"
-    )
-
-
 def _repeat_dg_sem(per_repeat: dict, dg_corr: float) -> float | None:
     """SEM of ΔG° over independent repeats.
 

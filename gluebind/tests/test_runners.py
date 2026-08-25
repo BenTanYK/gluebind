@@ -687,18 +687,6 @@ def test_rmsd_included_true_by_default(tmp_path):
     assert result["rmsd_included"] is True
 
 
-def test_rmsf_report_header_labels_angstrom_and_atom_index():
-    # RMSF comes from MDAnalysis (Å); the header must say so, and it must surface each
-    # candidate's complex atom index (what BoreschSpec.anchors takes), not just resids.
-    from gluebind.runners.calculation import _rmsf_report_header
-
-    header = _rmsf_report_header([(12, 340), (16, 402)])
-    assert "rmsf(Angstrom)" in header
-    assert "nm" not in header  # regression: was mislabelled rmsf(nm)
-    assert "atom_index" in header
-    assert "12" in header and "340" in header  # resid AND its Cα atom index
-
-
 def test_upgrade_separation_only_to_full_rmsd(tmp_path):
     # The N-then-M workflow: run separation-only, then upgrade the same run to the
     # full cycle by flipping run_rmsd_us and re-running — it must resume (no
