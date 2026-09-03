@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import pathlib
 import warnings
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 
 from gluebind.analysis.free_energy import (
     binding_free_energy,
@@ -49,6 +49,7 @@ from gluebind.runners.stage import Stage
 from gluebind.runners.window import SpecBuilder, Window, enumerate_centres
 from gluebind.simulation.window import window_launch_command
 from gluebind.state import RunState, now_utc_iso
+from gluebind.stop import StopController, StopRequested
 
 # Force constants live in the config in Å^-2, but the WHAM PMFs (and hence the
 # free-energy integrals) work in nm. 1 Å^-2 = 100 nm^-2.
@@ -157,6 +158,7 @@ class Calculation(SimulationRunner):
         steered_md_runner: Callable[[dict], object] | None = None,
         platform: str = "CUDA",
         poll_interval: float = 30.0,
+        stop_paths: Sequence[str | pathlib.Path] = (),
     ) -> None:
         super().__init__(base_dir)
         self.config = config
@@ -170,6 +172,8 @@ class Calculation(SimulationRunner):
         self.steered_md_runner = steered_md_runner
         self.platform = platform
         self.poll_interval = poll_interval
+        self._stop_marker = StopController.marker_path(self.base_dir)
+        self._stop = StopController((self._stop_marker, *stop_paths))
         self.prepared = None
         # Per-calculation child logger: keeps each run's gluebind.log isolated while
         # still propagating up to any root handler (e.g. a CalcSet aggregate log).
@@ -190,6 +194,7 @@ class Calculation(SimulationRunner):
         command_factory: Callable[[], list[str]] = window_launch_command,
         platform: str = "CUDA",
         poll_interval: float = 30.0,
+        stop_paths: Sequence[str | pathlib.Path] = (),
     ) -> "Calculation":
         """Create a calculation from a validated configuration or YAML file.
 
@@ -257,6 +262,7 @@ class Calculation(SimulationRunner):
             command_factory=command_factory,
             platform=platform,
             poll_interval=poll_interval,
+            stop_paths=stop_paths,
         )
 
     def prepare(self):
@@ -276,6 +282,7 @@ class Calculation(SimulationRunner):
         from gluebind.system.prep import PreparedSystem
         from gluebind.system.prep import prepare as prepare_system
 
+        self._stop.raise_if_requested()
         prep_dir = self.base_dir / "prep"
         try:
             prepared = PreparedSystem.load(prep_dir)  # resume: prep already complete
@@ -293,6 +300,7 @@ class Calculation(SimulationRunner):
                 platform=self.platform,
                 poll_interval=self.poll_interval,
                 handle_recorder=self._record_auxiliary_handle,
+                submission_guard=self._stop.submission_permit,
             )
         self._resolve_restraint_context(prepared)
         self._wire(prepared)
@@ -316,6 +324,7 @@ class Calculation(SimulationRunner):
         from gluebind.system.prep import PreparedSystem
         from gluebind.system.prep import prepare as prepare_system
 
+        self._stop.raise_if_requested()
         add_file_handler(self.base_dir, logger_name=self._log.name)
         prep_dir = self.base_dir / "prep"
         try:
@@ -333,6 +342,8 @@ class Calculation(SimulationRunner):
                 self.backend,
                 platform=self.platform,
                 poll_interval=self.poll_interval,
+                handle_recorder=self._record_auxiliary_handle,
+                submission_guard=self._stop.submission_permit,
             )
         report = self._submit_rmsf_report(prepared)
         self._log.info(
@@ -365,7 +376,9 @@ class Calculation(SimulationRunner):
                 output_dir=str(prep_dir),
             ).dump(work_dir / RMSF_REPORT_SPEC_FILENAME)
             (job_state,) = Scheduler(
-                self.backend, poll_interval=self.poll_interval
+                self.backend,
+                poll_interval=self.poll_interval,
+                submission_guard=self._stop.submission_permit,
             ).run(
                 [
                     JobSpec(
@@ -463,7 +476,9 @@ class Calculation(SimulationRunner):
             self.base_dir.name,
         )
         (job_state,) = Scheduler(
-            self.backend, poll_interval=self.poll_interval
+            self.backend,
+            poll_interval=self.poll_interval,
+            submission_guard=self._stop.submission_permit,
         ).run(
             [
                 JobSpec(
@@ -674,12 +689,15 @@ class Calculation(SimulationRunner):
         state.save(self.base_dir)
 
     def kill(self) -> list[str]:
-        """Best-effort cancel every job recorded for this calculation.
+        """Stop further submission and cancel every recorded job for this calculation.
 
-        Submitted work is left on disk so the calculation can later be resumed.
+        A persistent stop marker is written before handles are read, preventing an
+        active driver in another process from submitting later stages. Submitted
+        work is left on disk; call :meth:`clear_stop_request` before resuming.
         Returns the de-duplicated handles passed to the backend, or an empty
         list when this workspace has never submitted a job.
         """
+        self._stop.request_stop(self._stop_marker)
         try:
             state = RunState.load(self.base_dir)
         except FileNotFoundError:
@@ -707,6 +725,19 @@ class Calculation(SimulationRunner):
         )
         return handles
 
+    def clear_stop_request(self) -> None:
+        """Explicitly permit this calculation to be resumed after :meth:`kill`.
+
+        If this calculation belongs to a stopped :class:`CalcSet`, clear the
+        set-level request through ``CalcSet.clear_stop_request()`` instead.
+        """
+        self._stop.clear_own_stop(self._stop_marker)
+        if self._stop.requested():
+            raise RuntimeError(
+                "a parent CalcSet stop request is still active; clear it on the "
+                "CalcSet before resuming this calculation"
+            )
+
     def _default_scheduler(self, job_slots: SlotPool | None = None) -> Scheduler:
         return Scheduler(
             self.backend,
@@ -719,6 +750,7 @@ class Calculation(SimulationRunner):
                 else self.poll_interval
             ),
             slots=job_slots,
+            submission_guard=self._stop.submission_permit,
         )
 
     def _group(self, cv_type: str) -> Group | None:
@@ -776,6 +808,29 @@ class Calculation(SimulationRunner):
         pmf_provider: PmfProvider | None = None,
         job_slots: SlotPool | None = None,
     ) -> RunState:
+        """Run the calculation, stopping cleanly if :meth:`kill` is requested."""
+        try:
+            return self._run_impl(
+                scheduler=scheduler,
+                pmf_provider=pmf_provider,
+                job_slots=job_slots,
+            )
+        except StopRequested:
+            state = self._load_or_init_state()
+            state.stage_status["_control"] = "stopped"
+            state.save(self.base_dir)
+            self._log.info(
+                "run %s: stopped by persistent stop request", self.base_dir.name
+            )
+            return state
+
+    def _run_impl(
+        self,
+        *,
+        scheduler: Scheduler | None = None,
+        pmf_provider: PmfProvider | None = None,
+        job_slots: SlotPool | None = None,
+    ) -> RunState:
         """Run the whole calculation, honouring the stage dependencies.
 
         Order: the independent RMSD stages; then the **sequential** Boresch stages
@@ -801,6 +856,7 @@ class Calculation(SimulationRunner):
             # Auto-prepare (idempotent): a from_config calculation runs end to end
             # from run() alone; prep is skipped if already complete on disk.
             self.prepare()
+        self._stop.raise_if_requested()
         self.setup()
         state = self._load_or_init_state()
         scheduler = scheduler or self._default_scheduler(job_slots)
@@ -809,6 +865,7 @@ class Calculation(SimulationRunner):
         rmsd_group = self._group("rmsd")
         if rmsd_group:
             for stage in rmsd_group.stages:
+                self._stop.raise_if_requested()
                 self._run_stage(stage, {}, state, scheduler)
 
         # 2. Boresch stages — sequential, feeding each PMF minimum forward.
@@ -826,6 +883,7 @@ class Calculation(SimulationRunner):
 
                 pmf_provider = WhamPmfProvider(self.config)
             for stage in boresch_group.stages:
+                self._stop.raise_if_requested()
                 if stage.dof in state.boresch_eq_values:
                     continue  # already determined on a previous run (resume)
                 self._run_stage(stage, dict(state.boresch_eq_values), state, scheduler)
@@ -842,6 +900,7 @@ class Calculation(SimulationRunner):
         # 3. Steered MD then separation — both need every Boresch equilibrium value.
         separation_group = self._group("separation")
         if separation_group:
+            self._stop.raise_if_requested()
             if (
                 self.steered_md_runner is not None
                 and state.stage_status.get("steered_md") != "done"
@@ -853,6 +912,7 @@ class Calculation(SimulationRunner):
                 state.stage_status["steered_md"] = "done"
                 state.save(self.base_dir)
             for stage in separation_group.stages:
+                self._stop.raise_if_requested()
                 self._run_stage(stage, dict(state.boresch_eq_values), state, scheduler)
 
         state.save(self.base_dir)
@@ -897,7 +957,11 @@ class Calculation(SimulationRunner):
             # immediately so another process can inspect or cancel it.
             state.save(self.base_dir)
 
-        states = scheduler.run(specs, on_submit=on_submit)
+        states = scheduler.run(
+            specs,
+            on_submit=on_submit,
+            submission_guard=self._stop.submission_permit,
+        )
 
         # Surface failures here, with a pointer to the dead window/replicate, rather
         # than letting them resurface downstream as a cryptic missing-file crash in

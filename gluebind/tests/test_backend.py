@@ -79,6 +79,68 @@ def test_scheduler_throttle_still_completes(tmp_path):
     assert states == [JobState.FINISHED] * 4
 
 
+def test_stop_request_blocks_later_submission_and_waits_for_handle_record(tmp_path):
+    """A kill marker cannot race between submit() and persisted-handle recording."""
+    from gluebind.stop import StopController, StopRequested
+
+    class BackendThatFinishes(Backend):
+        def __init__(self):
+            self.submitted = []
+
+        def submit(self, spec):
+            self.submitted.append(spec)
+            return f"job-{len(self.submitted)}"
+
+        def poll(self, handles):
+            return dict.fromkeys(handles, JobState.FINISHED)
+
+        def cancel(self, handle):
+            pass
+
+    marker = StopController.marker_path(tmp_path)
+    controller = StopController((marker,))
+    backend = BackendThatFinishes()
+    recorded = []
+    in_callback = threading.Event()
+    release_callback = threading.Event()
+    result = []
+
+    def on_submit(_index, handle):
+        recorded.append(handle)
+        in_callback.set()
+        assert release_callback.wait(timeout=2)
+
+    def run_scheduler():
+        try:
+            Scheduler(
+                backend,
+                poll_interval=0.0,
+                submission_guard=controller.submission_permit,
+            ).run(
+                [_spec(tmp_path, "pass", "one"), _spec(tmp_path, "pass", "two")],
+                on_submit=on_submit,
+            )
+        except StopRequested:
+            result.append("stopped")
+
+    driver = threading.Thread(target=run_scheduler)
+    driver.start()
+    assert in_callback.wait(timeout=2)
+
+    killer = threading.Thread(target=controller.request_stop)
+    killer.start()
+    time.sleep(0.02)
+    assert not marker.exists()  # killer waits for submit + handle persistence
+    release_callback.set()
+    killer.join(timeout=2)
+    driver.join(timeout=2)
+
+    assert marker.exists()
+    assert recorded == ["job-1"]
+    assert len(backend.submitted) == 1
+    assert result == ["stopped"]
+
+
 def test_scheduler_reports_mixed_outcomes(tmp_path):
     backend = LocalBackend()
     specs = [

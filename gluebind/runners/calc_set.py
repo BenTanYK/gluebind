@@ -33,6 +33,7 @@ from gluebind.backend.scheduler import SlotPool
 from gluebind.logutil import add_file_handler, get_logger
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.calculation import Calculation
+from gluebind.stop import StopController
 
 logger = get_logger("calc_set")
 
@@ -54,6 +55,8 @@ class CalcSet(SimulationRunner):
     ) -> None:
         super().__init__(base_dir)
         self.backend = backend
+        self._stop_marker = StopController.marker_path(self.base_dir)
+        self._stop = StopController((self._stop_marker,))
         self.experimental = self._load_experimental(
             self.base_dir / self.MANIFEST_FILENAME
         )
@@ -68,6 +71,7 @@ class CalcSet(SimulationRunner):
                 base_dir=system_dir,
                 platform=platform,
                 poll_interval=poll_interval,
+                stop_paths=(self._stop_marker,),
             )
         self.sub_runners = list(self.calcs.values())
 
@@ -109,12 +113,21 @@ class CalcSet(SimulationRunner):
             calc.prepare()
 
     def kill(self) -> dict[str, list[str]]:
-        """Best-effort cancel all submitted jobs in every calculation.
+        """Stop the set and cancel all recorded jobs in every calculation.
 
-        Returns the handles requested for cancellation, keyed by system name.
-        No run files are deleted, so each calculation remains resumable.
+        The set marker is written before individual handles are read, so active
+        drivers cannot submit later systems or stages. Returns the handles
+        requested for cancellation, keyed by system name. No run files are
+        deleted; call :meth:`clear_stop_request` before resuming.
         """
+        self._stop.request_stop()
         return {name: calc.kill() for name, calc in self.calcs.items()}
+
+    def clear_stop_request(self) -> None:
+        """Explicitly allow this stopped calculation set to be resumed."""
+        self._stop.clear_own_stop(self._stop_marker)
+        for calc in self.calcs.values():
+            calc.clear_stop_request()
 
     def run(
         self,
@@ -144,12 +157,25 @@ class CalcSet(SimulationRunner):
         add_file_handler(self.base_dir)
         if max_parallel_systems < 1:
             raise ValueError("max_parallel_systems must be >= 1")
+        if self._stop.requested():
+            logger.info(
+                "calculation set %s remains stopped; call clear_stop_request() "
+                "before resuming",
+                self.base_dir.name,
+            )
+            return
 
         if max_parallel_systems == 1:
             failures = self._run_sequential()
         else:
             failures = self._run_parallel(max_parallel_systems, max_concurrent_jobs)
 
+        if self._stop.requested():
+            logger.info(
+                "calculation set %s stopped by persistent stop request",
+                self.base_dir.name,
+            )
+            return
         if failures:
             summary = "; ".join(f"{name}: {exc}" for name, exc in failures.items())
             raise RuntimeError(
@@ -172,6 +198,8 @@ class CalcSet(SimulationRunner):
         failures: dict[str, Exception] = {}
         total = len(self.calcs)
         for i, (name, calc) in enumerate(self.calcs.items(), start=1):
+            if self._stop.requested():
+                break
             logger.info("system %d/%d: running %s", i, total, name)
             exc = self._run_one(name, calc)
             if exc is not None:

@@ -386,3 +386,17 @@ def test_calc_set_run_rejects_bad_parallelism(tmp_path):
     cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.0)
     with pytest.raises(ValueError, match="max_parallel_systems"):
         cset.run(max_parallel_systems=0)
+
+
+def test_calc_set_kill_stops_every_system_until_explicitly_cleared(tmp_path):
+    _system(tmp_path, "A", RUN_CONFIG_YAML)
+    _system(tmp_path, "B", RUN_CONFIG_YAML)
+    cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.0)
+
+    assert cset.kill() == {"A": [], "B": []}
+    assert cset._stop_marker.exists()
+    assert all(calc._stop_marker.exists() for calc in cset.calcs.values())
+
+    cset.clear_stop_request()
+    assert not cset._stop_marker.exists()
+    assert all(not calc._stop_marker.exists() for calc in cset.calcs.values())

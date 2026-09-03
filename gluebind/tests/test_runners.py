@@ -10,6 +10,8 @@ import os
 import pathlib
 import subprocess
 import sys
+import threading
+import time
 
 import numpy as np
 import pytest
@@ -222,6 +224,79 @@ def test_kill_cancels_each_persisted_handle_once(tmp_path):
 
     assert calc.kill() == ["100", "101", "102"]
     assert backend.cancelled == ["100", "101", "102"]
+    assert calc._stop_marker.exists()
+
+
+def test_calculation_kill_does_not_stop_its_parent_set(tmp_path):
+    backend = _CancellableBackend()
+    set_marker = tmp_path / "set" / ".gluebind-stop"
+    calc = Calculation(
+        tmp_path / "set" / "system",
+        _config(),
+        backend,
+        _spec_builder,
+        stop_paths=(set_marker,),
+    )
+
+    assert calc.kill() == []
+    assert calc._stop_marker.exists()
+    assert not set_marker.exists()
+    calc.clear_stop_request()
+    assert not calc._stop_marker.exists()
+
+
+def test_calculation_kill_stops_an_active_driver_before_later_submissions(tmp_path):
+    """The persisted stop request reaches a live Calculation.run() driver."""
+
+    class BlockingBackend(Backend):
+        def __init__(self):
+            self.submitted = []
+            self.cancelled = []
+            self.entered_submit = threading.Event()
+            self.release_submit = threading.Event()
+
+        def submit(self, spec):
+            self.submitted.append(spec)
+            self.entered_submit.set()
+            assert self.release_submit.wait(timeout=2)
+            return "job-1"
+
+        def poll(self, handles):
+            return dict.fromkeys(handles, JobState.FINISHED)
+
+        def cancel(self, handle):
+            self.cancelled.append(handle)
+
+    backend = BlockingBackend()
+    calc = Calculation(
+        tmp_path, _config(), backend, _spec_builder, stage_centres=CENTRES
+    )
+    result = []
+
+    driver = threading.Thread(
+        target=lambda: result.append(
+            calc.run(
+                scheduler=Scheduler(backend, poll_interval=0.0), pmf_provider=_fake_pmf
+            )
+        )
+    )
+    driver.start()
+    assert backend.entered_submit.wait(timeout=2)
+
+    killer = threading.Thread(target=calc.kill)
+    killer.start()
+    backend.release_submit.set()
+    for _ in range(100):
+        if calc._stop_marker.exists():
+            break
+        time.sleep(0.01)
+    assert calc._stop_marker.exists()
+    killer.join(timeout=2)
+    driver.join(timeout=2)
+
+    assert len(backend.submitted) == 1
+    assert backend.cancelled == ["job-1"]
+    assert result[0].stage_status["_control"] == "stopped"
 
 
 def test_kill_without_state_is_a_noop(tmp_path):

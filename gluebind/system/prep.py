@@ -262,6 +262,7 @@ def run_equilibration_stages(
     save_trajectory: bool = True,
     handle_recorder: Callable[[str, str], None] | None = None,
     handle_label_prefix: str = "",
+    submission_guard=None,
 ) -> tuple[str, str, str | None]:
     """Run the equilibration ``plan`` as one backend job per stage.
 
@@ -282,7 +283,11 @@ def run_equilibration_stages(
     )
 
     work_dir = pathlib.Path(work_dir).resolve()
-    scheduler = Scheduler(backend, poll_interval=poll_interval)
+    scheduler = Scheduler(
+        backend,
+        poll_interval=poll_interval,
+        submission_guard=submission_guard,
+    )
     input_prm7 = str(pathlib.Path(solvated_prm7).resolve())
     input_rst7 = str(pathlib.Path(solvated_rst7).resolve())
     trajectory: str | None = None
@@ -375,6 +380,7 @@ def _run_production_stage(
     poll_interval: float,
     handle_recorder: Callable[[str, str], None] | None = None,
     handle_label: str = "production",
+    submission_guard=None,
 ) -> tuple[str, str, str | None]:
     """Run the OpenMM production stage (with constant restraints) as a backend job.
 
@@ -413,7 +419,11 @@ def _run_production_stage(
             work_dir=str(out_dir),
             name="prep_production",
         )
-        (state,) = Scheduler(backend, poll_interval=poll_interval).run(
+        (state,) = Scheduler(
+            backend,
+            poll_interval=poll_interval,
+            submission_guard=submission_guard,
+        ).run(
             [job],
             on_submit=(
                 (lambda _index, handle: handle_recorder(handle_label, handle))
@@ -502,6 +512,7 @@ def _build_and_equilibrate_bulk(
     platform: str,
     poll_interval: float,
     handle_recorder: Callable[[str, str], None] | None = None,
+    submission_guard=None,
 ) -> tuple[str, str]:
     """Build one bulk reference through the backend, then equilibrate it.
 
@@ -554,7 +565,11 @@ def _build_and_equilibrate_bulk(
                 work_dir=str(build_dir),
                 name=f"{component}_bulk_build",
             )
-            (state,) = Scheduler(backend, poll_interval=poll_interval).run(
+            (state,) = Scheduler(
+                backend,
+                poll_interval=poll_interval,
+                submission_guard=submission_guard,
+            ).run(
                 [job],
                 on_submit=(
                     (
@@ -592,6 +607,7 @@ def _build_and_equilibrate_bulk(
         save_trajectory=False,
         handle_recorder=handle_recorder,
         handle_label_prefix=f"{component}_bulk_",
+        submission_guard=submission_guard,
     )
     return final_prm7, final_rst7
 
@@ -604,6 +620,7 @@ def prepare(
     platform: str = "CUDA",
     poll_interval: float = 30.0,
     handle_recorder: Callable[[str, str], None] | None = None,
+    submission_guard=None,
 ) -> PreparedSystem:
     """Full preparation: build, equilibrate, extract bulk, and write a manifest.
 
@@ -643,7 +660,11 @@ def prepare(
             work_dir=str(build_dir),
             name="prep_system_build",
         )
-        (state,) = Scheduler(backend, poll_interval=poll_interval).run(
+        (state,) = Scheduler(
+            backend,
+            poll_interval=poll_interval,
+            submission_guard=submission_guard,
+        ).run(
             [job],
             on_submit=(
                 (lambda _index, handle: handle_recorder("system_build", handle))
@@ -679,6 +700,7 @@ def prepare(
         poll_interval=poll_interval,
         handle_recorder=handle_recorder,
         handle_label_prefix="complex_",
+        submission_guard=submission_guard,
     )
     complex_prm7, complex_rst7, trajectory = _run_production_stage(
         config,
@@ -691,6 +713,7 @@ def prepare(
         poll_interval=poll_interval,
         handle_recorder=handle_recorder,
         handle_label="complex_production",
+        submission_guard=submission_guard,
     )
 
     # Each bulk extraction/solvation is an isolated backend worker. This keeps
@@ -706,6 +729,7 @@ def prepare(
         platform=platform,
         poll_interval=poll_interval,
         handle_recorder=handle_recorder,
+        submission_guard=submission_guard,
     )
     receptor_bulk = _build_and_equilibrate_bulk(
         component="receptor",
@@ -718,6 +742,7 @@ def prepare(
         platform=platform,
         poll_interval=poll_interval,
         handle_recorder=handle_recorder,
+        submission_guard=submission_guard,
     )
 
     prepared = PreparedSystem(

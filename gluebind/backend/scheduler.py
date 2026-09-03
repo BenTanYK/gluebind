@@ -15,6 +15,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable, Iterable
+from typing import ContextManager
 
 from gluebind.backend.base import Backend, JobHandle, JobSpec, JobState
 
@@ -54,12 +55,14 @@ class Scheduler:
         poll_interval: float = 30.0,
         slots: SlotPool | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        submission_guard: Callable[[], ContextManager[None]] | None = None,
     ) -> None:
         self.backend = backend
         self.queue_len_lim = queue_len_lim
         self.poll_interval = poll_interval
         self.slots = slots
         self._sleep = sleep
+        self._submission_guard = submission_guard
 
     def _acquire_slot(self) -> bool:
         return True if self.slots is None else self.slots.acquire()
@@ -73,6 +76,7 @@ class Scheduler:
         specs: Iterable[JobSpec],
         *,
         on_submit: Callable[[int, JobHandle], None] | None = None,
+        submission_guard: Callable[[], ContextManager[None]] | None = None,
     ) -> list[JobState]:
         """Submit all ``specs`` and return their terminal states, in input order.
 
@@ -84,6 +88,7 @@ class Scheduler:
         other systems) waits and retries rather than exiting.
         """
         specs = list(specs)
+        guard = submission_guard or self._submission_guard
         pending = list(range(len(specs)))
         state: list[JobState | None] = [None] * len(specs)
         live: dict[JobHandle, int] = {}  # every entry holds exactly one acquired slot
@@ -95,13 +100,24 @@ class Scheduler:
                 ):
                     index = pending.pop(0)
                     try:
-                        handle = self.backend.submit(specs[index])
+                        if guard is None:
+                            handle = self.backend.submit(specs[index])
+                            live[handle] = index
+                            if on_submit is not None:
+                                on_submit(index, handle)
+                        else:
+                            # The guard holds a shared cross-process lock through
+                            # both submission and handle persistence. A concurrent
+                            # kill() first acquires the exclusive lock, then sees
+                            # every submitted handle before cancelling it.
+                            with guard():
+                                handle = self.backend.submit(specs[index])
+                                live[handle] = index
+                                if on_submit is not None:
+                                    on_submit(index, handle)
                     except BaseException:
                         self._release_slot()  # submit failed — hand the slot back
                         raise
-                    live[handle] = index
-                    if on_submit is not None:
-                        on_submit(index, handle)
                 if not live:
                     if not pending:
                         break
