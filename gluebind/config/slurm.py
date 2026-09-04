@@ -1,10 +1,13 @@
 """Cluster-scoped SLURM submission configuration.
 
-Lifted, near-verbatim, from a3fe's ``SlurmConfig`` (the pattern is domain-
+Lifted, from a3fe's ``SlurmConfig`` (the pattern is domain-
 agnostic): pydantic fields for the sbatch directives, an f-string script
 renderer, and YAML dump/load. Kept separate from :class:`CalculationConfig`
 because it describes the *machine*, not the calculation, and is reused across
 every run on a given cluster.
+
+Original a3fe source code:
+https://github.com/michellab/a3fe/blob/main/a3fe/configuration/slurm_config.py
 
 ``queue_len_lim`` is exposed here (a3fe hard-codes it) because the scheduler
 throttles how many jobs sit in the real SLURM queue at once.
