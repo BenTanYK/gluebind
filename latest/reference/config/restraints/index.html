@@ -3251,7 +3251,7 @@ schedules live in :class:<code>gluebind.config.sampling.SamplingConfig</code>.</
 169-216"</code>) rather than raw index lists: less error-prone to author and read,
 and resolved + echoed back by name before any simulation runs.</p>
 <p>If <code>RestraintsConfig.rmsd_cvs</code> is left empty, gluebind falls back to an
-all-Cα RMSD per protein, folding the glue heavy atoms into whichever protein it
+all-CA RMSD per protein, folding the glue heavy atoms into whichever protein it
 is assigned to (see :class:<code>gluebind.config.calculation.GlueInput</code>). That
 default reproduces a simple single-domain complex exactly; it is <em>not</em>
 appropriate for multi-domain targets (e.g. tandem bromodomains), where explicit
@@ -3501,7 +3501,7 @@ during assembly (see :mod:<code>gluebind.system.atom_map</code>).</p>
 
         <p>Residue-only MDAnalysis selection (e.g. <code>"resid 174-280"</code>), resolved
 against the <code>protein</code>'s <strong>input</strong> <code>.prm7</code> (the numbering the user authored
-against) and mapped to the complex. The atom filter (Cα vs backbone) is <em>not</em>
+against) and mapped to the complex. The atom filter (CA vs backbone) is <em>not</em>
 part of the selection — it comes from <code>RestraintsConfig.rmsd_atoms</code>.</p>
 
     </div>
@@ -3593,8 +3593,8 @@ explicit for provenance in the echoed config.</p>
         <p>A harmonic RMSD restraint present in <em>every</em> stage's system.</p>
 <p>Used to substitute for a missing structural partner (e.g. the DDB1 scaffold
 for DCAF16). Because it is applied identically in the restrained and
-released states, its free-energy contribution cancels and it does not enter
-the final estimate.</p>
+released states, its free-energy contribution approximately cancels and it
+does not enter the final estimate.</p>
 
 
 
@@ -3797,7 +3797,7 @@ default to automatic selection from RMSF minima.</p>
         <p>Either <code>"auto"</code> or an explicit mapping with keys <code>b</code>, <code>c</code>, <code>B</code>,
 <code>C</code> to 1-based residue IDs from the corresponding input topology.</p>
 <p><code>b</code> and <code>c</code> refer to receptor residues; <code>B</code> and <code>C</code> refer to target
-residues. Each residue must contain exactly one Cα atom. The resolved
+residues. Each residue must contain exactly one CA atom. The resolved
 complex atom indices are stored internally in the run state.</p>
 
     </div>
@@ -3874,7 +3874,7 @@ complex atom indices are stored internally in the run state.</p>
               (<code><span title="list">list</span>[<span title="str">str</span>]</code>)
           –
           <div class="doc-md-description">
-            <p>Sequential bound-state application order, by CV name. Empty ⇒ the order</p>
+            <p>Sequential bound-state application order, by CV name. Empty =&gt; the order</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3888,7 +3888,7 @@ complex atom indices are stored internally in the run state.</p>
               (<code><span title="gluebind.config.restraints.Atoms">Atoms</span></code>)
           –
           <div class="doc-md-description">
-            <p>Which atoms the US RMSD restraints act on — <code>CA</code> (Cα only) or <code>backbone</code></p>
+            <p>Which atoms the US RMSD restraints act on — <code>CA</code> (CA only) or <code>backbone</code></p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3915,7 +3915,7 @@ complex atom indices are stored internally in the run state.</p>
               (<code><span title="bool">bool</span></code>)
           –
           <div class="doc-md-description">
-            <p>True when no explicit RMSD CVs are given (all-Cα fallback applies).</p>
+            <p>True when no explicit RMSD CVs are given (all-CA fallback applies).</p>
           </div>
         </li>
     </ul>
@@ -3977,7 +3977,7 @@ complex atom indices are stored internally in the run state.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Sequential bound-state application order, by CV name. Empty ⇒ the order
+        <p>Sequential bound-state application order, by CV name. Empty =&gt; the order
 of <code>rmsd_cvs</code>.</p>
 
     </div>
@@ -4003,8 +4003,8 @@ of <code>rmsd_cvs</code>.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Which atoms the US RMSD restraints act on — <code>CA</code> (Cα only) or <code>backbone</code>
-(C, N, Cα). Applied to every RMSD CV and to the all-protein default; CV
+        <p>Which atoms the US RMSD restraints act on — <code>CA</code> (CA only) or <code>backbone</code>
+(C, N, CA). Applied to every RMSD CV and to the all-protein default; CV
 selections are therefore residue-only (the atom filter comes from here).</p>
 
     </div>
@@ -4055,7 +4055,7 @@ selections are therefore residue-only (the atom filter comes from here).</p>
 
     <div class="doc doc-contents ">
 
-        <p>True when no explicit RMSD CVs are given (all-Cα fallback applies).</p>
+        <p>True when no explicit RMSD CVs are given (all-CA fallback applies).</p>
 
     </div>
 
