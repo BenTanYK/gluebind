@@ -1,6 +1,6 @@
 """gluebind — geometric-route umbrella-sampling ternary-complex binding free energies.
 
-Package layout mirrors the development plan: :mod:`gluebind.config` (typed
+Package layout is as follows: :mod:`gluebind.config` (typed
 configuration), :mod:`gluebind.state` (on-disk run state), :mod:`gluebind.backend`
 (job submission), :mod:`gluebind.restraints` (OpenMM force builders),
 :mod:`gluebind.selection` (anchor/equilibration analysis),

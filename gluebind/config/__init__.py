@@ -7,7 +7,7 @@ Two independent config families:
 - :class:`~gluebind.config.slurm.SlurmConfig` — cluster-scoped submission parameters,
   deliberately separate because they are reused across every run on a machine.
 
-The calculation config splits into method parameters (paper-derived defaults, rarely
+The calculation config splits into method parameters (provided defaults, rarely
 touched) and system-specific structural input (restraints), but both serialise to a
 single file. Every force constant lives in exactly one place
 (:class:`~gluebind.config.sampling.WindowSampling`) so simulation and analysis cannot
