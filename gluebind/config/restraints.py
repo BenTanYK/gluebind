@@ -12,7 +12,7 @@ Selections are written as MDAnalysis-style strings (e.g. ``"resid 45-98
 and resolved + echoed back by name before any simulation runs.
 
 If ``RestraintsConfig.rmsd_cvs`` is left empty, gluebind falls back to an
-all-Cα RMSD per protein, folding the glue heavy atoms into whichever protein it
+all-CA RMSD per protein, folding the glue heavy atoms into whichever protein it
 is assigned to (see :class:`gluebind.config.calculation.GlueInput`). That
 default reproduces a simple single-domain complex exactly; it is *not*
 appropriate for multi-domain targets (e.g. tandem bromodomains), where explicit
@@ -51,7 +51,7 @@ class RmsdCVSpec(pydantic.BaseModel):
     selection: str
     """Residue-only MDAnalysis selection (e.g. ``"resid 174-280"``), resolved
     against the ``protein``'s **input** ``.prm7`` (the numbering the user authored
-    against) and mapped to the complex. The atom filter (Cα vs backbone) is *not*
+    against) and mapped to the complex. The atom filter (CA vs backbone) is *not*
     part of the selection — it comes from ``RestraintsConfig.rmsd_atoms``."""
     states: list[State] = ["bound", "bulk"]
     """Which thermodynamic states this CV is sampled in — must be **both** ``bound``
@@ -77,8 +77,8 @@ class AlwaysOnRestraint(pydantic.BaseModel):
 
     Used to substitute for a missing structural partner (e.g. the DDB1 scaffold
     for DCAF16). Because it is applied identically in the restrained and
-    released states, its free-energy contribution cancels and it does not enter
-    the final estimate.
+    released states, its free-energy contribution approximately cancels and it
+    does not enter the final estimate.
     """
 
     model_config = _CONFIG
@@ -114,7 +114,7 @@ class BoreschSpec(pydantic.BaseModel):
     ``C`` to 1-based residue IDs from the corresponding input topology.
 
     ``b`` and ``c`` refer to receptor residues; ``B`` and ``C`` refer to target
-    residues. Each residue must contain exactly one Cα atom. The resolved
+    residues. Each residue must contain exactly one CA atom. The resolved
     complex atom indices are stored internally in the run state.
     """
 
@@ -139,11 +139,11 @@ class RestraintsConfig(pydantic.BaseModel):
     rmsd_cvs: list[RmsdCVSpec] = pydantic.Field(default_factory=list)
     """RMSD CV regions. Empty ⇒ all-protein default (see module docstring)."""
     rmsd_order: list[str] = pydantic.Field(default_factory=list)
-    """Sequential bound-state application order, by CV name. Empty ⇒ the order
+    """Sequential bound-state application order, by CV name. Empty => the order
     of ``rmsd_cvs``."""
     rmsd_atoms: Atoms = "CA"
-    """Which atoms the US RMSD restraints act on — ``CA`` (Cα only) or ``backbone``
-    (C, N, Cα). Applied to every RMSD CV and to the all-protein default; CV
+    """Which atoms the US RMSD restraints act on — ``CA`` (CA only) or ``backbone``
+    (C, N, CA). Applied to every RMSD CV and to the all-protein default; CV
     selections are therefore residue-only (the atom filter comes from here)."""
     always_on: list[AlwaysOnRestraint] = pydantic.Field(default_factory=list)
     always_on_atoms: Atoms = "CA"
@@ -169,13 +169,13 @@ class RestraintsConfig(pydantic.BaseModel):
                 f"got {self.rmsd_order} for CVs {names}"
             )
         # always_on lives in the custom-CV bulk scheme (its bulk handling is only
-        # wired for explicit rmsd_cvs); the all-Cα default already restrains the
+        # wired for explicit rmsd_cvs); the all-CA default already restrains the
         # whole protein, so combining them is unsupported (would omit always_on
         # from the default bulk stages, breaking cancellation).
         if self.always_on and not self.rmsd_cvs:
             raise ValueError(
                 "always_on restraints require explicit rmsd_cvs — they are not "
-                "supported with the all-Cα default (which already restrains the "
+                "supported with the all-CA default (which already restrains the "
                 "whole protein)."
             )
         # Each RMSD CV must be sampled in BOTH states: the confinement free energy
@@ -195,5 +195,5 @@ class RestraintsConfig(pydantic.BaseModel):
 
     @property
     def uses_default_all_ca(self) -> bool:
-        """True when no explicit RMSD CVs are given (all-Cα fallback applies)."""
+        """True when no explicit RMSD CVs are given (all-CA fallback applies)."""
         return not self.rmsd_cvs

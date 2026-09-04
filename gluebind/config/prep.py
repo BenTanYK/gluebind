@@ -38,7 +38,9 @@ class PrepConfig(pydantic.BaseModel):
     """Solvent padding for isolated receptor/target bulk reference systems.
 
     This is intentionally larger than the complex padding to reduce periodic-image
-    artefacts in the unbound RMSD umbrella windows.
+    artefacts in the unbound RMSD umbrella windows
+    (#TODO may be able to reduce default padding after fix from
+    # https://github.com/openmm/openmm/issues/5391).
     """
     ion_concentration_M: float = 0.15
     neutralise: bool = True
@@ -49,11 +51,10 @@ class PrepConfig(pydantic.BaseModel):
     npt_ns: float = 0.4
     """Short NPT equilibration to relax the box volume."""
     equilibration_ns: float = 50.0
-    """Long NVT production equilibration at the production temperature. Single run
-    (no ensemble): the paper found triplicate equilibration trajectories to be
-    essentially identical. Source of the RMSF/anchor-selection trajectory, the
-    Boresch angle distributions and the bound-state starting structure. (The
-    paper uses 100 ns.)"""
+    """Long NVT production equilibration at the production temperature.
+    Source of the RMSF/anchor-selection trajectory, the
+    Boresch angle distributions and the bound-state starting structure.
+    (The paper uses 100 ns.)"""
 
     @pydantic.field_validator(
         "box_padding_angstrom",
