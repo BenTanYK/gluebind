@@ -11,6 +11,9 @@ GLUEBIND_DESIGN.md
 GRIDENGINE_BACKEND.md
 PRE_RELEASE_COMPATIBILITY_CLEANUP.md
 
+# Local test slurm config
+gluebind/data/plato_test_config.yaml
+
 # Distribution / packaging
 .Python
 env/
