@@ -1,11 +1,11 @@
-# Slurm settings for the gluebind integration test, run on the plato cluster.
+# Slurm settings for the gluebind integration test
 #
 # These are conservative defaults for a generic short-lived test partition.
 # Cluster users can copy this file, adjust the scheduler-specific fields, and
 # point the integration test at it with GLUEBIND_TEST_SLURM_CONFIG.
 
-partition: RTX3080
-time: "24:00:00"
+partition: test
+time: "00:30:00"
 memory: 4G
 gres: gpu:1
 output: slurm-%A.%a.out
