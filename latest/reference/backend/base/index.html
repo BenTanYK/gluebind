@@ -3139,9 +3139,9 @@ interchangeable.</p>
 <p>Two implementations ship with gluebind — :class:<code>~gluebind.backend.local.LocalBackend</code>
 (testing/CI) and :class:<code>~gluebind.backend.slurm.SlurmBackend</code> (the benchmarked
 default). A third, an <code>AWSBatchBackend</code>, is intended to be written downstream
-(e.g. within Aqemia) by implementing these same three methods on top of a Batch
-<em>client</em> + <em>runner</em> pair, exactly as aqemia-abfe drives openfe-client. To make
-that a drop-in, two things in this module are deliberately Batch-forward:</p>
+by implementing these same three methods on top of a Batch <em>client</em> + <em>runner</em>
+pair. To make that a drop-in, two things in this module are deliberately
+Batch-forward:</p>
 <ul>
 <li>the handle is opaque (a plain <code>str</code>), and</li>
 <li>:class:<code>JobSpec</code> carries <code>inputs</code>/<code>outputs</code> staging manifests that are
