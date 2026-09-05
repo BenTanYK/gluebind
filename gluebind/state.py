@@ -1,24 +1,11 @@
 """Persistent run state — ``.gluebind-state.json``.
 
-Mirrors aqemia-abfe's ``RunState`` pattern: a single JSON file at the
-calculation base directory, written by the orchestrator and read back by any
-fresh process so the driver can be reconstructed and a run resumed after the
-terminal / IDE / SSH session closes. The filesystem plus the live SLURM queue
-are the source of truth; this file holds the *pointers* (job handles) and the
-mid-run *determined values* that later stages depend on.
-
-Differences from aqemia-abfe, by design:
-
-* ``handles`` is nested one level deeper (``stage -> window -> [job id per
-  repeat]``) for gluebind's umbrella-sampling hierarchy. Non-window jobs
-  (system build, preparation, and steered MD) are stored under the reserved
-  ``"_auxiliary"`` stage, keyed by their descriptive label.
-* It additionally persists ``anchors`` and ``boresch_eq_values`` — values
-  computed mid-run (from RMSF and from Boresch-US PMF minima) that sequential
-  downstream stages consume. Consequently the file is updated *incrementally*,
-  and ``stage_status`` records progress.
-* :meth:`save` is atomic (temp file + ``os.replace``), because gluebind writes
-  it far more often than aqemia-abfe's write-once cadence.
+Record a single JSON file at the calculation base directory, written by the
+orchestrator and read back by any fresh process so the driver can be
+reconstructed and a run resumed after the terminal / IDE / SSH session closes.
+The filesystem plus the live SLURM queue are the source of truth; this file
+holds the *pointers* (job handles) and the mid-run *determined values* that
+later stages depend on.
 
 Completion is deliberately *not* stored as truth here; it is reconciled live
 against ``squeue`` and the on-disk output files.
