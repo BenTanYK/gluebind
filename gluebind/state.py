@@ -42,7 +42,7 @@ class RunState(pydantic.BaseModel):
     config_hash: str
     config_path: str
 
-    # Determined mid-run and reused by later stages (no aqemia-abfe analogue).
+    # Determined mid-run and reused by later stages.
     anchors: dict[str, int] | None = None
     boresch_eq_values: dict[str, float] = pydantic.Field(default_factory=dict)
     stage_status: dict[str, str] = pydantic.Field(default_factory=dict)
@@ -51,9 +51,9 @@ class RunState(pydantic.BaseModel):
     # ``_auxiliary`` stores non-window jobs as label -> [id].
     handles: dict[str, dict[str, list[str]]] = pydantic.Field(default_factory=dict)
 
-    # Per-backend escape hatch (mirrors aqemia-abfe's RunState.backend_extra):
-    # e.g. an AWS Batch backend stashes its batch_id and S3 prefix here so a
-    # fresh process can reconstruct where its outputs live. Opaque to the core.
+    # Per-backend escape hatch: e.g. an AWS Batch backend can stash its batch ID
+    # and S3 prefix here so a fresh process can reconstruct where outputs live.
+    # This data is opaque to the core workflow.
     backend_extra: dict = pydantic.Field(default_factory=dict)
 
     @pydantic.field_validator("anchors", mode="before")

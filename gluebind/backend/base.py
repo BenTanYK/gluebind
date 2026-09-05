@@ -11,9 +11,9 @@ interchangeable.
 Two implementations ship with gluebind — :class:`~gluebind.backend.local.LocalBackend`
 (testing/CI) and :class:`~gluebind.backend.slurm.SlurmBackend` (the benchmarked
 default). A third, an ``AWSBatchBackend``, is intended to be written downstream
-(e.g. within Aqemia) by implementing these same three methods on top of a Batch
-*client* + *runner* pair, exactly as aqemia-abfe drives openfe-client. To make
-that a drop-in, two things in this module are deliberately Batch-forward:
+by implementing these same three methods on top of a Batch *client* + *runner*
+pair. To make that a drop-in, two things in this module are deliberately
+Batch-forward:
 
 * the handle is opaque (a plain ``str``), and
 * :class:`JobSpec` carries ``inputs``/``outputs`` staging manifests that are
