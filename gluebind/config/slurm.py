@@ -20,13 +20,13 @@ import pathlib
 import pydantic
 import yaml
 
+from gluebind.config.scheduler import SchedulerConfig
+
 SLURM_CONFIG_FILENAME = "slurm_config.yaml"
 
 
-class SlurmConfig(pydantic.BaseModel):
+class SlurmConfig(SchedulerConfig):
     """Parameters controlling how jobs are submitted to SLURM."""
-
-    model_config = pydantic.ConfigDict(validate_assignment=True)
 
     partition: str = pydantic.Field("main", description="SLURM partition to submit to.")
     time: str = pydantic.Field("24:00:00", description="Time limit for each SLURM job.")
@@ -53,20 +53,6 @@ class SlurmConfig(pydantic.BaseModel):
         default_factory=dict,
         description="Additional sbatch options rendered as key-value directives.",
     )
-    queue_check_interval: int = pydantic.Field(
-        30, ge=1, description="Seconds between SLURM queue polls."
-    )
-    job_submission_wait: int = pydantic.Field(
-        300,
-        ge=1,
-        description="Seconds to wait for a submitted job to appear in the queue.",
-    )
-    queue_len_lim: int = pydantic.Field(
-        2000,
-        ge=1,
-        description="Maximum number of jobs allowed in the SLURM queue at once.",
-    )
-
     def render_script(self, cmd: str) -> str:
         """Render an sbatch script body for ``cmd``."""
         lines = [

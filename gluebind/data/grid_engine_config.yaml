@@ -1,0 +1,15 @@
+# Cluster-specific Grid Engine configuration. Copy this file outside the source
+# tree and customise its queue, resources, and preamble for your site.
+queue: gpu
+time: "24:00:00"
+memory: 4G
+resources:
+  gpu: "1"
+output: null
+join_output: true
+shell: /bin/bash
+preamble: []
+extra_directives: []
+queue_check_interval: 30
+job_submission_wait: 300
+queue_len_lim: 2000

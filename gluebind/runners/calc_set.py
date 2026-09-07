@@ -30,6 +30,7 @@ import yaml
 
 from gluebind.backend.base import Backend
 from gluebind.backend.scheduler import SlotPool
+from gluebind.config.scheduler import SchedulerConfig
 from gluebind.logutil import add_file_handler, get_logger
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.calculation import Calculation
@@ -39,7 +40,11 @@ logger = get_logger("calc_set")
 
 
 class CalcSet(SimulationRunner):
-    """A directory of per-system calculation basedirs, run and analysed together."""
+    """A directory of per-system calculation basedirs, run and analysed together.
+
+    ``scheduler_config``, when supplied, is forwarded to each child calculation
+    for backend-neutral queue throttling and polling.
+    """
 
     CONFIG_FILENAME = "config.yaml"
     MANIFEST_FILENAME = "benchmark.yaml"
@@ -50,6 +55,7 @@ class CalcSet(SimulationRunner):
         base_dir: str | pathlib.Path,
         backend: Backend,
         *,
+        scheduler_config: SchedulerConfig | None = None,
         platform: str = "CUDA",
         poll_interval: float = 30.0,
     ) -> None:
@@ -69,6 +75,7 @@ class CalcSet(SimulationRunner):
                 system_dir / self.CONFIG_FILENAME,
                 backend,
                 base_dir=system_dir,
+                scheduler_config=scheduler_config,
                 platform=platform,
                 poll_interval=poll_interval,
                 stop_paths=(self._stop_marker,),

@@ -4,7 +4,9 @@ Two independent config families:
 
 - :class:`~gluebind.config.calculation.CalculationConfig` — the single calculation
   config: inputs + prep + sampling + restraints. Portable across clusters.
-- :class:`~gluebind.config.slurm.SlurmConfig` — cluster-scoped submission parameters,
+- :class:`~gluebind.config.scheduler.SchedulerConfig` — common cluster scheduler
+  settings, with backend-specific submission parameters in ``SlurmConfig`` and
+  ``GridEngineConfig``.
   deliberately separate because they are reused across every run on a machine.
 
 The calculation config splits into method parameters (provided defaults, rarely
@@ -22,6 +24,7 @@ from gluebind.config.calculation import (
     Inputs,
     MoleculeInput,
 )
+from gluebind.config.grid_engine import GridEngineConfig
 from gluebind.config.prep import PrepConfig
 from gluebind.config.restraints import (
     AlwaysOnRestraint,
@@ -30,6 +33,7 @@ from gluebind.config.restraints import (
     RmsdCVSpec,
 )
 from gluebind.config.sampling import SamplingConfig, WindowSampling
+from gluebind.config.scheduler import SchedulerConfig
 from gluebind.config.slurm import SlurmConfig
 
 __all__ = [
@@ -44,5 +48,7 @@ __all__ = [
     "RmsdCVSpec",
     "AlwaysOnRestraint",
     "BoreschSpec",
+    "SchedulerConfig",
+    "GridEngineConfig",
     "SlurmConfig",
 ]

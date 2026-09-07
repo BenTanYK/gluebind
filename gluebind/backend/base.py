@@ -5,12 +5,13 @@ and cancel it. It is the same-process analogue of the openfe client->runner
 boundary: the caller hands over a command (typically a ``python -c`` invocation
 of :func:`gluebind.simulation.window.run_window`) plus a working directory, and
 gets back an *opaque* handle it later polls — never inspecting the handle's
-internals, so SLURM job ids, local tokens and (future) AWS Batch job ids are all
+internals, so scheduler job ids, local tokens and (future) AWS Batch job ids are all
 interchangeable.
 
-Two implementations ship with gluebind — :class:`~gluebind.backend.local.LocalBackend`
-(testing/CI) and :class:`~gluebind.backend.slurm.SlurmBackend` (the benchmarked
-default). A third, an ``AWSBatchBackend``, is intended to be written downstream
+Three implementations ship with gluebind — :class:`~gluebind.backend.local.LocalBackend`
+(testing/CI), :class:`~gluebind.backend.slurm.SlurmBackend`, and
+:class:`~gluebind.backend.grid_engine.GridEngineBackend`. An ``AWSBatchBackend``
+is intended to be written downstream
 by implementing these same three methods on top of a Batch *client* + *runner*
 pair. To make that a drop-in, two things in this module are deliberately
 Batch-forward:
@@ -45,7 +46,7 @@ class JobState(enum.Enum):
 class Resources:
     """Backend-neutral resource request.
 
-    Maps to a local device selection, a SLURM ``--gres``/partition, or an AWS
+    Maps to a local device selection, a scheduler resource request, or an AWS
     Batch job-definition override, depending on the backend.
     """
 
@@ -83,9 +84,9 @@ class Backend(abc.ABC):
     """Places jobs on compute and reports their state."""
 
     detached: bool = False
-    """Whether submitted jobs survive the driver process exiting. True for SLURM
-    (and Batch); False for local. Determines whether a run can be resumed by a
-    fresh process reconciling against the backend's live queue."""
+    """Whether submitted jobs survive the driver process exiting. True for cluster
+    schedulers (and Batch); False for local. Determines whether a run can be
+    resumed by a fresh process reconciling against the backend's live queue."""
 
     @abc.abstractmethod
     def submit(self, spec: JobSpec) -> JobHandle:

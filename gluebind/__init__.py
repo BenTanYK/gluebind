@@ -23,6 +23,8 @@ except PackageNotFoundError:  # not installed (e.g. imported from a bare source 
     __version__ = "0.0.0+unknown"
 
 from gluebind.config.calculation import CalculationConfig
+from gluebind.config.grid_engine import GridEngineConfig
+from gluebind.config.scheduler import SchedulerConfig
 from gluebind.config.slurm import SlurmConfig
 from gluebind.runners.calc_set import CalcSet
 from gluebind.runners.calculation import Calculation
@@ -31,6 +33,8 @@ from gluebind.state import RunState
 
 __all__ = [
     "CalculationConfig",
+    "SchedulerConfig",
+    "GridEngineConfig",
     "SlurmConfig",
     "RunState",
     "SpecBuilder",

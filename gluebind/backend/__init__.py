@@ -1,15 +1,15 @@
 """Job-submission backends.
 
 The :class:`Backend` seam places one window's job on compute and reports its
-state via opaque handles. Two implementations ship: :class:`LocalBackend`
-(testing/CI, and the reference "run one window" operation a downstream runner
-wraps) and :class:`SlurmBackend` (the v1 execution path). :class:`Scheduler`
-submits many window jobs through a backend and waits for them.
+state via opaque handles. Built-in implementations are :class:`LocalBackend`
+(testing/CI), :class:`SlurmBackend`, and :class:`GridEngineBackend`.
+:class:`Scheduler` submits many window jobs through a backend and waits for them.
 """
 
 from __future__ import annotations
 
 from gluebind.backend.base import Backend, JobHandle, JobSpec, JobState, Resources
+from gluebind.backend.grid_engine import GridEngineBackend
 from gluebind.backend.local import LocalBackend
 from gluebind.backend.scheduler import Scheduler, SlotPool
 from gluebind.backend.slurm import SlurmBackend
@@ -21,6 +21,7 @@ __all__ = [
     "JobHandle",
     "Resources",
     "LocalBackend",
+    "GridEngineBackend",
     "SlurmBackend",
     "Scheduler",
     "SlotPool",

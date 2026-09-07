@@ -6,8 +6,8 @@ at a time) and block until all reach a terminal state. It is backend-agnostic â€
 the same loop drives the local and SLURM backends â€” so it is the exact analogue
 of the multi-job scaffolding an AWS Batch *client* would perform.
 
-The throttle exists because SLURM caps how many jobs a user may queue; on a
-cluster without such a cap, leave ``queue_len_lim`` at its default.
+The throttle exists because schedulers may cap how many jobs a user may queue;
+on a cluster without such a cap, leave ``queue_len_lim`` at its default.
 """
 
 from __future__ import annotations
