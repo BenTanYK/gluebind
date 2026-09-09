@@ -1,10 +1,7 @@
 """Base class for the nested runner hierarchy.
 
 ``Calculation → Group → Stage → Window`` all subclass :class:`SimulationRunner`,
-which provides a working directory and recursive ``setup``. Kept deliberately
-light (a3fe's equivalent is much heavier): the orchestration logic — submission,
-state, analysis — lives on :class:`~gluebind.runners.calculation.Calculation`,
-while ``Group``/``Stage``/``Window`` mostly encode the tree and on-disk layout.
+which provides a working directory and recursive ``setup``.
 """
 
 from __future__ import annotations
