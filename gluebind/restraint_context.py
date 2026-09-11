@@ -41,7 +41,15 @@ class ResolvedRestraintContext(pydantic.BaseModel):
 
     @classmethod
     def load(cls, path: str | pathlib.Path) -> "ResolvedRestraintContext":
-        return cls.model_validate_json(pathlib.Path(path).read_text())
+        path = pathlib.Path(path)
+        raw = json.loads(path.read_text())
+        if raw.get("schema_version") != SCHEMA_VERSION:
+            raise ValueError(
+                f"Resolved restraint context at {path} has "
+                f"schema_version={raw.get('schema_version')!r}, but GlueBind "
+                f"requires v{SCHEMA_VERSION}. Start a fresh run."
+            )
+        return cls.model_validate(raw)
 
 
 def prepared_hash(prepared: PreparedSystem) -> str:

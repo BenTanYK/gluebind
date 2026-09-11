@@ -189,6 +189,29 @@ def test_prepared_system_roundtrip(tmp_path):
     assert PreparedSystem.load(tmp_path) == prepared
 
 
+@pytest.mark.parametrize("schema_version", [None, 0, 2])
+def test_prepared_system_requires_explicit_current_schema(tmp_path, schema_version):
+    prepared = PreparedSystem(
+        complex_prm7="complex.prm7",
+        complex_rst7="complex.rst7",
+        target_bulk_prm7="target_bulk.prm7",
+        target_bulk_rst7="target_bulk.rst7",
+        receptor_bulk_prm7="receptor_bulk.prm7",
+        receptor_bulk_rst7="receptor_bulk.rst7",
+        target_molecules=[0],
+        receptor_molecules=[1],
+    )
+    path = prepared.dump(tmp_path)
+    data = json.loads(path.read_text())
+    if schema_version is None:
+        del data["schema_version"]
+    else:
+        data["schema_version"] = schema_version
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="requires v1"):
+        PreparedSystem.load(tmp_path)
+
+
 def test_bulk_build_spec_roundtrip_and_command(tmp_path):
     spec = BulkBuildSpec(
         complex_prm7="complex.prm7",
@@ -417,48 +440,6 @@ def test_bulk_build_resume_reuses_manifest_without_backend_submission(
 
     assert result == ("final.prm7", "final.rst7")
     assert calls == [(str(prm7), str(rst7), "target_bulk_")]
-
-
-def test_bulk_build_adopts_legacy_solvated_files(tmp_path, monkeypatch):
-    import gluebind.system.prep as prep
-
-    out_dir = tmp_path / "receptor_bulk"
-    prm7 = out_dir / "solvated.prm7"
-    rst7 = out_dir / "solvated.rst7"
-    prm7.parent.mkdir(parents=True)
-    prm7.touch()
-    rst7.touch()
-    monkeypatch.setattr(
-        prep,
-        "run_equilibration_stages",
-        lambda *args, **kwargs: ("final.prm7", "final.rst7", None),
-    )
-
-    class NoSubmitBackend(Backend):
-        def submit(self, spec):
-            raise AssertionError("legacy solvated files should have been adopted")
-
-        def poll(self, handles):
-            return {}
-
-        def cancel(self, handle):
-            pass
-
-    prep._build_and_equilibrate_bulk(
-        component="receptor",
-        complex_prm7="complex.prm7",
-        complex_rst7="complex.rst7",
-        indices=[1],
-        prep_config=PrepConfig(),
-        out_dir=out_dir,
-        backend=NoSubmitBackend(),
-        platform="CUDA",
-        poll_interval=1.0,
-    )
-
-    adopted = BulkBuildResult.load(out_dir / "build" / "result.json")
-    assert adopted.solvated_prm7 == str(prm7)
-    assert adopted.solvated_rst7 == str(rst7)
 
 
 # ---- equilibration staging (per-stage jobs) --------------------------------

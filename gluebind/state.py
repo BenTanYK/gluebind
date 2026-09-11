@@ -19,15 +19,13 @@ import json
 import os
 import pathlib
 import tempfile
-import typing
 
 import pydantic
 
 STATE_FILENAME = ".gluebind-state.json"
 
-# Bump when adding/removing/renaming a load-bearing field. Older files arrive
-# without the new field (pydantic supplies the default); the first breaking
-# change is the one that must grow a ``_migrate`` entry.
+# Bump when adding/removing/renaming a load-bearing field. Older artifacts are
+# deliberately rejected: GlueBind does not migrate run state across schemas.
 SCHEMA_VERSION = 1
 
 
@@ -103,7 +101,7 @@ class RunState(pydantic.BaseModel):
 
     @classmethod
     def load(cls, run_dir: str | pathlib.Path) -> "RunState":
-        """Load the state file from ``run_dir``, migrating older schemas."""
+        """Load a state file with the exact supported schema version."""
         path = pathlib.Path(run_dir) / STATE_FILENAME
         if not path.exists():
             raise FileNotFoundError(
@@ -112,16 +110,12 @@ class RunState(pydantic.BaseModel):
         with open(path) as f:
             raw = json.load(f)
 
-        on_disk = raw.get("schema_version", 1)
-        if on_disk > SCHEMA_VERSION:
+        on_disk = raw.get("schema_version")
+        if on_disk != SCHEMA_VERSION:
             raise ValueError(
-                f"State file at {path} has schema_version={on_disk}, but this "
-                f"gluebind build only knows v{SCHEMA_VERSION}. It was written by a "
-                "newer release — upgrade gluebind, or delete the state file and "
-                "resubmit."
+                f"State file at {path} has schema_version={on_disk!r}, but this "
+                f"gluebind build requires v{SCHEMA_VERSION}. Start a fresh run."
             )
-        if on_disk < SCHEMA_VERSION:
-            raw = _migrate(raw, from_version=on_disk)
 
         try:
             return cls.model_validate(raw)
@@ -131,18 +125,6 @@ class RunState(pydantic.BaseModel):
                 "from an incompatible schema that was never migrated — delete it and "
                 f"resubmit, or inspect it by hand.\n\nUnderlying error:\n{e}"
             ) from e
-
-
-def _migrate(raw: dict[str, typing.Any], *, from_version: int) -> dict[str, typing.Any]:
-    """Upgrade a state-file dict from an older schema to ``SCHEMA_VERSION``.
-
-    Each block is a one-step migration (v_n -> v_{n+1}); add a block whenever
-    ``SCHEMA_VERSION`` is bumped. No migrations exist yet — the helper is here so
-    the next field change has a home.
-    """
-    return raw
-
-
 def now_utc_iso() -> str:
     """Current UTC time as an ISO-8601 string (seconds resolution)."""
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")

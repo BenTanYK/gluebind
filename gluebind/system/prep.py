@@ -20,6 +20,7 @@ a separate, config-driven value used later.
 
 from __future__ import annotations
 
+import json
 import pathlib
 from collections.abc import Callable, Sequence
 
@@ -37,6 +38,7 @@ from gluebind.system.inputs import (
 )
 
 PREPARED_FILENAME = "prepared.json"
+PREPARED_SCHEMA_VERSION = 1
 PRODUCTION_TEMPERATURE_K = 300.0
 
 
@@ -71,7 +73,7 @@ def box_length(box_min, box_max, padding):
 class PreparedSystem(pydantic.BaseModel):
     """Manifest of the prepared structures — the Phase 3 → Phase 4 hand-off."""
 
-    schema_version: int = 1
+    schema_version: int = PREPARED_SCHEMA_VERSION
     complex_prm7: str
     complex_rst7: str
     complex_trajectory: str | None = None
@@ -93,9 +95,15 @@ class PreparedSystem(pydantic.BaseModel):
 
     @classmethod
     def load(cls, run_dir: str | pathlib.Path) -> "PreparedSystem":
-        return cls.model_validate_json(
-            (pathlib.Path(run_dir) / PREPARED_FILENAME).read_text()
-        )
+        path = pathlib.Path(run_dir) / PREPARED_FILENAME
+        raw = json.loads(path.read_text())
+        if raw.get("schema_version") != PREPARED_SCHEMA_VERSION:
+            raise ValueError(
+                f"Prepared-system manifest at {path} has "
+                f"schema_version={raw.get('schema_version')!r}, but GlueBind "
+                f"requires v{PREPARED_SCHEMA_VERSION}. Start a fresh run."
+            )
+        return cls.model_validate(raw)
 
 
 class SolvatedSystem(pydantic.BaseModel):
@@ -541,59 +549,48 @@ def _build_and_equilibrate_bulk(
         ):
             raise FileNotFoundError(result_path)
     except FileNotFoundError:
-        # Runs created before bulk construction became a backend worker already
-        # have these files, but no build manifest. Adopt them without reopening a
-        # BioSimSpace system on the driver or repeating their solvation.
-        legacy_prm7 = out_dir / "solvated.prm7"
-        legacy_rst7 = out_dir / "solvated.rst7"
-        if legacy_prm7.exists() and legacy_rst7.exists():
-            built = BulkBuildResult(
-                solvated_prm7=str(legacy_prm7), solvated_rst7=str(legacy_rst7)
-            )
-            built.dump(result_path)
-        else:
-            build_dir.mkdir(parents=True, exist_ok=True)
-            BulkBuildSpec(
-                complex_prm7=complex_prm7,
-                complex_rst7=complex_rst7,
-                molecule_indices=indices,
-                prep=prep_config,
-                output_dir=str(out_dir),
-            ).dump(build_dir / BULK_BUILD_SPEC_FILENAME)
-            job = JobSpec(
-                command=bulk_build_launch_command(),
-                work_dir=str(build_dir),
-                name=f"{component}_bulk_build",
-            )
-            (state,) = Scheduler(
-                backend,
-                poll_interval=poll_interval,
-                submission_guard=submission_guard,
-            ).run(
-                [job],
-                on_submit=(
-                    (
-                        lambda _index, handle: handle_recorder(
-                            f"{component}_bulk_build", handle
-                        )
+        build_dir.mkdir(parents=True, exist_ok=True)
+        BulkBuildSpec(
+            complex_prm7=complex_prm7,
+            complex_rst7=complex_rst7,
+            molecule_indices=indices,
+            prep=prep_config,
+            output_dir=str(out_dir),
+        ).dump(build_dir / BULK_BUILD_SPEC_FILENAME)
+        job = JobSpec(
+            command=bulk_build_launch_command(),
+            work_dir=str(build_dir),
+            name=f"{component}_bulk_build",
+        )
+        (state,) = Scheduler(
+            backend,
+            poll_interval=poll_interval,
+            submission_guard=submission_guard,
+        ).run(
+            [job],
+            on_submit=(
+                (
+                    lambda _index, handle: handle_recorder(
+                        f"{component}_bulk_build", handle
                     )
-                    if handle_recorder is not None
-                    else None
-                ),
-            )
-            if state is not JobState.FINISHED or not result_path.exists():
-                raise RuntimeError(
-                    f"{component}-bulk build job did not produce its result; inspect "
-                    f"{build_dir}"
-                ) from None
-            built = BulkBuildResult.load(result_path)
-            if not (
-                pathlib.Path(built.solvated_prm7).exists()
-                and pathlib.Path(built.solvated_rst7).exists()
-            ):
-                raise RuntimeError(
-                    f"{component}-bulk build result references missing solvated inputs"
-                ) from None
+                )
+                if handle_recorder is not None
+                else None
+            ),
+        )
+        if state is not JobState.FINISHED or not result_path.exists():
+            raise RuntimeError(
+                f"{component}-bulk build job did not produce its result; inspect "
+                f"{build_dir}"
+            ) from None
+        built = BulkBuildResult.load(result_path)
+        if not (
+            pathlib.Path(built.solvated_prm7).exists()
+            and pathlib.Path(built.solvated_rst7).exists()
+        ):
+            raise RuntimeError(
+                f"{component}-bulk build result references missing solvated inputs"
+            ) from None
 
     bulk_plan = equilibration_stage_plan(prep_config)[:3]
     final_prm7, final_rst7, _ = run_equilibration_stages(

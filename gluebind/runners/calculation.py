@@ -502,29 +502,23 @@ class Calculation(SimulationRunner):
 
     def _wire(self, prepared) -> None:
         """Build the restraint context, window centres, spec builder and steered-MD
-        hook from a prepared system, and construct the group tree. New configured
-        runs load the compute-node resolution artifact without trajectory analysis;
-        the local resolver remains as compatibility for pre-existing runs and
-        advanced direct callers. Shared by :meth:`prepare` and the re-wiring
+        hook from a prepared system, and construct the group tree. Resolution is
+        always loaded from the compute-node artifact, so trajectory analysis never
+        runs in the driver. Shared by :meth:`prepare` and the re-wiring
         :meth:`analyse` does in a fresh process."""
-        from gluebind.spec_builder import SpecBuilder, build_restraint_context
-        from gluebind.stage_centres import compute_stage_centres
+        from gluebind.spec_builder import SpecBuilder
 
         resolved = self._load_resolved_restraint_context(prepared)
         state = self._load_or_init_state()
-        if resolved is not None:
-            from gluebind.restraint_context import context_from_data
-
-            context = context_from_data(resolved.context)
-            self.stage_centres = resolved.stage_centres
-        else:
-            # Compatibility for pre-existing prepared runs and direct advanced
-            # callers of _wire(). New configured runs create the durable context
-            # through _resolve_restraint_context() before reaching here.
-            context = build_restraint_context(
-                prepared, self.config, anchors_override=state.anchors
+        if resolved is None:
+            raise RuntimeError(
+                "cannot wire calculation: no valid resolved restraint context at "
+                f"{self._restraint_context_path()}; run prepare() or run() first"
             )
-            self.stage_centres = compute_stage_centres(prepared, context, self.config)
+        from gluebind.restraint_context import context_from_data
+
+        context = context_from_data(resolved.context)
+        self.stage_centres = resolved.stage_centres
         # Record both configured and automatically selected anchors immediately,
         # before any downstream SMD or umbrella jobs are submitted.
         state.anchors = dict(context.anchors)

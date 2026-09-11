@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from gluebind.config import CalculationConfig
 from gluebind.backend import LocalBackend
 from gluebind.restraint_context import (
@@ -143,3 +145,40 @@ def test_wire_reuses_context_artifact_without_mdanalysis(tmp_path, monkeypatch):
 
     assert calc.spec_builder.ctx == context
     assert calc.stage_centres == {"thetaA": [1.0], "separation": [1.5]}
+    from gluebind.state import RunState
+
+    assert RunState.load(tmp_path).anchors == context.anchors
+
+
+def test_wire_requires_valid_context_artifact(tmp_path):
+    prepared = _prepared(tmp_path)
+    config = CalculationConfig.model_validate(
+        {
+            "inputs": {
+                "target": {"prm7": "target.prm7", "rst7": "target.rst7"},
+                "receptor": {"prm7": "receptor.prm7", "rst7": "receptor.rst7"},
+            }
+        }
+    )
+    calc = Calculation.from_config(config, LocalBackend(), base_dir=tmp_path)
+    with pytest.raises(RuntimeError, match="run prepare\\(\\) or run\\(\\) first"):
+        calc._wire(prepared)
+
+
+@pytest.mark.parametrize("schema_version", [None, 0, 2])
+def test_resolved_context_requires_explicit_current_schema(tmp_path, schema_version):
+    path = tmp_path / RESTRAINT_CONTEXT_FILENAME
+    ResolvedRestraintContext(
+        config_hash="config",
+        prepared_hash="prepared",
+        context={},
+        stage_centres={},
+    ).dump(path)
+    data = json.loads(path.read_text())
+    if schema_version is None:
+        del data["schema_version"]
+    else:
+        data["schema_version"] = schema_version
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="requires v1"):
+        ResolvedRestraintContext.load(path)

@@ -36,24 +36,18 @@ def test_load_missing_raises(tmp_path):
         RunState.load(tmp_path)
 
 
-def test_newer_schema_rejected(tmp_path):
+@pytest.mark.parametrize("schema_version", [None, 0, SCHEMA_VERSION + 1])
+def test_noncurrent_schema_rejected(tmp_path, schema_version):
     _state(tmp_path).save(tmp_path)
     path = tmp_path / STATE_FILENAME
     data = json.loads(path.read_text())
-    data["schema_version"] = SCHEMA_VERSION + 1
+    if schema_version is None:
+        del data["schema_version"]
+    else:
+        data["schema_version"] = schema_version
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="requires v1"):
         RunState.load(tmp_path)
-
-
-def test_older_schema_migrates(tmp_path):
-    _state(tmp_path).save(tmp_path)
-    path = tmp_path / STATE_FILENAME
-    data = json.loads(path.read_text())
-    data["schema_version"] = 0  # pre-versioning file
-    path.write_text(json.dumps(data))
-    loaded = RunState.load(tmp_path)  # _migrate is a no-op today, but must not raise
-    assert loaded.calc_id == "c1"
 
 
 def test_backend_extra_defaults_empty(tmp_path):
