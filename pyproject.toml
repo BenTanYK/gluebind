@@ -19,6 +19,9 @@ include = ["gluebind*"]
 [tool.setuptools.package-data]
 "gluebind" = ["data/**/*"]
 
+[tool.bandit]
+assert_used = { skips = ["*_test.py", "*test_*.py"] }
+
 [tool.setuptools_scm]
 
 [tool.pytest.ini_options]
