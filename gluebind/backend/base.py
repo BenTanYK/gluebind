@@ -19,7 +19,9 @@ Batch-forward:
 * the handle is opaque (a plain ``str``), and
 * :class:`JobSpec` carries ``inputs``/``outputs`` staging manifests that are
   no-ops on a shared filesystem (local/SLURM) but tell a Batch backend which
-  files to push to / pull from S3.
+  files to push to / pull from S3. Resource allocation is deliberately owned
+  by each backend's cluster configuration, so all GlueBind jobs on a backend
+  use a uniform resource policy.
 """
 
 from __future__ import annotations
@@ -42,20 +44,6 @@ class JobState(enum.Enum):
         return self in (JobState.FINISHED, JobState.FAILED)
 
 
-@dataclasses.dataclass(frozen=True)
-class Resources:
-    """Backend-neutral resource request.
-
-    Maps to a local device selection, a scheduler resource request, or an AWS
-    Batch job-definition override, depending on the backend.
-    """
-
-    n_gpus: int = 1
-    n_cpus: int = 1
-    memory_gb: float | None = None
-    walltime: str | None = None
-
-
 @dataclasses.dataclass
 class JobSpec:
     """A single unit of work to place on compute."""
@@ -64,7 +52,6 @@ class JobSpec:
     """The command to run, e.g. ``["python", "-c", "...run_window(...)"]``."""
     work_dir: str
     """Directory the command runs in and reads/writes its files under."""
-    resources: Resources = dataclasses.field(default_factory=Resources)
     env: dict[str, str] = dataclasses.field(default_factory=dict)
     name: str = "gluebind"
     inputs: list[str] = dataclasses.field(default_factory=list)

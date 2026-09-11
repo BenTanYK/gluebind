@@ -8,7 +8,7 @@ state via opaque handles. Built-in implementations are :class:`LocalBackend`
 
 from __future__ import annotations
 
-from gluebind.backend.base import Backend, JobHandle, JobSpec, JobState, Resources
+from gluebind.backend.base import Backend, JobHandle, JobSpec, JobState
 from gluebind.backend.grid_engine import GridEngineBackend
 from gluebind.backend.local import LocalBackend
 from gluebind.backend.scheduler import Scheduler, SlotPool
@@ -19,7 +19,6 @@ __all__ = [
     "JobSpec",
     "JobState",
     "JobHandle",
-    "Resources",
     "LocalBackend",
     "GridEngineBackend",
     "SlurmBackend",

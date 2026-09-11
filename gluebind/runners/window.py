@@ -12,7 +12,7 @@ from __future__ import annotations
 import pathlib
 from collections.abc import Callable
 
-from gluebind.backend.base import JobSpec, Resources
+from gluebind.backend.base import JobSpec
 from gluebind.runners.base import SimulationRunner
 from gluebind.simulation.window import (
     RESULT_FILENAME,
@@ -89,7 +89,6 @@ class Window(SimulationRunner):
         ensemble_size: int,
         spec_builder: SpecBuilder,
         command_factory: CommandFactory = window_launch_command,
-        resources: Resources | None = None,
     ) -> None:
         super().__init__(base_dir)
         self.cv_type = cv_type
@@ -99,7 +98,6 @@ class Window(SimulationRunner):
         self.ensemble_size = ensemble_size
         self.spec_builder = spec_builder
         self.command_factory = command_factory
-        self.resources = resources or Resources()
 
     @property
     def label(self) -> str:
@@ -143,5 +141,4 @@ class Window(SimulationRunner):
             command=self.command_factory(),
             work_dir=str(self.replicate_dir(replicate)),
             name=f"{self.stage_name}_{self.label}_r{replicate}",
-            resources=self.resources,
         )
