@@ -23,6 +23,7 @@ import yaml
 from gluebind.config.scheduler import SchedulerConfig
 
 SLURM_CONFIG_FILENAME = "slurm_config.yaml"
+SUBMISSION_SCRIPT_FILENAME = "gluebind.sh"
 
 
 class SlurmConfig(SchedulerConfig):
@@ -70,21 +71,21 @@ class SlurmConfig(SchedulerConfig):
         return "\n".join(lines)
 
     def write_submission_script(
-        self, cmd: str, run_dir: str | pathlib.Path, script_name: str = "gluebind"
+        self, cmd: str, run_dir: str | pathlib.Path
     ) -> pathlib.Path:
         """Write the sbatch script into ``run_dir`` and return its path."""
-        run_dir = pathlib.Path(run_dir)
+        run_dir = pathlib.Path(run_dir).resolve()
         run_dir.mkdir(parents=True, exist_ok=True)
-        script_path = run_dir / f"{script_name}.sh"
+        script_path = run_dir / SUBMISSION_SCRIPT_FILENAME
         script_path.write_text(self.render_script(cmd))
         return script_path
 
     def get_submission_cmds(
-        self, cmd: str, run_dir: str | pathlib.Path, script_name: str = "gluebind"
+        self, cmd: str, run_dir: str | pathlib.Path
     ) -> list[str]:
         """Write the script and return the ``sbatch`` command list."""
-        script_path = self.write_submission_script(cmd, run_dir, script_name)
-        return ["sbatch", f"--chdir={run_dir}", str(script_path)]
+        script_path = self.write_submission_script(cmd, run_dir)
+        return ["sbatch", f"--chdir={script_path.parent}", str(script_path)]
 
     def slurm_output_glob(self, run_dir: str | pathlib.Path) -> str:
         """Glob matching a job's SLURM ``.out`` file(s) in ``run_dir``."""

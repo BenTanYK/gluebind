@@ -41,9 +41,7 @@ class SlurmBackend(Backend):
 
     def submit(self, spec: JobSpec) -> JobHandle:
         cmd = shlex.join(spec.command)
-        submission = self.config.get_submission_cmds(
-            cmd, spec.work_dir, script_name=spec.name
-        )
+        submission = self.config.get_submission_cmds(cmd, spec.work_dir)
         try:
             proc = subprocess.run(
                 submission, capture_output=True, text=True, check=True

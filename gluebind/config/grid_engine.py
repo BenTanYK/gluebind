@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 
 import pydantic
 import yaml
@@ -10,11 +11,22 @@ import yaml
 from gluebind.config.scheduler import SchedulerConfig
 
 GRID_ENGINE_CONFIG_FILENAME = "grid_engine_config.yaml"
+SUBMISSION_SCRIPT_FILENAME = "gluebind.sh"
+_JOB_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 
 
 def _without_newlines(value: str) -> str:
     if "\n" in value or "\r" in value:
         raise ValueError("Grid Engine directive values must not contain newlines")
+    return value
+
+
+def _validate_job_name(value: str) -> str:
+    if not _JOB_NAME.fullmatch(value):
+        raise ValueError(
+            "Grid Engine job names must contain only letters, digits, dots, "
+            "underscores, and hyphens, and must begin with a letter or digit"
+        )
     return value
 
 
@@ -68,7 +80,7 @@ class GridEngineConfig(SchedulerConfig):
 
     def render_script(self, cmd: str, *, job_name: str = "gluebind") -> str:
         """Render a qsub script body for ``cmd`` and ``job_name``."""
-        _without_newlines(job_name)
+        _validate_job_name(job_name)
         lines = ["#!/bin/bash", "#$ -cwd", f"#$ -N {job_name}"]
         if self.queue:
             lines.append(f"#$ -q {self.queue}")
@@ -88,25 +100,25 @@ class GridEngineConfig(SchedulerConfig):
         return "\n".join(lines)
 
     def write_submission_script(
-        self, cmd: str, run_dir: str | pathlib.Path, script_name: str = "gluebind"
+        self, cmd: str, run_dir: str | pathlib.Path, job_name: str = "gluebind"
     ) -> pathlib.Path:
-        """Write a qsub script into ``run_dir`` and return its path."""
-        _without_newlines(script_name)
-        run_dir = pathlib.Path(run_dir)
+        """Write a fixed-name qsub script into ``run_dir`` and return its path."""
+        _validate_job_name(job_name)
+        run_dir = pathlib.Path(run_dir).resolve()
         run_dir.mkdir(parents=True, exist_ok=True)
-        script_path = run_dir / f"{script_name}.sh"
-        script_path.write_text(self.render_script(cmd, job_name=script_name))
+        script_path = run_dir / SUBMISSION_SCRIPT_FILENAME
+        script_path.write_text(self.render_script(cmd, job_name=job_name))
         return script_path
 
     def get_submission_cmds(
-        self, cmd: str, run_dir: str | pathlib.Path, script_name: str = "gluebind"
+        self, cmd: str, run_dir: str | pathlib.Path, job_name: str = "gluebind"
     ) -> list[str]:
         """Write the script and return the qsub command list.
 
         The caller must execute this command with ``cwd=run_dir`` so ``#$ -cwd``
         selects the job's self-contained workspace.
         """
-        script_path = self.write_submission_script(cmd, run_dir, script_name)
+        script_path = self.write_submission_script(cmd, run_dir, job_name)
         return ["qsub", str(script_path)]
 
     def dump(self, save_dir: str | pathlib.Path) -> pathlib.Path:

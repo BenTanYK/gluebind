@@ -29,6 +29,7 @@ def test_grid_engine_render_script(tmp_path):
         extra_directives=["-P chemistry", "-pe sharedmem 4"],
     )
     path = config.write_submission_script("python -c pass", tmp_path, "window")
+    assert path == tmp_path / "gluebind.sh"
     script = path.read_text()
     for directive in (
         "#$ -cwd",
@@ -58,6 +59,14 @@ def test_grid_engine_rejects_newline_directives(field, value):
         GridEngineConfig(extra_directives=["-P project\n#$ -j n"])
 
 
+@pytest.mark.parametrize(
+    "job_name", ["../outside", "/tmp/outside", "bad/name", "bad\nname"]
+)
+def test_grid_engine_rejects_unsafe_job_names(tmp_path, job_name):
+    with pytest.raises(ValueError, match="job names must contain only"):
+        GridEngineConfig().write_submission_script("echo ok", tmp_path, job_name)
+
+
 def test_grid_engine_submit_quotes_and_uses_work_dir(tmp_path, monkeypatch):
     calls = []
 
@@ -77,7 +86,7 @@ def test_grid_engine_submit_quotes_and_uses_work_dir(tmp_path, monkeypatch):
     assert GridEngineBackend(GridEngineConfig()).submit(spec) == "12345"
     assert calls[0][0][0][0] == "qsub"
     assert calls[0][1]["cwd"] == str(tmp_path)
-    assert "'hello world'" in (tmp_path / "quoted.sh").read_text()
+    assert "'hello world'" in (tmp_path / "gluebind.sh").read_text()
 
 
 @pytest.mark.parametrize(

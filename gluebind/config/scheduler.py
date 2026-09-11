@@ -8,7 +8,7 @@ import pydantic
 class SchedulerConfig(pydantic.BaseModel):
     """Settings consumed by GlueBind's backend-neutral job scheduler."""
 
-    model_config = pydantic.ConfigDict(validate_assignment=True)
+    model_config = pydantic.ConfigDict(extra="forbid", validate_assignment=True)
 
     queue_check_interval: int = pydantic.Field(
         30, ge=1, description="Seconds between scheduler queue polls."

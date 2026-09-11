@@ -269,6 +269,15 @@ def test_slurm_config_yaml_roundtrip(tmp_path):
     assert SlurmConfig.load(tmp_path) == slurm
 
 
+@pytest.mark.parametrize(
+    "config_class, typo",
+    [(SlurmConfig, {"partiton": "gpu"}), (GridEngineConfig, {"qeuue": "gpu"})],
+)
+def test_scheduler_config_rejects_unknown_fields(config_class, typo):
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+        config_class(**typo)
+
+
 def test_grid_engine_template_matches_programmatic_defaults():
     template_path = (
         pathlib.Path(__file__).resolve().parents[1] / "data" / "grid_engine_config.yaml"

@@ -30,7 +30,9 @@ class GridEngineBackend(Backend):
 
     def submit(self, spec: JobSpec) -> JobHandle:
         cmd = shlex.join(spec.command)
-        submission = self.config.get_submission_cmds(cmd, spec.work_dir, spec.name)
+        submission = self.config.get_submission_cmds(
+            cmd, spec.work_dir, job_name=spec.name
+        )
         try:
             proc = subprocess.run(
                 submission,
