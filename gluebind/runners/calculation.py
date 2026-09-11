@@ -41,6 +41,7 @@ from gluebind.backend.base import Backend, JobSpec, JobState
 from gluebind.backend.scheduler import Scheduler, SlotPool
 from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.config.calculation import CalculationConfig
+from gluebind.config.scheduler import SchedulerConfig
 from gluebind.config.slurm import SlurmConfig
 from gluebind.logutil import add_file_handler, get_logger
 from gluebind.runners.base import SimulationRunner
@@ -119,9 +120,10 @@ class Calculation(SimulationRunner):
         ``WindowSpec`` for each umbrella window. Normal user workflows should
         leave this as ``None`` and construct the calculation with
         :meth:`from_config`; :meth:`prepare` then supplies it automatically.
+    scheduler_config
+        Optional scheduler settings used for queue throttling and polling.
     slurm_config
-        Optional scheduler settings used for queue throttling and polling when
-        the calculation uses Slurm.
+        Deprecated compatibility alias for ``scheduler_config``.
     command_factory
         Advanced/testing hook that supplies the command executed for each
         umbrella window.
@@ -135,7 +137,7 @@ class Calculation(SimulationRunner):
     platform
         OpenMM platform requested by compute jobs, normally ``"CUDA"``.
     poll_interval
-        Seconds between backend status checks when no Slurm-specific interval
+        Seconds between backend status checks when no scheduler-specific interval
         is configured.
 
     Notes
@@ -152,6 +154,7 @@ class Calculation(SimulationRunner):
         backend: Backend,
         spec_builder: SpecBuilder | None = None,
         *,
+        scheduler_config: SchedulerConfig | None = None,
         slurm_config: SlurmConfig | None = None,
         command_factory: Callable[[], list[str]] = window_launch_command,
         stage_centres: dict[str, list[float]] | None = None,
@@ -164,6 +167,11 @@ class Calculation(SimulationRunner):
         self.config = config
         self.backend = backend
         self.spec_builder = spec_builder
+        if scheduler_config is not None and slurm_config is not None:
+            raise ValueError("pass only one of scheduler_config and slurm_config")
+        self.scheduler_config = scheduler_config or slurm_config
+        # Preserve the public attribute for callers which used it before the
+        # scheduler-neutral API was introduced.
         self.slurm_config = slurm_config
         self.command_factory = command_factory
         self.stage_centres = stage_centres or {}
@@ -190,6 +198,7 @@ class Calculation(SimulationRunner):
         backend: Backend,
         *,
         base_dir: str | pathlib.Path | None = None,
+        scheduler_config: SchedulerConfig | None = None,
         slurm_config: SlurmConfig | None = None,
         command_factory: Callable[[], list[str]] = window_launch_command,
         platform: str = "CUDA",
@@ -216,15 +225,17 @@ class Calculation(SimulationRunner):
             Top-level run workspace. Defaults to ``Path.cwd() / "outputs"``. Choose
             a fresh directory for a new calculation; reuse an existing directory
             only to resume that calculation.
+        scheduler_config
+            Optional scheduler settings, including queue throttling and polling.
+            Pass the same configuration used to construct the cluster backend.
         slurm_config
-            Optional Slurm scheduler settings, including queue throttling and
-            polling. Pass the same configuration used to construct ``SlurmBackend``.
+            Deprecated compatibility alias for ``scheduler_config``.
         command_factory
             Advanced/testing hook for the umbrella-window command.
         platform
             OpenMM platform requested by compute jobs, normally ``"CUDA"``.
         poll_interval
-            Fallback seconds between job-status checks when ``slurm_config`` does
+            Fallback seconds between job-status checks when ``scheduler_config`` does
             not set ``queue_check_interval``.
 
         Examples
@@ -235,7 +246,7 @@ class Calculation(SimulationRunner):
             calc = Calculation.from_config(
                 "1FAP_config.yaml",
                 SlurmBackend(slurm),
-                slurm_config=slurm,
+                scheduler_config=slurm,
             )
             calc.run()
             result = calc.analyse()
@@ -254,10 +265,13 @@ class Calculation(SimulationRunner):
             )
         if base_dir is None:
             base_dir = pathlib.Path.cwd() / "outputs"
+        if scheduler_config is not None and slurm_config is not None:
+            raise ValueError("pass only one of scheduler_config and slurm_config")
         return cls(
             base_dir,
             config,
             backend,
+            scheduler_config=scheduler_config,
             slurm_config=slurm_config,
             command_factory=command_factory,
             platform=platform,
@@ -298,7 +312,7 @@ class Calculation(SimulationRunner):
                 prep_dir,
                 self.backend,
                 platform=self.platform,
-                poll_interval=self.poll_interval,
+                poll_interval=self._effective_poll_interval,
                 handle_recorder=self._record_auxiliary_handle,
                 submission_guard=self._stop.submission_permit,
             )
@@ -341,7 +355,7 @@ class Calculation(SimulationRunner):
                 prep_dir,
                 self.backend,
                 platform=self.platform,
-                poll_interval=self.poll_interval,
+                poll_interval=self._effective_poll_interval,
                 handle_recorder=self._record_auxiliary_handle,
                 submission_guard=self._stop.submission_permit,
             )
@@ -377,7 +391,7 @@ class Calculation(SimulationRunner):
             ).dump(work_dir / RMSF_REPORT_SPEC_FILENAME)
             (job_state,) = Scheduler(
                 self.backend,
-                poll_interval=self.poll_interval,
+                poll_interval=self._effective_poll_interval,
                 submission_guard=self._stop.submission_permit,
             ).run(
                 [
@@ -477,7 +491,7 @@ class Calculation(SimulationRunner):
         )
         (job_state,) = Scheduler(
             self.backend,
-            poll_interval=self.poll_interval,
+            poll_interval=self._effective_poll_interval,
             submission_guard=self._stop.submission_permit,
         ).run(
             [
@@ -741,16 +755,23 @@ class Calculation(SimulationRunner):
     def _default_scheduler(self, job_slots: SlotPool | None = None) -> Scheduler:
         return Scheduler(
             self.backend,
-            queue_len_lim=self.slurm_config.queue_len_lim
-            if self.slurm_config
+            queue_len_lim=self.scheduler_config.queue_len_lim
+            if self.scheduler_config
             else 2000,
             poll_interval=(
-                self.slurm_config.queue_check_interval
-                if self.slurm_config
-                else self.poll_interval
+                self._effective_poll_interval
             ),
             slots=job_slots,
             submission_guard=self._stop.submission_permit,
+        )
+
+    @property
+    def _effective_poll_interval(self) -> float:
+        """The scheduler setting, with the explicit runner value as fallback."""
+        return (
+            self.scheduler_config.queue_check_interval
+            if self.scheduler_config is not None
+            else self.poll_interval
         )
 
     def _group(self, cv_type: str) -> Group | None:

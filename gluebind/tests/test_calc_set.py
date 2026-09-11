@@ -13,7 +13,7 @@ import yaml
 
 from gluebind import RunState
 from gluebind.backend import LocalBackend
-from gluebind.config import CalculationConfig
+from gluebind.config import CalculationConfig, SchedulerConfig
 from gluebind.runners.calc_set import (
     CalcSet,
     correlation_stats,
@@ -151,6 +151,13 @@ def test_scan_discovers_system_subdirs(tmp_path):
     # input paths resolved absolute, relative to each subdir
     prm7 = cset.calcs["CK1a-WT"].config.inputs.target.prm7
     assert pathlib.Path(prm7).is_absolute() and prm7.endswith("CK1a-WT/ck1a.prm7")
+
+
+def test_calc_set_forwards_scheduler_config(tmp_path):
+    _system(tmp_path, "A", TERNARY_YAML)
+    scheduler = SchedulerConfig(queue_check_interval=9, queue_len_lim=2)
+    cset = CalcSet(tmp_path, LocalBackend(), scheduler_config=scheduler)
+    assert cset.calcs["A"].scheduler_config is scheduler
 
 
 def test_experimental_values_from_benchmark_yaml(tmp_path):

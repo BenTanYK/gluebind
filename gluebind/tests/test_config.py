@@ -5,7 +5,7 @@ import pathlib
 import pytest
 import yaml
 
-from gluebind import CalculationConfig, SlurmConfig
+from gluebind import CalculationConfig, GridEngineConfig, SlurmConfig
 from gluebind.config import SamplingConfig
 
 MIN_INPUTS = {
@@ -267,3 +267,13 @@ def test_slurm_config_yaml_roundtrip(tmp_path):
     slurm = SlurmConfig(partition="gpu", queue_len_lim=500)
     slurm.dump(tmp_path)
     assert SlurmConfig.load(tmp_path) == slurm
+
+
+def test_grid_engine_template_matches_programmatic_defaults():
+    template_path = (
+        pathlib.Path(__file__).resolve().parents[1] / "data" / "grid_engine_config.yaml"
+    )
+    template = GridEngineConfig.model_validate(
+        yaml.safe_load(template_path.read_text())
+    )
+    assert template == GridEngineConfig()

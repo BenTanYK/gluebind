@@ -18,7 +18,12 @@ import pytest
 
 from gluebind.backend import LocalBackend, Scheduler
 from gluebind.backend.base import Backend, JobState
-from gluebind.config import CalculationConfig, WindowSampling
+from gluebind.config import (
+    CalculationConfig,
+    SchedulerConfig,
+    SlurmConfig,
+    WindowSampling,
+)
 from gluebind.runners import Calculation, enumerate_centres, format_label
 from gluebind.simulation import WindowSpec
 
@@ -74,6 +79,29 @@ def _calc(tmp_path, config=None, command_factory=_trivial_command):
         command_factory=command_factory,
         stage_centres=CENTRES,
     )
+
+
+def test_scheduler_config_controls_default_scheduler_and_slurm_alias(tmp_path):
+    config = SchedulerConfig(queue_check_interval=7, queue_len_lim=3)
+    calc = Calculation(
+        tmp_path, _config(), LocalBackend(), _spec_builder, scheduler_config=config
+    )
+    scheduler = calc._default_scheduler()
+    assert scheduler.poll_interval == 7 and scheduler.queue_len_lim == 3
+    legacy = SlurmConfig(queue_check_interval=8, queue_len_lim=4)
+    legacy_calc = Calculation(
+        tmp_path / "legacy",
+        _config(),
+        LocalBackend(),
+        _spec_builder,
+        slurm_config=legacy,
+    )
+    assert legacy_calc._default_scheduler().queue_len_lim == 4
+    with pytest.raises(ValueError, match="pass only one"):
+        Calculation(
+            tmp_path / "both", _config(), LocalBackend(), _spec_builder,
+            scheduler_config=config, slurm_config=legacy,
+        )
 
 
 class _CancellableBackend(Backend):
