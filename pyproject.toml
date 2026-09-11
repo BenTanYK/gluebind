@@ -50,6 +50,7 @@ include = ["gluebind"]
 exclude = ["gluebind/tests/**"]
 
 [tool.coverage.run]
+branch = true
 omit = ["**/tests/*"]
 
 [tool.coverage.report]
