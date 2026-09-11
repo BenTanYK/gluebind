@@ -164,8 +164,6 @@ class SamplingConfig(pydantic.BaseModel):
     """Integration steps between live StateDataReporter records."""
     trajectory_interval_steps: int = 2500
     """Integration steps between DCD trajectory frames."""
-    save_state_data: bool = True
-    """Deprecated compatibility field; state data is always stdout-only."""
     save_trajectories: bool = False
     """Write a DCD trajectory for each US window."""
     ensemble_size: int = 3

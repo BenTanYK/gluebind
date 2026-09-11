@@ -52,7 +52,7 @@ def _calc(cfg, base_dir, slurm):
         cfg,
         SlurmBackend(slurm),
         base_dir=base_dir,
-        slurm_config=slurm,
+        scheduler_config=slurm,
         platform="CUDA",
         poll_interval=slurm.queue_check_interval,
     )

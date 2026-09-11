@@ -23,6 +23,13 @@ def test_zero_config_defaults_to_all_ca():
     assert _min_cfg().restraints.uses_default_all_ca is True
 
 
+def test_sampling_rejects_removed_save_state_data_option():
+    with pytest.raises(ValueError, match="save_state_data"):
+        CalculationConfig.model_validate(
+            {"inputs": MIN_INPUTS, "sampling": {"save_state_data": True}}
+        )
+
+
 def test_default_config_template_matches_programmatic_defaults():
     template_path = (
         pathlib.Path(__file__).resolve().parents[1] / "data" / "default_config.yaml"

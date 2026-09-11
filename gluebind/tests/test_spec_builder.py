@@ -61,6 +61,7 @@ def test_boresch_spec():
     assert spec.cv_type == "boresch" and spec.dof == "thetaB"
     assert spec.topology == "complex.prm7" and spec.coordinates == "complex.rst7"
     assert spec.force_constant == cfg.sampling.boresch.force_constant
+    assert "save_state_data" not in spec.model_dump()
     assert spec.restraints["boresch"]["fixed"] == {"thetaA": 0.9}
     assert spec.restraints["boresch"]["anchors"] == {"b": 10, "c": 11, "B": 12, "C": 13}
     assert {r["name"] for r in spec.restraints["rmsd"]} == {"receptor", "target"}

@@ -42,7 +42,6 @@ from gluebind.backend.scheduler import Scheduler, SlotPool
 from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.scheduler import SchedulerConfig
-from gluebind.config.slurm import SlurmConfig
 from gluebind.logutil import add_file_handler, get_logger
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.group import Group
@@ -122,8 +121,6 @@ class Calculation(SimulationRunner):
         :meth:`from_config`; :meth:`prepare` then supplies it automatically.
     scheduler_config
         Optional scheduler settings used for queue throttling and polling.
-    slurm_config
-        Deprecated compatibility alias for ``scheduler_config``.
     command_factory
         Advanced/testing hook that supplies the command executed for each
         umbrella window.
@@ -155,7 +152,6 @@ class Calculation(SimulationRunner):
         spec_builder: SpecBuilder | None = None,
         *,
         scheduler_config: SchedulerConfig | None = None,
-        slurm_config: SlurmConfig | None = None,
         command_factory: Callable[[], list[str]] = window_launch_command,
         stage_centres: dict[str, list[float]] | None = None,
         steered_md_runner: Callable[[dict], object] | None = None,
@@ -167,12 +163,7 @@ class Calculation(SimulationRunner):
         self.config = config
         self.backend = backend
         self.spec_builder = spec_builder
-        if scheduler_config is not None and slurm_config is not None:
-            raise ValueError("pass only one of scheduler_config and slurm_config")
-        self.scheduler_config = scheduler_config or slurm_config
-        # Preserve the public attribute for callers which used it before the
-        # scheduler-neutral API was introduced.
-        self.slurm_config = slurm_config
+        self.scheduler_config = scheduler_config
         self.command_factory = command_factory
         self.stage_centres = stage_centres or {}
         # Generates the separation-window SMD frames from the Boresch equilibrium
@@ -199,7 +190,6 @@ class Calculation(SimulationRunner):
         *,
         base_dir: str | pathlib.Path | None = None,
         scheduler_config: SchedulerConfig | None = None,
-        slurm_config: SlurmConfig | None = None,
         command_factory: Callable[[], list[str]] = window_launch_command,
         platform: str = "CUDA",
         poll_interval: float = 30.0,
@@ -228,8 +218,6 @@ class Calculation(SimulationRunner):
         scheduler_config
             Optional scheduler settings, including queue throttling and polling.
             Pass the same configuration used to construct the cluster backend.
-        slurm_config
-            Deprecated compatibility alias for ``scheduler_config``.
         command_factory
             Advanced/testing hook for the umbrella-window command.
         platform
@@ -265,14 +253,11 @@ class Calculation(SimulationRunner):
             )
         if base_dir is None:
             base_dir = pathlib.Path.cwd() / "outputs"
-        if scheduler_config is not None and slurm_config is not None:
-            raise ValueError("pass only one of scheduler_config and slurm_config")
         return cls(
             base_dir,
             config,
             backend,
             scheduler_config=scheduler_config,
-            slurm_config=slurm_config,
             command_factory=command_factory,
             platform=platform,
             poll_interval=poll_interval,
