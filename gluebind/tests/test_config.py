@@ -261,13 +261,20 @@ def test_slurm_render_and_submission_cmds(tmp_path):
         memory="4G",
         extra_options={"nodelist": "n1,n2"},
     )
-    cmds = slurm.get_submission_cmds("python -c pass", tmp_path)
+    cmds = slurm.get_submission_cmds("python -c pass", tmp_path, "prep_system")
     assert cmds[0] == "sbatch"
     assert cmds[1] == f"--chdir={tmp_path}"
     script = (tmp_path / "gluebind.sh").read_text()
+    assert "#SBATCH --job-name=prep_system" in script
     assert "#SBATCH --partition=gpu" in script
     assert "#SBATCH --mem=4G" in script
     assert "#SBATCH --nodelist=n1,n2" in script
+
+
+@pytest.mark.parametrize("job_name", ["", "-prep", "prep system", "prep\nnext"])
+def test_slurm_rejects_invalid_job_name(tmp_path, job_name):
+    with pytest.raises(ValueError, match="SLURM job names"):
+        SlurmConfig().get_submission_cmds("python -c pass", tmp_path, job_name)
 
 
 def test_slurm_config_yaml_roundtrip(tmp_path):

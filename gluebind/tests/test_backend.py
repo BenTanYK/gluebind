@@ -297,6 +297,7 @@ def test_slurm_submit_shell_quotes_command(tmp_path, monkeypatch):
 
     assert SlurmBackend(SlurmConfig()).submit(spec) == "12345"
     script = (tmp_path / "gluebind.sh").read_text()
+    assert "#SBATCH --job-name=quoted" in script
     command_line = script.strip().splitlines()[-1]
     assert shlex.split(command_line) == spec.command
 

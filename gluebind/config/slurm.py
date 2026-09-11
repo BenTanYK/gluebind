@@ -16,6 +16,7 @@ throttles how many jobs sit in the real SLURM queue at once.
 from __future__ import annotations
 
 import pathlib
+import re
 
 import pydantic
 import yaml
@@ -24,6 +25,17 @@ from gluebind.config.scheduler import SchedulerConfig
 
 SLURM_CONFIG_FILENAME = "slurm_config.yaml"
 SUBMISSION_SCRIPT_FILENAME = "gluebind.sh"
+_JOB_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
+
+
+def _validate_job_name(value: str) -> str:
+    """Reject job names that cannot safely be rendered in an sbatch directive."""
+    if not _JOB_NAME.fullmatch(value):
+        raise ValueError(
+            "SLURM job names must contain only letters, digits, dots, "
+            "underscores, and hyphens, and must begin with a letter or digit"
+        )
+    return value
 
 
 class SlurmConfig(SchedulerConfig):
@@ -54,10 +66,12 @@ class SlurmConfig(SchedulerConfig):
         default_factory=dict,
         description="Additional sbatch options rendered as key-value directives.",
     )
-    def render_script(self, cmd: str) -> str:
-        """Render an sbatch script body for ``cmd``."""
+    def render_script(self, cmd: str, *, job_name: str = "gluebind") -> str:
+        """Render an sbatch script body for ``cmd`` and ``job_name``."""
+        _validate_job_name(job_name)
         lines = [
             "#!/bin/bash",
+            f"#SBATCH --job-name={job_name}",
             f"#SBATCH --partition={self.partition}",
             f"#SBATCH --time={self.time}",
             *([f"#SBATCH --mem={self.memory}"] if self.memory else []),
@@ -71,20 +85,21 @@ class SlurmConfig(SchedulerConfig):
         return "\n".join(lines)
 
     def write_submission_script(
-        self, cmd: str, run_dir: str | pathlib.Path
+        self, cmd: str, run_dir: str | pathlib.Path, job_name: str = "gluebind"
     ) -> pathlib.Path:
         """Write the sbatch script into ``run_dir`` and return its path."""
+        _validate_job_name(job_name)
         run_dir = pathlib.Path(run_dir).resolve()
         run_dir.mkdir(parents=True, exist_ok=True)
         script_path = run_dir / SUBMISSION_SCRIPT_FILENAME
-        script_path.write_text(self.render_script(cmd))
+        script_path.write_text(self.render_script(cmd, job_name=job_name))
         return script_path
 
     def get_submission_cmds(
-        self, cmd: str, run_dir: str | pathlib.Path
+        self, cmd: str, run_dir: str | pathlib.Path, job_name: str = "gluebind"
     ) -> list[str]:
         """Write the script and return the ``sbatch`` command list."""
-        script_path = self.write_submission_script(cmd, run_dir)
+        script_path = self.write_submission_script(cmd, run_dir, job_name)
         return ["sbatch", f"--chdir={script_path.parent}", str(script_path)]
 
     def slurm_output_glob(self, run_dir: str | pathlib.Path) -> str:
