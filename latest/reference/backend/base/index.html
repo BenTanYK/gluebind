@@ -16,7 +16,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../local/">
+        <link rel="next" href="../grid_engine/">
       
       
         
@@ -891,6 +891,8 @@
       
         
       
+        
+      
     
     
     
@@ -1182,6 +1184,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../grid_engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../local/" class="md-nav__link">
         
   
@@ -1318,6 +1348,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1407,6 +1441,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../config/grid_engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../config/prep/" class="md-nav__link">
         
   
@@ -1471,6 +1533,34 @@
     
   
     sampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../config/scheduler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    scheduler
   
 
     
@@ -3134,11 +3224,12 @@ and cancel it. It is the same-process analogue of the openfe client-&gt;runner
 boundary: the caller hands over a command (typically a <code>python -c</code> invocation
 of :func:<code>gluebind.simulation.window.run_window</code>) plus a working directory, and
 gets back an <em>opaque</em> handle it later polls — never inspecting the handle's
-internals, so SLURM job ids, local tokens and (future) AWS Batch job ids are all
+internals, so scheduler job ids, local tokens and (future) AWS Batch job ids are all
 interchangeable.</p>
-<p>Two implementations ship with gluebind — :class:<code>~gluebind.backend.local.LocalBackend</code>
-(testing/CI) and :class:<code>~gluebind.backend.slurm.SlurmBackend</code> (the benchmarked
-default). A third, an <code>AWSBatchBackend</code>, is intended to be written downstream
+<p>Three implementations ship with gluebind — :class:<code>~gluebind.backend.local.LocalBackend</code>
+(testing/CI), :class:<code>~gluebind.backend.slurm.SlurmBackend</code>, and
+:class:<code>~gluebind.backend.grid_engine.GridEngineBackend</code>. An <code>AWSBatchBackend</code>
+is intended to be written downstream
 by implementing these same three methods on top of a Batch <em>client</em> + <em>runner</em>
 pair. To make that a drop-in, two things in this module are deliberately
 Batch-forward:</p>
@@ -3336,7 +3427,7 @@ Batch-forward:</p>
 
 
         <p>Backend-neutral resource request.</p>
-<p>Maps to a local device selection, a SLURM <code>--gres</code>/partition, or an AWS
+<p>Maps to a local device selection, a scheduler resource request, or an AWS
 Batch job-definition override, depending on the backend.</p>
 
 
@@ -3693,7 +3784,7 @@ so the rest of gluebind reads results from the filesystem uniformly.</p>
               (<code><span title="bool">bool</span></code>)
           –
           <div class="doc-md-description">
-            <p>Whether submitted jobs survive the driver process exiting. True for SLURM</p>
+            <p>Whether submitted jobs survive the driver process exiting. True for cluster</p>
           </div>
         </li>
     </ul>
@@ -3728,9 +3819,9 @@ so the rest of gluebind reads results from the filesystem uniformly.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Whether submitted jobs survive the driver process exiting. True for SLURM
-(and Batch); False for local. Determines whether a run can be resumed by a
-fresh process reconciling against the backend's live queue.</p>
+        <p>Whether submitted jobs survive the driver process exiting. True for cluster
+schedulers (and Batch); False for local. Determines whether a run can be
+resumed by a fresh process reconciling against the backend's live queue.</p>
 
     </div>
 
@@ -3771,11 +3862,11 @@ fresh process reconciling against the backend's live queue.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/backend/base.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-90">90</a></span>
-<span class="normal"><a href="#__codelineno-0-91">91</a></span>
-<span class="normal"><a href="#__codelineno-0-92">92</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-</span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="k">def</span><span class="w"> </span><span class="nf">submit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spec</span><span class="p">:</span> <span class="n">JobSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">JobHandle</span><span class="p">:</span>
-</span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="w">    </span><span class="sd">"""Submit ``spec`` and return an opaque handle."""</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-91">91</a></span>
+<span class="normal"><a href="#__codelineno-0-92">92</a></span>
+<span class="normal"><a href="#__codelineno-0-93">93</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="k">def</span><span class="w"> </span><span class="nf">submit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spec</span><span class="p">:</span> <span class="n">JobSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">JobHandle</span><span class="p">:</span>
+</span><span id="__span-0-93"><a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="w">    </span><span class="sd">"""Submit ``spec`` and return an opaque handle."""</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3814,11 +3905,11 @@ fresh process reconciling against the backend's live queue.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/backend/base.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-94">94</a></span>
-<span class="normal"><a href="#__codelineno-0-95">95</a></span>
-<span class="normal"><a href="#__codelineno-0-96">96</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-94"><a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-</span><span id="__span-0-95"><a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="k">def</span><span class="w"> </span><span class="nf">poll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handles</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">JobHandle</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">JobHandle</span><span class="p">,</span> <span class="n">JobState</span><span class="p">]:</span>
-</span><span id="__span-0-96"><a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="w">    </span><span class="sd">"""Return the current state of each handle."""</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-95">95</a></span>
+<span class="normal"><a href="#__codelineno-0-96">96</a></span>
+<span class="normal"><a href="#__codelineno-0-97">97</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-95"><a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span id="__span-0-96"><a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="k">def</span><span class="w"> </span><span class="nf">poll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handles</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">JobHandle</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">JobHandle</span><span class="p">,</span> <span class="n">JobState</span><span class="p">]:</span>
+</span><span id="__span-0-97"><a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="w">    </span><span class="sd">"""Return the current state of each handle."""</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3852,11 +3943,11 @@ fresh process reconciling against the backend's live queue.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/backend/base.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
-<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#__codelineno-0-100">100</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-98"><a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-</span><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="k">def</span><span class="w"> </span><span class="nf">cancel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">:</span> <span class="n">JobHandle</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-100"><a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="w">    </span><span class="sd">"""Best-effort cancellation of a submitted job."""</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#__codelineno-0-101">101</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span id="__span-0-100"><a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="k">def</span><span class="w"> </span><span class="nf">cancel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">:</span> <span class="n">JobHandle</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-101"><a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="w">    </span><span class="sd">"""Best-effort cancellation of a submitted job."""</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3931,13 +4022,13 @@ fresh process reconciling against the backend's live queue.</p>
         
         
           
-          <a href="../local/" class="md-footer__link md-footer__link--next" aria-label="Next: local">
+          <a href="../grid_engine/" class="md-footer__link md-footer__link--next" aria-label="Next: grid_engine">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                local
+                grid_engine
               </div>
             </div>
             <div class="md-footer__button md-icon">

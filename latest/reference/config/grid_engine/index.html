@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://github.com/BenTanYK/gluebind/latest/reference/simulation/bulk_build/">
+        <link rel="canonical" href="https://github.com/BenTanYK/gluebind/latest/reference/config/grid_engine/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../calculation/">
       
       
-        <link rel="next" href="../prep_stage/">
+        <link rel="next" href="../prep/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>bulk_build - gluebind</title>
+        <title>grid_engine - gluebind</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#gluebind.simulation.bulk_build" class="md-skip">
+        <a href="#gluebind.config.grid_engine" class="md-skip">
           Skip to content
         </a>
       
@@ -120,7 +120,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              bulk_build
+              grid_engine
             
           </span>
         </div>
@@ -1125,6 +1125,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1157,15 +1159,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../config/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1189,7 +1191,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_1_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1209,7 +1211,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../config/calculation/" class="md-nav__link">
+      <a href="../calculation/" class="md-nav__link">
         
   
   
@@ -1234,10 +1236,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../config/grid_engine/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_engine
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1253,6 +1282,87 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GridEngineConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" GridEngineConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig.render_script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;render_script
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig.write_submission_script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;write_submission_script
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig.get_submission_cmds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_submission_cmds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig.load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1265,7 +1375,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../config/prep/" class="md-nav__link">
+      <a href="../prep/" class="md-nav__link">
         
   
   
@@ -1293,7 +1403,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../config/restraints/" class="md-nav__link">
+      <a href="../restraints/" class="md-nav__link">
         
   
   
@@ -1321,7 +1431,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../config/sampling/" class="md-nav__link">
+      <a href="../sampling/" class="md-nav__link">
         
   
   
@@ -1349,7 +1459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../config/scheduler/" class="md-nav__link">
+      <a href="../scheduler/" class="md-nav__link">
         
   
   
@@ -1377,7 +1487,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../config/slurm/" class="md-nav__link">
+      <a href="../slurm/" class="md-nav__link">
         
   
   
@@ -2171,8 +2281,6 @@
                 
   
   
-    
-  
   
   
     
@@ -2205,15 +2313,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_11" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1_11" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../simulation/" class="md-nav__link ">
               
   
   
@@ -2237,7 +2345,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_11_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_11_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_1_11">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2254,37 +2362,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    bulk_build
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../simulation/bulk_build/" class="md-nav__link">
         
   
   
@@ -2300,70 +2381,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#gluebind.simulation.bulk_build.BulkBuildSpec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BulkBuildSpec
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gluebind.simulation.bulk_build.BulkBuildResult" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BulkBuildResult
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gluebind.simulation.bulk_build.bulk_build_launch_command" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;bulk_build_launch_command
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gluebind.simulation.bulk_build.run_bulk_build" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_bulk_build
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2376,7 +2393,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../prep_stage/" class="md-nav__link">
+      <a href="../../simulation/prep_stage/" class="md-nav__link">
         
   
   
@@ -2404,7 +2421,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../production/" class="md-nav__link">
+      <a href="../../simulation/production/" class="md-nav__link">
         
   
   
@@ -2432,7 +2449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../restraint_resolution/" class="md-nav__link">
+      <a href="../../simulation/restraint_resolution/" class="md-nav__link">
         
   
   
@@ -2460,7 +2477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../steered_md/" class="md-nav__link">
+      <a href="../../simulation/steered_md/" class="md-nav__link">
         
   
   
@@ -2488,7 +2505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../system_build/" class="md-nav__link">
+      <a href="../../simulation/system_build/" class="md-nav__link">
         
   
   
@@ -2516,7 +2533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../window/" class="md-nav__link">
+      <a href="../../simulation/window/" class="md-nav__link">
         
   
   
@@ -2921,46 +2938,63 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#gluebind.simulation.bulk_build.BulkBuildSpec" class="md-nav__link">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BulkBuildSpec
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GridEngineConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" GridEngineConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig.render_script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;render_script
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#gluebind.simulation.bulk_build.BulkBuildResult" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig.write_submission_script" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BulkBuildResult
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;write_submission_script
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#gluebind.simulation.bulk_build.bulk_build_launch_command" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig.get_submission_cmds" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;bulk_build_launch_command
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_submission_cmds
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#gluebind.simulation.bulk_build.run_bulk_build" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#gluebind.config.grid_engine.GridEngineConfig.load" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_bulk_build
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load
       
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2988,18 +3022,15 @@
 
 
 
-<h1 id="gluebind.simulation.bulk_build" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">bulk_build</span>
+<h1 id="gluebind.config.grid_engine" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">grid_engine</span>
 
 
-<a href="#gluebind.simulation.bulk_build" class="headerlink" title="Permanent link">#</a></h1>
+<a href="#gluebind.config.grid_engine" class="headerlink" title="Permanent link">#</a></h1>
 
     <div class="doc doc-contents first">
 
-        <p>Backend worker for isolated bulk-system extraction and solvation.</p>
-<p>The worker owns every BioSimSpace/Sire operation required to turn the
-equilibrated complex into one solvated receptor or target bulk reference.  This
-keeps parallel :class:<code>CalcSet</code> driver threads out of BioSimSpace entirely.</p>
+        <p>Cluster-scoped Grid Engine submission configuration.</p>
 
 
 
@@ -3013,17 +3044,10 @@ keeps parallel :class:<code>CalcSet</code> driver threads out of BioSimSpace ent
 <p><span class="doc-section-title">Classes:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BulkBuildSpec&lt;/span&gt; (&lt;code&gt;gluebind.simulation.bulk_build.BulkBuildSpec&lt;/code&gt;)" href="#gluebind.simulation.bulk_build.BulkBuildSpec">BulkBuildSpec</a></code></b>
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;GridEngineConfig&lt;/span&gt; (&lt;code&gt;gluebind.config.grid_engine.GridEngineConfig&lt;/code&gt;)" href="#gluebind.config.grid_engine.GridEngineConfig">GridEngineConfig</a></code></b>
           –
           <div class="doc-md-description">
-            <p>Inputs required to extract and solvate one bulk reference species.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BulkBuildResult&lt;/span&gt; (&lt;code&gt;gluebind.simulation.bulk_build.BulkBuildResult&lt;/code&gt;)" href="#gluebind.simulation.bulk_build.BulkBuildResult">BulkBuildResult</a></code></b>
-          –
-          <div class="doc-md-description">
-            <p>Solvated AMBER inputs produced by :func:<code>run_bulk_build</code>.</p>
+            <p>Parameters controlling how jobs are submitted to Grid Engine.</p>
           </div>
         </li>
     </ul>
@@ -3031,20 +3055,82 @@ keeps parallel :class:<code>CalcSet</code> driver threads out of BioSimSpace ent
 
 
 
-<p><span class="doc-section-title">Functions:</span></p>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="gluebind.config.grid_engine.GridEngineConfig" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">GridEngineConfig</span>
+
+
+<a href="#gluebind.config.grid_engine.GridEngineConfig" class="headerlink" title="Permanent link">#</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SchedulerConfig&lt;/span&gt; (&lt;code&gt;gluebind.config.scheduler.SchedulerConfig&lt;/code&gt;)" href="../scheduler/#gluebind.config.scheduler.SchedulerConfig">SchedulerConfig</a></code></p>
+
+
+
+        <p>Parameters controlling how jobs are submitted to Grid Engine.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+<p><span class="doc-section-title">Methods:</span></p>
     <ul>
           <li class="doc-section-item field-body">
-            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;bulk_build_launch_command&lt;/span&gt; (&lt;code&gt;gluebind.simulation.bulk_build.bulk_build_launch_command&lt;/code&gt;)" href="#gluebind.simulation.bulk_build.bulk_build_launch_command">bulk_build_launch_command</a></code></b>
+            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;render_script&lt;/span&gt; (&lt;code&gt;gluebind.config.grid_engine.GridEngineConfig.render_script&lt;/code&gt;)" href="#gluebind.config.grid_engine.GridEngineConfig.render_script">render_script</a></code></b>
             –
             <div class="doc-md-description">
-              <p>Return the backend command for :func:<code>run_bulk_build</code>.</p>
+              <p>Render a qsub script body for <code>cmd</code> and <code>job_name</code>.</p>
             </div>
           </li>
           <li class="doc-section-item field-body">
-            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;run_bulk_build&lt;/span&gt; (&lt;code&gt;gluebind.simulation.bulk_build.run_bulk_build&lt;/code&gt;)" href="#gluebind.simulation.bulk_build.run_bulk_build">run_bulk_build</a></code></b>
+            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;write_submission_script&lt;/span&gt; (&lt;code&gt;gluebind.config.grid_engine.GridEngineConfig.write_submission_script&lt;/code&gt;)" href="#gluebind.config.grid_engine.GridEngineConfig.write_submission_script">write_submission_script</a></code></b>
             –
             <div class="doc-md-description">
-              <p>Extract one component from the complex, solvate it, and write a manifest.</p>
+              <p>Write a qsub script into <code>run_dir</code> and return its path.</p>
+            </div>
+          </li>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_submission_cmds&lt;/span&gt; (&lt;code&gt;gluebind.config.grid_engine.GridEngineConfig.get_submission_cmds&lt;/code&gt;)" href="#gluebind.config.grid_engine.GridEngineConfig.get_submission_cmds">get_submission_cmds</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Write the script and return the qsub command list.</p>
+            </div>
+          </li>
+          <li class="doc-section-item field-body">
+            <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;load&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;gluebind.config.grid_engine.GridEngineConfig.load&lt;/code&gt;)" href="#gluebind.config.grid_engine.GridEngineConfig.load">load</a></code></b>
+            –
+            <div class="doc-md-description">
+              <p>Load configuration from a YAML file or a directory containing it.</p>
             </div>
           </li>
     </ul>
@@ -3053,49 +3139,6 @@ keeps parallel :class:<code>CalcSet</code> driver threads out of BioSimSpace ent
 
 
 
-<div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="gluebind.simulation.bulk_build.BulkBuildSpec" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">BulkBuildSpec</span>
-
-
-<a href="#gluebind.simulation.bulk_build.BulkBuildSpec" class="headerlink" title="Permanent link">#</a></h2>
-
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><span title="pydantic.BaseModel">BaseModel</span></code></p>
-
-
-
-        <p>Inputs required to extract and solvate one bulk reference species.</p>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 <div class="doc doc-children">
 
@@ -3106,103 +3149,67 @@ keeps parallel :class:<code>CalcSet</code> driver threads out of BioSimSpace ent
 
 
 
-
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="gluebind.simulation.bulk_build.BulkBuildResult" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">BulkBuildResult</span>
-
-
-<a href="#gluebind.simulation.bulk_build.BulkBuildResult" class="headerlink" title="Permanent link">#</a></h2>
-
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><span title="pydantic.BaseModel">BaseModel</span></code></p>
-
-
-
-        <p>Solvated AMBER inputs produced by :func:<code>run_bulk_build</code>.</p>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-
-
-  </div>
-
-    </div>
-
-</div>
 
 
 <div class="doc doc-object doc-function">
 
 
-<h2 id="gluebind.simulation.bulk_build.bulk_build_launch_command" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">bulk_build_launch_command</span>
+<h3 id="gluebind.config.grid_engine.GridEngineConfig.render_script" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">render_script</span>
 
 
-<a href="#gluebind.simulation.bulk_build.bulk_build_launch_command" class="headerlink" title="Permanent link">#</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bulk_build_launch_command</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">python</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">"python"</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span>
+<a href="#gluebind.config.grid_engine.GridEngineConfig.render_script" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">render_script</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">cmd</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">job_name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">"gluebind"</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Return the backend command for :func:<code>run_bulk_build</code>.</p>
+        <p>Render a qsub script body for <code>cmd</code> and <code>job_name</code>.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>gluebind/simulation/bulk_build.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span>
-<span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-61"><a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="k">def</span><span class="w"> </span><span class="nf">bulk_build_launch_command</span><span class="p">(</span><span class="n">python</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"python"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-</span><span id="__span-0-62"><a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="w">    </span><span class="sd">"""Return the backend command for :func:`run_bulk_build`."""</span>
-</span><span id="__span-0-63"><a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">code</span> <span class="o">=</span> <span class="p">(</span>
-</span><span id="__span-0-64"><a id="__codelineno-0-64" name="__codelineno-0-64"></a>        <span class="s2">"from gluebind.simulation.bulk_build import run_bulk_build; "</span>
-</span><span id="__span-0-65"><a id="__codelineno-0-65" name="__codelineno-0-65"></a>        <span class="s2">"run_bulk_build('.')"</span>
-</span><span id="__span-0-66"><a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="p">)</span>
-</span><span id="__span-0-67"><a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">python</span><span class="p">,</span> <span class="s2">"-c"</span><span class="p">,</span> <span class="n">code</span><span class="p">]</span>
+              <summary>Source code in <code>gluebind/config/grid_engine.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-69"><a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="k">def</span><span class="w"> </span><span class="nf">render_script</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">job_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"gluebind"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-0-70"><a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="w">    </span><span class="sd">"""Render a qsub script body for ``cmd`` and ``job_name``."""</span>
+</span><span id="__span-0-71"><a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="n">_without_newlines</span><span class="p">(</span><span class="n">job_name</span><span class="p">)</span>
+</span><span id="__span-0-72"><a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"#!/bin/bash"</span><span class="p">,</span> <span class="s2">"#$ -cwd"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"#$ -N </span><span class="si">{</span><span class="n">job_name</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span>
+</span><span id="__span-0-73"><a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="p">:</span>
+</span><span id="__span-0-74"><a id="__codelineno-0-74" name="__codelineno-0-74"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"#$ -q </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-0-75"><a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">:</span>
+</span><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"#$ -l h_rt=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-0-77"><a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span>
+</span><span id="__span-0-78"><a id="__codelineno-0-78" name="__codelineno-0-78"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"#$ -l h_vmem=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-0-79"><a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="n">lines</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="sa">f</span><span class="s2">"#$ -l </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+</span><span id="__span-0-80"><a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="p">:</span>
+</span><span id="__span-0-81"><a id="__codelineno-0-81" name="__codelineno-0-81"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"#$ -o </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-0-82"><a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">join_output</span><span class="p">:</span>
+</span><span id="__span-0-83"><a id="__codelineno-0-83" name="__codelineno-0-83"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"#$ -j y"</span><span class="p">)</span>
+</span><span id="__span-0-84"><a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">shell</span><span class="p">:</span>
+</span><span id="__span-0-85"><a id="__codelineno-0-85" name="__codelineno-0-85"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"#$ -S </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">shell</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="n">lines</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="sa">f</span><span class="s2">"#$ </span><span class="si">{</span><span class="n">directive</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">directive</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_directives</span><span class="p">)</span>
+</span><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a>    <span class="n">lines</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">""</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="p">,</span> <span class="n">cmd</span><span class="p">,</span> <span class="s2">""</span><span class="p">])</span>
+</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3212,91 +3219,150 @@ keeps parallel :class:<code>CalcSet</code> driver threads out of BioSimSpace ent
 <div class="doc doc-object doc-function">
 
 
-<h2 id="gluebind.simulation.bulk_build.run_bulk_build" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">run_bulk_build</span>
+<h3 id="gluebind.config.grid_engine.GridEngineConfig.write_submission_script" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">write_submission_script</span>
 
 
-<a href="#gluebind.simulation.bulk_build.run_bulk_build" class="headerlink" title="Permanent link">#</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_bulk_build</span><span class="p">(</span><span class="n">work_dir</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="n"><span title="pathlib.Path">Path</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<a href="#gluebind.config.grid_engine.GridEngineConfig.write_submission_script" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write_submission_script</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">cmd</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">run_dir</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="n"><span title="pathlib.Path">Path</span></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">script_name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">"gluebind"</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="pathlib.Path">Path</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Extract one component from the complex, solvate it, and write a manifest.</p>
+        <p>Write a qsub script into <code>run_dir</code> and return its path.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>gluebind/simulation/bulk_build.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-70"> 70</a></span>
-<span class="normal"><a href="#__codelineno-0-71"> 71</a></span>
-<span class="normal"><a href="#__codelineno-0-72"> 72</a></span>
-<span class="normal"><a href="#__codelineno-0-73"> 73</a></span>
-<span class="normal"><a href="#__codelineno-0-74"> 74</a></span>
-<span class="normal"><a href="#__codelineno-0-75"> 75</a></span>
-<span class="normal"><a href="#__codelineno-0-76"> 76</a></span>
-<span class="normal"><a href="#__codelineno-0-77"> 77</a></span>
-<span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
-<span class="normal"><a href="#__codelineno-0-79"> 79</a></span>
-<span class="normal"><a href="#__codelineno-0-80"> 80</a></span>
-<span class="normal"><a href="#__codelineno-0-81"> 81</a></span>
-<span class="normal"><a href="#__codelineno-0-82"> 82</a></span>
-<span class="normal"><a href="#__codelineno-0-83"> 83</a></span>
-<span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
-<span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
-<span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
-<span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
-<span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
-<span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
-<span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
-<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
-<span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
-<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
-<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
-<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
-<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
-<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
-<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
-<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#__codelineno-0-100">100</a></span>
-<span class="normal"><a href="#__codelineno-0-101">101</a></span>
-<span class="normal"><a href="#__codelineno-0-102">102</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-70"><a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_bulk_build</span><span class="p">(</span><span class="n">work_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-71"><a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="w">    </span><span class="sd">"""Extract one component from the complex, solvate it, and write a manifest."""</span>
-</span><span id="__span-0-72"><a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">BioSimSpace</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">BSS</span>
-</span><span id="__span-0-73"><a id="__codelineno-0-73" name="__codelineno-0-73"></a>
-</span><span id="__span-0-74"><a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="n">work_dir</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
-</span><span id="__span-0-75"><a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="n">spec</span> <span class="o">=</span> <span class="n">BulkBuildSpec</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">work_dir</span> <span class="o">/</span> <span class="n">BULK_BUILD_SPEC_FILENAME</span><span class="p">)</span>
-</span><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">spec</span><span class="o">.</span><span class="n">molecule_indices</span><span class="p">:</span>
-</span><span id="__span-0-77"><a id="__codelineno-0-77" name="__codelineno-0-77"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"bulk build needs at least one molecule index"</span><span class="p">)</span>
-</span><span id="__span-0-78"><a id="__codelineno-0-78" name="__codelineno-0-78"></a>
-</span><span id="__span-0-79"><a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="n">complex_system</span> <span class="o">=</span> <span class="n">BSS</span><span class="o">.</span><span class="n">IO</span><span class="o">.</span><span class="n">readMolecules</span><span class="p">([</span><span class="n">spec</span><span class="o">.</span><span class="n">complex_prm7</span><span class="p">,</span> <span class="n">spec</span><span class="o">.</span><span class="n">complex_rst7</span><span class="p">])</span>
-</span><span id="__span-0-80"><a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="n">isolated</span> <span class="o">=</span> <span class="n">complex_system</span><span class="p">[</span><span class="n">spec</span><span class="o">.</span><span class="n">molecule_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
-</span><span id="__span-0-81"><a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">spec</span><span class="o">.</span><span class="n">molecule_indices</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-</span><span id="__span-0-82"><a id="__codelineno-0-82" name="__codelineno-0-82"></a>        <span class="n">isolated</span> <span class="o">=</span> <span class="n">isolated</span> <span class="o">+</span> <span class="n">complex_system</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
-</span><span id="__span-0-83"><a id="__codelineno-0-83" name="__codelineno-0-83"></a>
-</span><span id="__span-0-84"><a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="n">box_min</span><span class="p">,</span> <span class="n">box_max</span> <span class="o">=</span> <span class="n">isolated</span><span class="o">.</span><span class="n">getAxisAlignedBoundingBox</span><span class="p">()</span>
-</span><span id="__span-0-85"><a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="n">dimensions</span> <span class="o">=</span> <span class="p">[</span><span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span> <span class="k">for</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">box_min</span><span class="p">,</span> <span class="n">box_max</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
-</span><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="n">padding</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">prep</span><span class="o">.</span><span class="n">bulk_box_padding_angstrom</span> <span class="o">*</span> <span class="n">BSS</span><span class="o">.</span><span class="n">Units</span><span class="o">.</span><span class="n">Length</span><span class="o">.</span><span class="n">angstrom</span>
-</span><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a>    <span class="n">edge</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">dimensions</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">padding</span>
-</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="n">solvated</span> <span class="o">=</span> <span class="n">BSS</span><span class="o">.</span><span class="n">Solvent</span><span class="o">.</span><span class="n">solvate</span><span class="p">(</span>
-</span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a>        <span class="n">spec</span><span class="o">.</span><span class="n">prep</span><span class="o">.</span><span class="n">water_model</span><span class="p">,</span>
-</span><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a>        <span class="n">molecule</span><span class="o">=</span><span class="n">isolated</span><span class="o">.</span><span class="n">toSystem</span><span class="p">()</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">isolated</span><span class="p">,</span> <span class="s2">"toSystem"</span><span class="p">)</span> <span class="k">else</span> <span class="n">isolated</span><span class="p">,</span>
-</span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="n">box</span><span class="o">=</span><span class="n">BSS</span><span class="o">.</span><span class="n">Box</span><span class="o">.</span><span class="n">generateBoxParameters</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">prep</span><span class="o">.</span><span class="n">box_type</span><span class="p">,</span> <span class="n">edge</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span>
-</span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a>        <span class="n">is_neutral</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">prep</span><span class="o">.</span><span class="n">neutralise</span><span class="p">,</span>
-</span><span id="__span-0-93"><a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="n">ion_conc</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">prep</span><span class="o">.</span><span class="n">ion_concentration_M</span><span class="p">,</span>
-</span><span id="__span-0-94"><a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="p">)</span>
-</span><span id="__span-0-95"><a id="__codelineno-0-95" name="__codelineno-0-95"></a>    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span>
-</span><span id="__span-0-96"><a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-97"><a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="n">prefix</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">"solvated"</span>
-</span><span id="__span-0-98"><a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="n">BSS</span><span class="o">.</span><span class="n">IO</span><span class="o">.</span><span class="n">saveMolecules</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">prefix</span><span class="p">),</span> <span class="n">solvated</span><span class="p">,</span> <span class="p">[</span><span class="s2">"prm7"</span><span class="p">,</span> <span class="s2">"rst7"</span><span class="p">])</span>
-</span><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="n">BulkBuildResult</span><span class="p">(</span>
-</span><span id="__span-0-100"><a id="__codelineno-0-100" name="__codelineno-0-100"></a>        <span class="n">solvated_prm7</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">prefix</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">".prm7"</span><span class="p">)),</span>
-</span><span id="__span-0-101"><a id="__codelineno-0-101" name="__codelineno-0-101"></a>        <span class="n">solvated_rst7</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">prefix</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">".rst7"</span><span class="p">)),</span>
-</span><span id="__span-0-102"><a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="p">)</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">work_dir</span> <span class="o">/</span> <span class="n">BULK_BUILD_RESULT_FILENAME</span><span class="p">)</span>
+              <summary>Source code in <code>gluebind/config/grid_engine.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#__codelineno-0-91">91</a></span>
+<span class="normal"><a href="#__codelineno-0-92">92</a></span>
+<span class="normal"><a href="#__codelineno-0-93">93</a></span>
+<span class="normal"><a href="#__codelineno-0-94">94</a></span>
+<span class="normal"><a href="#__codelineno-0-95">95</a></span>
+<span class="normal"><a href="#__codelineno-0-96">96</a></span>
+<span class="normal"><a href="#__codelineno-0-97">97</a></span>
+<span class="normal"><a href="#__codelineno-0-98">98</a></span>
+<span class="normal"><a href="#__codelineno-0-99">99</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="k">def</span><span class="w"> </span><span class="nf">write_submission_script</span><span class="p">(</span>
+</span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span> <span class="n">script_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"gluebind"</span>
+</span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span>
+</span><span id="__span-0-93"><a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="w">    </span><span class="sd">"""Write a qsub script into ``run_dir`` and return its path."""</span>
+</span><span id="__span-0-94"><a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="n">_without_newlines</span><span class="p">(</span><span class="n">script_name</span><span class="p">)</span>
+</span><span id="__span-0-95"><a id="__codelineno-0-95" name="__codelineno-0-95"></a>    <span class="n">run_dir</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">run_dir</span><span class="p">)</span>
+</span><span id="__span-0-96"><a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="n">run_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-97"><a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="n">script_path</span> <span class="o">=</span> <span class="n">run_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">script_name</span><span class="si">}</span><span class="s2">.sh"</span>
+</span><span id="__span-0-98"><a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="n">script_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">render_script</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">job_name</span><span class="o">=</span><span class="n">script_name</span><span class="p">))</span>
+</span><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="k">return</span> <span class="n">script_path</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
 
 </div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="gluebind.config.grid_engine.GridEngineConfig.get_submission_cmds" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_submission_cmds</span>
+
+
+<a href="#gluebind.config.grid_engine.GridEngineConfig.get_submission_cmds" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_submission_cmds</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">cmd</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">run_dir</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="n"><span title="pathlib.Path">Path</span></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">script_name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">"gluebind"</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Write the script and return the qsub command list.</p>
+<p>The caller must execute this command with <code>cwd=run_dir</code> so <code>#$ -cwd</code>
+selects the job's self-contained workspace.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>gluebind/config/grid_engine.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#__codelineno-0-110">110</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-101"><a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_submission_cmds</span><span class="p">(</span>
+</span><span id="__span-0-102"><a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span> <span class="n">script_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"gluebind"</span>
+</span><span id="__span-0-103"><a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span id="__span-0-104"><a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="w">    </span><span class="sd">"""Write the script and return the qsub command list.</span>
+</span><span id="__span-0-105"><a id="__codelineno-0-105" name="__codelineno-0-105"></a>
+</span><span id="__span-0-106"><a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="sd">    The caller must execute this command with ``cwd=run_dir`` so ``#$ -cwd``</span>
+</span><span id="__span-0-107"><a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    selects the job's self-contained workspace.</span>
+</span><span id="__span-0-108"><a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="sd">    """</span>
+</span><span id="__span-0-109"><a id="__codelineno-0-109" name="__codelineno-0-109"></a>    <span class="n">script_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_submission_script</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">run_dir</span><span class="p">,</span> <span class="n">script_name</span><span class="p">)</span>
+</span><span id="__span-0-110"><a id="__codelineno-0-110" name="__codelineno-0-110"></a>    <span class="k">return</span> <span class="p">[</span><span class="s2">"qsub"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">script_path</span><span class="p">)]</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="gluebind.config.grid_engine.GridEngineConfig.load" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">load</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#gluebind.config.grid_engine.GridEngineConfig.load" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load</span><span class="p">(</span><span class="n">load_path</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="n"><span title="pathlib.Path">Path</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'GridEngineConfig'</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Load configuration from a YAML file or a directory containing it.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>gluebind/config/grid_engine.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-119"><a id="__codelineno-0-119" name="__codelineno-0-119"></a><span class="nd">@classmethod</span>
+</span><span id="__span-0-120"><a id="__codelineno-0-120" name="__codelineno-0-120"></a><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">load_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"GridEngineConfig"</span><span class="p">:</span>
+</span><span id="__span-0-121"><a id="__codelineno-0-121" name="__codelineno-0-121"></a><span class="w">    </span><span class="sd">"""Load configuration from a YAML file or a directory containing it."""</span>
+</span><span id="__span-0-122"><a id="__codelineno-0-122" name="__codelineno-0-122"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">load_path</span><span class="p">)</span>
+</span><span id="__span-0-123"><a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+</span><span id="__span-0-124"><a id="__codelineno-0-124" name="__codelineno-0-124"></a>        <span class="n">path</span> <span class="o">/=</span> <span class="n">GRID_ENGINE_CONFIG_FILENAME</span>
+</span><span id="__span-0-125"><a id="__codelineno-0-125" name="__codelineno-0-125"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="__span-0-126"><a id="__codelineno-0-126" name="__codelineno-0-126"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="p">(</span><span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}))</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
 
 
 
@@ -3340,7 +3406,7 @@ keeps parallel :class:<code>CalcSet</code> driver threads out of BioSimSpace ent
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Index">
+          <a href="../calculation/" class="md-footer__link md-footer__link--prev" aria-label="Previous: calculation">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3350,20 +3416,20 @@ keeps parallel :class:<code>CalcSet</code> driver threads out of BioSimSpace ent
                 Previous
               </span>
               <div class="md-ellipsis">
-                Index
+                calculation
               </div>
             </div>
           </a>
         
         
           
-          <a href="../prep_stage/" class="md-footer__link md-footer__link--next" aria-label="Next: prep_stage">
+          <a href="../prep/" class="md-footer__link md-footer__link--next" aria-label="Next: prep">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                prep_stage
+                prep
               </div>
             </div>
             <div class="md-footer__button md-icon">

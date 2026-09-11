@@ -891,6 +891,8 @@
       
         
       
+        
+      
     
     
     
@@ -960,6 +962,34 @@
     
   
     base
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grid_engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_engine
   
 
     
@@ -1219,6 +1249,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1308,6 +1342,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../config/grid_engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grid_engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../config/prep/" class="md-nav__link">
         
   
@@ -1372,6 +1434,34 @@
     
   
     sampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../config/scheduler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    scheduler
   
 
     
@@ -2936,8 +3026,8 @@
 at a time) and block until all reach a terminal state. It is backend-agnostic —
 the same loop drives the local and SLURM backends — so it is the exact analogue
 of the multi-job scaffolding an AWS Batch <em>client</em> would perform.</p>
-<p>The throttle exists because SLURM caps how many jobs a user may queue; on a
-cluster without such a cap, leave <code>queue_len_lim</code> at its default.</p>
+<p>The throttle exists because schedulers may cap how many jobs a user may queue;
+on a cluster without such a cap, leave <code>queue_len_lim</code> at its default.</p>
 
 
 
