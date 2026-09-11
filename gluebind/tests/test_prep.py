@@ -5,7 +5,10 @@ cover the force-field validation, box sizing, multi-molecule layout bookkeeping,
 and the PreparedSystem manifest — none of which need BSS.
 """
 
+import json
 import pathlib
+import sys
+import types
 
 import pytest
 
@@ -19,6 +22,7 @@ from gluebind.simulation.bulk_build import (
 )
 from gluebind.simulation.prep_stage import (
     PREP_STAGE_SPEC_FILENAME,
+    PREP_STAGE_RESULT_FILENAME,
     PrepStageSpec,
     prep_stage_launch_command,
 )
@@ -72,8 +76,6 @@ def test_validate_forcefield_unknown_raises():
 
 
 def test_parameterise_glue_charge_is_optional(monkeypatch):
-    import BioSimSpace as BSS
-
     from gluebind.system.prep import parameterise_glue
 
     calls = []
@@ -88,7 +90,11 @@ def test_parameterise_glue_charge_is_optional(monkeypatch):
 
     monkeypatch.setattr("gluebind.system.prep.available_forcefields", lambda: ["gaff2"])
     monkeypatch.setattr("gluebind.system.prep.load_glue", lambda path: "molecule")
-    monkeypatch.setattr(BSS.Parameters, "gaff2", fake_gaff2)
+    monkeypatch.setitem(
+        sys.modules,
+        "BioSimSpace",
+        types.SimpleNamespace(Parameters=types.SimpleNamespace(gaff2=fake_gaff2)),
+    )
 
     parameterise_glue("glue.mol2", "gaff2")
     parameterise_glue("glue.mol2", "gaff2", ligand_charge=-1)
@@ -196,6 +202,172 @@ def test_bulk_build_spec_roundtrip_and_command(tmp_path):
     command = bulk_build_launch_command()
     assert command[:2] == ["python", "-c"]
     assert "run_bulk_build" in command[2]
+
+
+def test_run_bulk_build_extracts_and_solvates_component(tmp_path, monkeypatch):
+    """Exercise the BSS worker contract with a tiny in-memory BSS double."""
+    from gluebind.simulation import bulk_build
+
+    class Molecule:
+        def __init__(self, indices):
+            self.indices = indices
+
+        def __add__(self, other):
+            return Molecule(self.indices + other.indices)
+
+        def getAxisAlignedBoundingBox(self):
+            return ([0, 0, 0], [2, 3, 1])
+
+        def toSystem(self):
+            return self
+
+    class System:
+        def __getitem__(self, index):
+            return Molecule([index])
+
+    saved = []
+    solvent = []
+    fake_bss = types.SimpleNamespace(
+        IO=types.SimpleNamespace(
+            readMolecules=lambda files: System(),
+            saveMolecules=lambda prefix, system, formats: saved.append(
+                (prefix, system, formats)
+            ),
+        ),
+        Units=types.SimpleNamespace(Length=types.SimpleNamespace(angstrom=1)),
+        Box=types.SimpleNamespace(
+            generateBoxParameters=lambda box_type, edge: ([edge],)
+        ),
+        Solvent=types.SimpleNamespace(
+            solvate=lambda model, **kwargs: solvent.append((model, kwargs))
+            or "solvated"
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "BioSimSpace", fake_bss)
+    spec = BulkBuildSpec(
+        complex_prm7="complex.prm7",
+        complex_rst7="complex.rst7",
+        molecule_indices=[1, 2],
+        prep=PrepConfig(bulk_box_padding_angstrom=2),
+        output_dir=str(tmp_path / "bulk"),
+    )
+    spec.dump(tmp_path / BULK_BUILD_SPEC_FILENAME)
+    bulk_build.run_bulk_build(tmp_path)
+    assert solvent[0][1]["molecule"].indices == [1, 2]
+    assert solvent[0][1]["box"] == [7]
+    assert saved[0][0] == str(tmp_path / "bulk" / "solvated")
+    assert BulkBuildResult.load(tmp_path / "result.json").solvated_prm7.endswith(
+        "bulk/solvated.prm7"
+    )
+
+
+def test_run_bulk_build_rejects_empty_component_list(tmp_path, monkeypatch):
+    from gluebind.simulation import bulk_build
+
+    monkeypatch.setitem(sys.modules, "BioSimSpace", types.SimpleNamespace())
+    BulkBuildSpec(
+        complex_prm7="complex.prm7",
+        complex_rst7="complex.rst7",
+        molecule_indices=[],
+        prep=PrepConfig(),
+        output_dir=str(tmp_path / "bulk"),
+    ).dump(tmp_path / BULK_BUILD_SPEC_FILENAME)
+    with pytest.raises(ValueError, match="at least one molecule"):
+        bulk_build.run_bulk_build(tmp_path)
+
+
+def test_run_prep_stage_writes_final_frame_and_trajectory(tmp_path, monkeypatch):
+    """The worker can be tested as orchestration without an OpenMM run."""
+    from gluebind.simulation import prep_stage
+
+    class Process:
+        def __init__(self, system, protocol, platform):
+            self.system = system
+            self.protocol = protocol
+            self.platform = platform
+
+        def start(self):
+            pass
+
+        def wait(self):
+            pass
+
+        def isError(self):
+            return False
+
+        def getSystem(self):
+            return "final-system"
+
+        def getTrajectory(self):
+            return types.SimpleNamespace(
+                getTrajectory=lambda format: types.SimpleNamespace(
+                    save=lambda path: pathlib.Path(path).touch()
+                )
+            )
+
+    saved = []
+    fake_bss = types.SimpleNamespace(
+        IO=types.SimpleNamespace(
+            readMolecules=lambda files: "input-system",
+            saveMolecules=lambda prefix, system, formats: saved.append(
+                (prefix, system, formats)
+            ),
+        ),
+        Process=types.SimpleNamespace(OpenMM=Process),
+    )
+    monkeypatch.setitem(sys.modules, "BioSimSpace", fake_bss)
+    monkeypatch.setattr(prep_stage, "build_protocol", lambda **kwargs: "protocol")
+    PrepStageSpec(
+        stage="nvt",
+        kind="equilibration",
+        input_prm7="input.prm7",
+        input_rst7="input.rst7",
+    ).dump(tmp_path / PREP_STAGE_SPEC_FILENAME)
+
+    prep_stage.run_prep_stage(tmp_path)
+
+    assert saved == [(str(tmp_path / "output"), "final-system", ["prm7", "rst7"])]
+    result = json.loads((tmp_path / PREP_STAGE_RESULT_FILENAME).read_text())
+    assert result["trajectory"] == str(tmp_path / "output.dcd")
+
+
+def test_run_prep_stage_includes_worker_logs_in_error(tmp_path, monkeypatch):
+    from gluebind.simulation import prep_stage
+
+    class FailedProcess:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            pass
+
+        def wait(self):
+            pass
+
+        def isError(self):
+            return True
+
+        def getStdout(self):
+            return ["standard output"]
+
+        def getStderr(self):
+            return ["detailed error"]
+
+    fake_bss = types.SimpleNamespace(
+        IO=types.SimpleNamespace(readMolecules=lambda files: "input-system"),
+        Process=types.SimpleNamespace(OpenMM=FailedProcess),
+    )
+    monkeypatch.setitem(sys.modules, "BioSimSpace", fake_bss)
+    monkeypatch.setattr(prep_stage, "build_protocol", lambda **kwargs: "protocol")
+    PrepStageSpec(
+        stage="bad-stage",
+        kind="minimisation",
+        input_prm7="input.prm7",
+        input_rst7="input.rst7",
+    ).dump(tmp_path / PREP_STAGE_SPEC_FILENAME)
+
+    with pytest.raises(RuntimeError, match="detailed error"):
+        prep_stage.run_prep_stage(tmp_path)
 
 
 def test_bulk_build_resume_reuses_manifest_without_backend_submission(

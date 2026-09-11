@@ -2,6 +2,8 @@
 are integration-verified)."""
 
 import math
+import sys
+import types
 
 import numpy as np
 import pytest
@@ -16,6 +18,7 @@ from gluebind.selection import (
     validate_manual_anchors,
 )
 from gluebind.selection.geometry import angle, circular_variance, dihedral, is_collinear
+from gluebind.selection.equilibration import detect_interface_equilibration
 
 # ---- geometry --------------------------------------------------------------
 
@@ -52,6 +55,67 @@ def test_local_minima():
 def test_is_structured():
     assert is_structured("H") and is_structured("E")
     assert not is_structured("-") and not is_structured("T")
+
+
+def test_secondary_structure_and_structured_residues_use_first_dssp_frame(monkeypatch):
+    """Keep the MDAnalysis adapter covered without opening a trajectory."""
+    from gluebind.selection.dssp import secondary_structure, structured_residues
+
+    class FakeDSSP:
+        def __init__(self, universe):
+            self.universe = universe
+            self.results = types.SimpleNamespace(dssp=[['H', 'T', 'E']])
+
+        def run(self):
+            return self
+
+    analysis = types.ModuleType("MDAnalysis.analysis")
+    dssp = types.ModuleType("MDAnalysis.analysis.dssp")
+    dssp.DSSP = FakeDSSP
+    monkeypatch.setitem(sys.modules, "MDAnalysis.analysis", analysis)
+    monkeypatch.setitem(sys.modules, "MDAnalysis.analysis.dssp", dssp)
+    universe = types.SimpleNamespace(
+        select_atoms=lambda selection: types.SimpleNamespace(resids=[10, 11, 12])
+    )
+    assert secondary_structure(universe) == {10: "H", 11: "T", 12: "E"}
+    assert structured_residues(universe) == [10, 12]
+
+
+def test_compute_rmsf_runs_alignment_and_returns_resids(monkeypatch):
+    from gluebind.selection.rmsf import compute_rmsf
+
+    calls = []
+
+    class Runner:
+        def __init__(self, result=None):
+            self.results = result
+
+        def run(self):
+            calls.append(self)
+            return self
+
+    class Average(Runner):
+        def __init__(self, *args, **kwargs):
+            super().__init__(types.SimpleNamespace(universe="average"))
+
+    class Align(Runner):
+        def __init__(self, *args, **kwargs):
+            super().__init__()
+
+    class RMSF(Runner):
+        def __init__(self, atoms):
+            super().__init__(types.SimpleNamespace(rmsf=[0.1, 0.2]))
+
+    analysis = types.ModuleType("MDAnalysis.analysis")
+    analysis.align = types.SimpleNamespace(AverageStructure=Average, AlignTraj=Align)
+    analysis.rms = types.SimpleNamespace(RMSF=RMSF)
+    monkeypatch.setitem(sys.modules, "MDAnalysis.analysis", analysis)
+    atoms = types.SimpleNamespace(resids=np.array([4, 5]))
+    universe = types.SimpleNamespace(select_atoms=lambda selection: atoms)
+    resids, values = compute_rmsf(universe)
+    assert resids.tolist() == [4, 5]
+    assert values.tolist() == [0.1, 0.2]
+    assert len(calls) == 3
 
 
 # ---- interface detection ---------------------------------------------------
@@ -178,3 +242,25 @@ def test_select_anchors_raises_when_all_collinear():
             A_coords=_const_series([6.0, 0.0, 0.0]),
             coords_of=lambda i: line[i],
         )
+
+
+def test_detect_interface_equilibration_returns_red_start(monkeypatch):
+    fake_red = types.SimpleNamespace(
+        detect_equilibration_window=lambda data, method: (3, 1.0, 10.0)
+    )
+    monkeypatch.setitem(sys.modules, "red", fake_red)
+    assert detect_interface_equilibration([0.1, 0.2, 0.3], method="min_sse") == 3
+
+
+def test_detect_interface_equilibration_warns_and_returns_none(monkeypatch):
+    def no_equilibration(data, method):
+        raise RuntimeError("not equilibrated")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "red",
+        types.SimpleNamespace(detect_equilibration_window=no_equilibration),
+    )
+    with pytest.warns(UserWarning, match="not detected"):
+        assert detect_interface_equilibration([0.1, 0.2]) is None
+    assert detect_interface_equilibration([0.1, 0.2], warn=False) is None

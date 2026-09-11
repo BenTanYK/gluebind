@@ -4,7 +4,26 @@ reads a trajectory and is integration-verified)."""
 import numpy as np
 import pytest
 
-from gluebind.stage_centres import boresch_centres_from_series
+from gluebind import CalculationConfig
+from gluebind.stage_centres import boresch_centres_from_series, compute_stage_centres
+
+
+def _config(boresch_centres=None):
+    return CalculationConfig.model_validate(
+        {
+            "inputs": {
+                "target": {"prm7": "target.prm7", "rst7": "target.rst7"},
+                "receptor": {"prm7": "receptor.prm7", "rst7": "receptor.rst7"},
+            },
+            "sampling": {
+                "boresch": {
+                    "force_constant": 100.0,
+                    "sampling_time_ns": 5.0,
+                    "centres": boresch_centres,
+                }
+            },
+        }
+    )
 
 
 def test_boresch_centres_spans_range_on_regular_grid():
@@ -44,3 +63,27 @@ def test_boresch_centres_broad_contiguous_is_fine():
     # Broad but contiguous (no wrap): the largest gap is the wrap gap, so no raise.
     centres = boresch_centres_from_series(np.linspace(-2.0, 2.0, 20), 0.5)
     assert centres[0] <= -2.0 and centres[-1] >= 2.0
+
+
+def test_compute_stage_centres_uses_explicit_boresch_centres_without_trajectory():
+    config = _config(
+        {
+            "thetaA": [0.91, 1.03],
+            "thetaB": [0.81, 0.93],
+            "phiA": [-0.2, -0.1],
+            "phiB": [0.4, 0.5],
+            "phiC": [0.7, 0.8],
+        }
+    )
+    prepared = type("Prepared", (), {"complex_trajectory": None})()
+    centres = compute_stage_centres(prepared, None, config)
+    assert centres["thetaA"] == [0.91, 1.03]
+    assert set(centres) == {
+        "thetaA", "thetaB", "phiA", "phiB", "phiC", "separation"
+    }
+
+
+def test_compute_stage_centres_requires_trajectory_for_missing_boresch_centres():
+    prepared = type("Prepared", (), {"complex_trajectory": None})()
+    with pytest.raises(ValueError, match="need an equilibration trajectory"):
+        compute_stage_centres(prepared, None, _config())

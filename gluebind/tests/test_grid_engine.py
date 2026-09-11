@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import subprocess
 
 import pytest
 
@@ -89,6 +90,41 @@ def test_grid_engine_submit_quotes_and_uses_work_dir(tmp_path, monkeypatch):
     assert "'hello world'" in (tmp_path / "gluebind.sh").read_text()
 
 
+def test_grid_engine_submit_reports_qsub_stderr(tmp_path, monkeypatch):
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(
+            1, ["qsub"], output="submission rejected", stderr="invalid queue"
+        )
+
+    monkeypatch.setattr("gluebind.backend.grid_engine.subprocess.run", fail)
+    spec = JobSpec(command=["echo", "hello"], work_dir=str(tmp_path), name="broken")
+    with pytest.raises(RuntimeError, match="invalid queue"):
+        GridEngineBackend(GridEngineConfig()).submit(spec)
+
+
+def test_grid_engine_visible_states_runs_qstat_for_current_user(monkeypatch):
+    calls = []
+
+    class Completed:
+        stdout = "1 0.1 running user r 09/07/2026 10:00:00 queue@host 1\n"
+
+    def fake_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        return Completed()
+
+    monkeypatch.setattr("gluebind.backend.grid_engine.getpass.getuser", lambda: "user")
+    monkeypatch.setattr("gluebind.backend.grid_engine.subprocess.run", fake_run)
+    assert GridEngineBackend(GridEngineConfig())._visible_job_states() == {
+        "1": JobState.RUNNING
+    }
+    assert calls == [
+        (
+            (["qstat", "-u", "user"],),
+            {"capture_output": True, "text": True, "check": True},
+        )
+    ]
+
+
 @pytest.mark.parametrize(
     "output,handle",
     [("12345\n", "12345"), ('Your job 12345 ("name") has been submitted\n', "12345")],
@@ -107,15 +143,15 @@ def test_grid_engine_qstat_states_and_grace(monkeypatch):
         GridEngineConfig(job_submission_wait=10), clock=lambda: 100
     )
     output = """job-ID prior name user state submit/start at queue slots ja-task-ID
--------------------------------------------------------------------------------
-1 0.1 queued user qw 09/07/2026 10:00:00 1
-2 0.1 held user hqw 09/07/2026 10:00:00 1
-3 0.1 running user r 09/07/2026 10:00:00 queue@host 1
-4 0.1 suspended user s 09/07/2026 10:00:00 queue@host 1
-5 0.1 transferring user t 09/07/2026 10:00:00 queue@host 1
-6 0.1 deleting user dr 09/07/2026 10:00:00 queue@host 1
-7 0.1 error user Eqw 09/07/2026 10:00:00 1
-"""
+    -------------------------------------------------------------------------------
+    1 0.1 queued user qw 09/07/2026 10:00:00 1
+    2 0.1 held user hqw 09/07/2026 10:00:00 1
+    3 0.1 running user r 09/07/2026 10:00:00 queue@host 1
+    4 0.1 suspended user s 09/07/2026 10:00:00 queue@host 1
+    5 0.1 transferring user t 09/07/2026 10:00:00 queue@host 1
+    6 0.1 deleting user dr 09/07/2026 10:00:00 queue@host 1
+    7 0.1 error user Eqw 09/07/2026 10:00:00 1
+    """
     states = GridEngineBackend._parse_qstat(output)
     assert states == {
         "1": JobState.PENDING,
