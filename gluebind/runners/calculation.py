@@ -132,7 +132,8 @@ class Calculation(SimulationRunner):
         Optional advanced/testing hook for producing the separation-window
         starting structures.
     platform
-        OpenMM platform requested by compute jobs, normally ``"CUDA"``.
+        OpenMM platform requested by compute jobs, currently on ``"CUDA"`` is
+        supported.
     poll_interval
         Seconds between backend status checks when no scheduler-specific interval
         is configured.
