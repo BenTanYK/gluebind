@@ -294,7 +294,9 @@ class Calculation(SimulationRunner):
 
         Runs system prep and trajectory-dependent restraint resolution through the
         backend, then loads the resulting context/centres and builds the
-        ``spec_builder`` and the backend-dispatched steered-MD hook.
+        ``spec_builder`` and the backend-dispatched steered-MD hook. The same
+        resolution job writes ``prep/rmsf_receptor.dat`` and
+        ``prep/rmsf_target.dat`` for post-hoc stability and anchor inspection.
         Returns the :class:`~gluebind.system.prep.PreparedSystem`.
 
         If the system is already prepared (``prep/prepared.json``
@@ -392,7 +394,17 @@ class Calculation(SimulationRunner):
         prep_dir = self.base_dir / "prep"
         work_dir = prep_dir / "rmsf_report"
         result_path = work_dir / RMSF_REPORT_RESULT_FILENAME
-        if not result_path.exists():
+        report_complete = False
+        if result_path.exists():
+            try:
+                report = json.loads(result_path.read_text())
+                report_complete = all(
+                    pathlib.Path(report[protein]).exists()
+                    for protein in ("receptor", "target")
+                )
+            except (OSError, KeyError, TypeError, ValueError):
+                report_complete = False
+        if not report_complete:
             work_dir.mkdir(parents=True, exist_ok=True)
             RmsfReportSpec(
                 config=self.config,
@@ -472,6 +484,15 @@ class Calculation(SimulationRunner):
         whether a site's GPU partition permits CPU-only jobs.
         """
         if self._load_resolved_restraint_context(prepared) is not None:
+            # Older/pre-existing runs may have a valid resolved context but no
+            # RMSF diagnostics. Generate the reports once without repeating
+            # restraint resolution; current resolution jobs create them inline.
+            report_paths = [
+                self.base_dir / "prep" / f"rmsf_{protein}.dat"
+                for protein in ("receptor", "target")
+            ]
+            if not all(path.exists() for path in report_paths):
+                self._submit_rmsf_report(prepared)
             self._log.info(
                 "prepare %s: reusing resolved restraint context", self.base_dir.name
             )

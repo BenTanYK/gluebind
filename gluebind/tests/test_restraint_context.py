@@ -80,6 +80,7 @@ def test_resolution_worker_persists_context_and_centres(tmp_path, monkeypatch):
     )
     import gluebind.spec_builder as spec_builder
     import gluebind.stage_centres as stage_centres
+    import gluebind.simulation.restraint_resolution as resolution
 
     monkeypatch.setattr(
         spec_builder, "build_restraint_context", lambda *a, **k: context
@@ -88,6 +89,12 @@ def test_resolution_worker_persists_context_and_centres(tmp_path, monkeypatch):
         stage_centres,
         "compute_stage_centres",
         lambda *a, **k: {"thetaA": [1.0], "separation": [1.5]},
+    )
+    report_calls = []
+    monkeypatch.setattr(
+        resolution,
+        "write_rmsf_report",
+        lambda *a, **k: report_calls.append((a, k)) or {},
     )
     work_dir = tmp_path / "prep" / "restraint_resolution"
     output = tmp_path / "prep" / RESTRAINT_CONTEXT_FILENAME
@@ -105,6 +112,7 @@ def test_resolution_worker_persists_context_and_centres(tmp_path, monkeypatch):
     assert result.prepared_hash == prepared_hash(prepared)
     assert context_from_data(result.context) == context
     assert result.stage_centres == {"thetaA": [1.0], "separation": [1.5]}
+    assert len(report_calls) == 1
     assert json.loads(
         (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).read_text()
     ) == {"output_path": str(output)}

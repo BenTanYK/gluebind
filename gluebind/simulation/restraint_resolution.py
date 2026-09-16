@@ -51,7 +51,7 @@ def restraint_resolution_launch_command(python: str = "python") -> list[str]:
 
 
 def run_restraint_resolution(work_dir: str | pathlib.Path) -> None:
-    """Resolve and persist restraint geometry from the prepared trajectory."""
+    """Resolve restraint geometry and persist the RMSF diagnostics."""
     import json
 
     from gluebind.spec_builder import build_restraint_context
@@ -63,6 +63,11 @@ def run_restraint_resolution(work_dir: str | pathlib.Path) -> None:
     context = build_restraint_context(
         prepared, spec.config, anchors_override=spec.anchors_override
     )
+    # Keep per-protein RMSF profiles available for post-hoc stability and
+    # anchor-selection inspection, including when anchors were configured
+    # manually. This runs in the same backend job as trajectory-dependent
+    # restraint resolution, so the driver never needs MDAnalysis.
+    write_rmsf_report(prepared, spec.config, spec.prep_dir)
     resolved = ResolvedRestraintContext(
         config_hash=spec.config_hash,
         prepared_hash=prepared_hash(prepared),
