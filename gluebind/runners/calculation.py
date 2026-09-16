@@ -478,7 +478,7 @@ class Calculation(SimulationRunner):
     def _resolve_restraint_context(self, prepared) -> None:
         """Submit the MDAnalysis-heavy restraint-resolution worker if needed.
 
-        This deliberately uses the calculation's normal backend unchanged.  On
+        This uses the calculation's normal backend unchanged.  On
         Slurm, the short resolution job therefore inherits the user's complete
         ``SlurmConfig`` (including ``gres=gpu:1``), avoiding assumptions about
         whether a site's GPU partition permits CPU-only jobs.
