@@ -23,7 +23,11 @@ window centres come from the sampling schedule.
 
 from __future__ import annotations
 
+import contextlib
+import json
+import os
 import pathlib
+import tempfile
 import warnings
 from collections.abc import Callable, Iterator, Sequence
 
@@ -54,6 +58,7 @@ from gluebind.stop import StopController, StopRequested
 # Force constants live in the config in Å^-2, but the WHAM PMFs (and hence the
 # free-energy integrals) work in nm. 1 Å^-2 = 100 nm^-2.
 _A2_TO_NM2 = 100.0
+ANALYSIS_RESULT_FILENAME = "analysis.json"
 
 PmfProvider = Callable[[Stage], "tuple"]
 
@@ -92,6 +97,25 @@ def _repeat_dg_sem(per_repeat: dict, dg_corr: float) -> float | None:
             )
         )
     return _sem(totals)
+
+
+def _write_analysis_result(run_dir: pathlib.Path, result: dict) -> pathlib.Path:
+    """Atomically persist the calculation-level analysis result."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    path = run_dir / ANALYSIS_RESULT_FILENAME
+    payload = json.dumps(result, indent=2, allow_nan=False)
+    fd, tmp = tempfile.mkstemp(dir=run_dir, prefix=".analysis.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+    return path
 
 
 class Calculation(SimulationRunner):
@@ -273,7 +297,7 @@ class Calculation(SimulationRunner):
         ``spec_builder`` and the backend-dispatched steered-MD hook.
         Returns the :class:`~gluebind.system.prep.PreparedSystem`.
 
-        Idempotent: if the system is already prepared (``prep/prepared.json``
+        If the system is already prepared (``prep/prepared.json``
         exists) the equilibration is not re-run — the manifest and resolved
         restraint context are reused before lightweight driver-side wiring. This is what
         lets :meth:`run` auto-prepare safely on a resumed run. Called
@@ -1184,7 +1208,7 @@ class Calculation(SimulationRunner):
             dg_bind,
             f" +/- {dg_bind_sem:.2f}" if dg_bind_sem is not None else "",
         )
-        return {
+        result = {
             "dg_bind": dg_bind,
             "dg_bind_sem": dg_bind_sem,  # over independent repeats; None if < 2
             "dg_rmsd": totals["rmsd"],
@@ -1196,3 +1220,5 @@ class Calculation(SimulationRunner):
             # and is a ranking estimate, not a rigorous standard-state ΔG_bind°.
             "rmsd_included": self._group("rmsd") is not None,
         }
+        _write_analysis_result(self.base_dir, result)
+        return result

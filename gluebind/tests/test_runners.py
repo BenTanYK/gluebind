@@ -5,6 +5,7 @@ These exercise the orchestration with a trivial ``spec_builder`` and a trivial
 job command (no OpenMM MD), so they run fast and don't need real structures.
 """
 
+import json
 import math
 import os
 import pathlib
@@ -483,6 +484,37 @@ def test_analyse_aggregates(tmp_path):
     assert result["dg_bind"] == pytest.approx(
         result["dg_rmsd"] + result["dg_boresch"] + result["dg_sep"] + result["dg_corr"]
     )
+    assert json.loads((tmp_path / "analysis.json").read_text()) == result
+
+
+def test_analyse_replaces_analysis_json(tmp_path):
+    calc = _calc(tmp_path)
+    first = calc.analyse(
+        _fake_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0
+    )
+
+    def shifted_pmf(stage):
+        x = np.linspace(0.0, 2.0, 21)
+        return x, 2.0 * (x - 1.0) ** 2
+
+    second = calc.analyse(
+        shifted_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0
+    )
+    assert second != first
+    assert json.loads((tmp_path / "analysis.json").read_text()) == second
+
+
+def test_analyse_does_not_write_analysis_json_on_provider_failure(tmp_path):
+    calc = _calc(tmp_path)
+
+    def failing_provider(stage):
+        raise RuntimeError("provider failed")
+
+    with pytest.raises(RuntimeError, match="provider failed"):
+        calc.analyse(
+            failing_provider, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0
+        )
+    assert not (tmp_path / "analysis.json").exists()
 
 
 def test_analyse_reports_sem_over_repeats(tmp_path):
