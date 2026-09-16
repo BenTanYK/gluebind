@@ -484,9 +484,6 @@ class Calculation(SimulationRunner):
         whether a site's GPU partition permits CPU-only jobs.
         """
         if self._load_resolved_restraint_context(prepared) is not None:
-            # Older/pre-existing runs may have a valid resolved context but no
-            # RMSF diagnostics. Generate the reports once without repeating
-            # restraint resolution; current resolution jobs create them inline.
             report_paths = [
                 self.base_dir / "prep" / f"rmsf_{protein}.dat"
                 for protein in ("receptor", "target")
