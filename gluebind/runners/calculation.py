@@ -273,7 +273,7 @@ class Calculation(SimulationRunner):
         ``spec_builder`` and the backend-dispatched steered-MD hook.
         Returns the :class:`~gluebind.system.prep.PreparedSystem`.
 
-        Idempotent: if the system is already prepared (``prep/prepared.json``
+        If the system is already prepared (``prep/prepared.json``
         exists) the equilibration is not re-run — the manifest and resolved
         restraint context are reused before lightweight driver-side wiring. This is what
         lets :meth:`run` auto-prepare safely on a resumed run. Called
