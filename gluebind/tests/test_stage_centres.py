@@ -1,11 +1,17 @@
 """Tests for the pure Boresch window-centre binning (compute_stage_centres itself
 reads a trajectory and is integration-verified)."""
 
+import json
+
 import numpy as np
 import pytest
 
 from gluebind import CalculationConfig
-from gluebind.stage_centres import boresch_centres_from_series, compute_stage_centres
+from gluebind.stage_centres import (
+    boresch_centres_from_series,
+    compute_stage_centres,
+    write_boresch_distributions,
+)
 
 
 def _config(boresch_centres=None):
@@ -64,6 +70,32 @@ def test_boresch_centres_broad_contiguous_is_fine():
     centres = boresch_centres_from_series(np.linspace(-2.0, 2.0, 20), 0.5)
     assert centres[0] <= -2.0 and centres[-1] >= 2.0
 
+
+
+def test_write_boresch_distributions_preserves_raw_and_analysis_values(tmp_path):
+    series = {
+        "thetaA": np.array([0.1, 0.2]),
+        "thetaB": np.array([1.0, 1.1]),
+        "phiA": np.array([-3.1, 3.1]),
+        "phiB": np.array([-0.4, -0.3]),
+        "phiC": np.array([0.5, 0.6]),
+    }
+    report = write_boresch_distributions(
+        series, tmp_path / "boresch_distributions", metadata={"config_hash": "abc"}
+    )
+
+    assert set(report) == {"thetaA", "thetaB", "phiA", "phiB", "phiC"}
+    theta = np.loadtxt(report["thetaA"], comments="#")
+    phi = np.loadtxt(report["phiA"], comments="#")
+    assert theta.shape == (2, 3)
+    assert np.allclose(theta[:, 1], theta[:, 2])
+    assert np.ptp(phi[:, 2]) < 0.2  # periodic image is compact across the branch cut
+    assert np.ptp(phi[:, 1]) > 6.0  # raw principal values retain the branch cut
+    metadata = json.loads(
+        (tmp_path / "boresch_distributions" / "metadata.json").read_text()
+    )
+    assert metadata["config_hash"] == "abc"
+    assert metadata["frame_count"] == 2
 
 def test_compute_stage_centres_uses_explicit_boresch_centres_without_trajectory():
     config = _config(
