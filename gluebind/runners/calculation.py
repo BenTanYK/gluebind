@@ -333,7 +333,7 @@ class Calculation(SimulationRunner):
         return prepared
 
     def equilibrate(self):
-        """Run only the equilibration (+ bulk extraction) and write a per-protein Cα
+        """Run only the equilibration (+ bulk extraction) and write a per-protein CA
         RMSF report for manual Boresch-anchor selection — **without** resolving
         anchors or building the sampling tree.
 
@@ -435,10 +435,10 @@ class Calculation(SimulationRunner):
         return json.loads(result_path.read_text())
 
     def _write_rmsf_report(self, prepared) -> dict[str, str]:
-        """Write per-protein Cα RMSF (``resid  atom_index  rmsf``) + suggested stable
+        """Write per-protein CA RMSF (``resid  atom_index  rmsf``) + suggested stable
         candidates to ``prep/rmsf_<protein>.dat`` for manual anchor inspection.
 
-        ``atom_index`` is each Cα's 0-indexed complex atom index, retained for
+        ``atom_index`` is each CA's 0-indexed complex atom index, retained for
         diagnostics; ``BoreschSpec.anchors`` takes the corresponding 1-based residue
         IDs from the input topology."""
         from gluebind.simulation.restraint_resolution import write_rmsf_report
