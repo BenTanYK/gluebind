@@ -55,7 +55,10 @@ def run_restraint_resolution(work_dir: str | pathlib.Path) -> None:
     import json
 
     from gluebind.spec_builder import build_restraint_context
-    from gluebind.stage_centres import compute_stage_centres
+    from gluebind.stage_centres import (
+        BORESCH_DISTRIBUTION_DIRNAME,
+        compute_stage_centres,
+    )
 
     work_dir = pathlib.Path(work_dir)
     spec = RestraintResolutionSpec.load(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
@@ -68,11 +71,24 @@ def run_restraint_resolution(work_dir: str | pathlib.Path) -> None:
     # manually. This runs in the same backend job as trajectory-dependent
     # restraint resolution, so the driver never needs MDAnalysis.
     write_rmsf_report(prepared, spec.config, spec.prep_dir)
+    prepared_identity = prepared_hash(prepared)
     resolved = ResolvedRestraintContext(
         config_hash=spec.config_hash,
-        prepared_hash=prepared_hash(prepared),
+        prepared_hash=prepared_identity,
         context=context_to_data(context),
-        stage_centres=compute_stage_centres(prepared, context, spec.config),
+        stage_centres=compute_stage_centres(
+            prepared,
+            context,
+            spec.config,
+            distributions_dir=(
+                pathlib.Path(spec.prep_dir) / BORESCH_DISTRIBUTION_DIRNAME
+            ),
+            distribution_metadata={
+                "config_hash": spec.config_hash,
+                "prepared_hash": prepared_identity,
+                "anchors": context.anchors,
+            },
+        ),
     )
     resolved.dump(spec.output_path)
     (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).write_text(

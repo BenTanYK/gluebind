@@ -13,7 +13,25 @@ integration-verified (Phase 7), like the rest of the trajectory analysis.
 
 from __future__ import annotations
 
+import json
 import math
+import pathlib
+
+BORESCH_DISTRIBUTION_DIRNAME = "boresch_distributions"
+BORESCH_DISTRIBUTION_METADATA = "metadata.json"
+
+
+def periodic_image(values):
+    """Map angular values to the periodic image around their circular mean."""
+    import numpy as np
+
+    values = np.asarray(values, dtype=float)
+    reference = math.atan2(
+        float(np.sin(values).mean()), float(np.cos(values).mean())
+    )
+    return reference + np.arctan2(
+        np.sin(values - reference), np.cos(values - reference)
+    )
 
 
 def boresch_centres_from_series(
@@ -32,12 +50,7 @@ def boresch_centres_from_series(
 
     values = np.asarray(series, dtype=float)
     if periodic:
-        reference = math.atan2(
-            float(np.sin(values).mean()), float(np.cos(values).mean())
-        )
-        values = reference + np.arctan2(
-            np.sin(values - reference), np.cos(values - reference)
-        )
+        values = periodic_image(values)
     lo, hi = float(values.min()), float(values.max())
     if not periodic:
         raw_range = hi - lo
@@ -62,7 +75,96 @@ def boresch_centres_from_series(
     return [round(start + i * spacing, 4) for i in range(n)]
 
 
-def compute_stage_centres(prepared, context, config) -> dict[str, list[float]]:
+def _load_boresch_series(prepared, context):
+    """Load the equilibration trajectory and calculate all five DoF series."""
+    import numpy as np
+
+    from gluebind.boresch_geometry import DOFS
+    from gluebind.selection.anchors import dof_timeseries
+    from gluebind.spec_builder import _collect_series
+    from gluebind.system.mdanalysis import load_amber_universe
+
+    if prepared.complex_trajectory is None:
+        raise ValueError(
+            "Boresch distributions need an equilibration trajectory "
+            "(prepared.complex_trajectory is None)"
+        )
+    traj = load_amber_universe(prepared.complex_prm7, prepared.complex_trajectory)
+    anchor_atoms = [context.anchors[k] for k in ("b", "c", "B", "C")]
+    series = _collect_series(
+        traj, context.rec_group, context.lig_group, anchor_atoms, np
+    )
+    points = {
+        "a": series["a"],
+        "A": series["A"],
+        "b": series[context.anchors["b"]],
+        "c": series[context.anchors["c"]],
+        "B": series[context.anchors["B"]],
+        "C": series[context.anchors["C"]],
+    }
+    return {dof: dof_timeseries(points, dof) for dof in DOFS}
+
+
+def write_boresch_distributions(
+    series,
+    output_dir: str | pathlib.Path,
+    *,
+    metadata: dict | None = None,
+) -> dict[str, str]:
+    """Write raw and periodic-analysis Boresch DoF distributions.
+
+    Each ``<dof>.dat`` contains ``frame``, ``raw_rad`` and ``analysis_rad``
+    columns. Dihedrals retain their principal ``[-pi, pi]`` value in
+    ``raw_rad`` and use the same circular-mean unwrapping as centre generation
+    in ``analysis_rad``.
+    """
+    import numpy as np
+
+    from gluebind.boresch_geometry import DIHEDRAL_DOFS, DOFS
+
+    output_dir = pathlib.Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report: dict[str, str] = {}
+    frame_count = None
+    for dof in DOFS:
+        raw = np.asarray(series[dof], dtype=float)
+        if frame_count is None:
+            frame_count = int(raw.size)
+        elif raw.size != frame_count:
+            raise ValueError("Boresch DoF distributions have different lengths")
+        analysis = periodic_image(raw) if dof in DIHEDRAL_DOFS else raw
+        path = output_dir / f"{dof}.dat"
+        np.savetxt(
+            path,
+            np.column_stack((np.arange(raw.size), raw, analysis)),
+            fmt=["%d", "%.10f", "%.10f"],
+            header="frame raw_rad analysis_rad",
+        )
+        report[dof] = str(path)
+
+    info = {
+        "columns": ["frame", "raw_rad", "analysis_rad"],
+        "units": "radians",
+        "periodic_dofs": list(DIHEDRAL_DOFS),
+        "frame_count": frame_count or 0,
+        "files": report,
+    }
+    if metadata:
+        info.update(metadata)
+    (output_dir / BORESCH_DISTRIBUTION_METADATA).write_text(
+        json.dumps(info, indent=2)
+    )
+    return report
+
+
+def compute_stage_centres(
+    prepared,
+    context,
+    config,
+    *,
+    distributions_dir: str | pathlib.Path | None = None,
+    distribution_metadata: dict | None = None,
+) -> dict[str, list[float]]:
     """Boresch DoF centres (from the equilibration trajectory) + separation centres.
 
     * **Boresch** — for each of the five DoFs, bin the distribution measured over
@@ -75,13 +177,8 @@ def compute_stage_centres(prepared, context, config) -> dict[str, list[float]]:
     RMSD stage centres are *not* returned — the runner derives those from the
     sampling schedule directly.
     """
-    import numpy as np
-
     from gluebind.boresch_geometry import DOFS
     from gluebind.runners.window import enumerate_centres
-    from gluebind.selection.anchors import dof_timeseries
-    from gluebind.spec_builder import _collect_series
-    from gluebind.system.mdanalysis import load_amber_universe
 
     centres: dict[str, list[float]] = {}
     configured = config.sampling.boresch.centres
@@ -102,26 +199,23 @@ def compute_stage_centres(prepared, context, config) -> dict[str, list[float]]:
                 "Boresch window centres need an equilibration trajectory for "
                 f"{', '.join(missing)}; provide explicit centres via the config"
             )
-        traj = load_amber_universe(prepared.complex_prm7, prepared.complex_trajectory)
-        anchor_atoms = [context.anchors[k] for k in ("b", "c", "B", "C")]
-        series = _collect_series(
-            traj, context.rec_group, context.lig_group, anchor_atoms, np
-        )
-        points = {
-            "a": series["a"],
-            "A": series["A"],
-            "b": series[context.anchors["b"]],
-            "c": series[context.anchors["c"]],
-            "B": series[context.anchors["B"]],
-            "C": series[context.anchors["C"]],
-        }
+        series = _load_boresch_series(prepared, context)
+        if distributions_dir is not None:
+            write_boresch_distributions(
+                series, distributions_dir, metadata=distribution_metadata
+            )
         spacing = config.sampling.boresch.window_spacing or 0.1
         for dof in missing:
             centres[dof] = boresch_centres_from_series(
-                dof_timeseries(points, dof),
+                series[dof],
                 spacing,
                 periodic=dof in ("phiA", "phiB", "phiC"),
             )
+    elif distributions_dir is not None:
+        series = _load_boresch_series(prepared, context)
+        write_boresch_distributions(
+            series, distributions_dir, metadata=distribution_metadata
+        )
     centres.update(explicit)
 
     centres["separation"] = enumerate_centres(
