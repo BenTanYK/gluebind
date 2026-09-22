@@ -73,7 +73,7 @@ def _sem(values) -> float:
 
 
 def _repeat_dg_sem(per_repeat: dict, dg_corr: float) -> float | None:
-    """SEM of ΔG° over independent repeats.
+    """SEM of ΔG over independent repeats.
 
     ``per_repeat`` maps stage name → ``(cv_type, [contribution per repeat])``. Each
     repeat's contributions are combined into a full ΔG° (same sign convention as
@@ -290,20 +290,21 @@ class Calculation(SimulationRunner):
         )
 
     def prepare(self):
-        """Prepare the system and wire the runner from the config alone.
+        """Prepare and equilibrate the system, then resolve restraint metadata.
 
-        Runs system prep and trajectory-dependent restraint resolution through the
-        backend, then loads the resulting context/centres and builds the
-        ``spec_builder`` and the backend-dispatched steered-MD hook. The same
-        resolution job writes ``prep/rmsf_receptor.dat`` and
-        ``prep/rmsf_target.dat`` for post-hoc stability and anchor inspection.
-        Returns the :class:`~gluebind.system.prep.PreparedSystem`.
+        Existing preparation artifacts are reused when valid. Otherwise, the
+        preparation and equilibration stages are submitted through the configured
+        backend. Restraint resolution then selects or validates Boresch anchors,
+        writes the resolved restraint context, RMSF reports, and Boresch DoF
+        distributions, and wires the calculation tree.
 
-        If the system is already prepared (``prep/prepared.json``
-        exists) the equilibration is not re-run — the manifest and resolved
-        restraint context are reused before lightweight driver-side wiring. This is what
-        lets :meth:`run` auto-prepare safely on a resumed run. Called
-        automatically by :meth:`run` when the calculation is not yet wired.
+        This method does not submit umbrella-sampling windows. It is idempotent and
+        may be called before :meth:`run`.
+
+        Returns
+        -------
+        PreparedSystem
+            The prepared system manifest loaded from ``prep/prepared.json``.
         """
         from gluebind.system.prep import PreparedSystem
         from gluebind.system.prep import prepare as prepare_system
@@ -333,19 +334,21 @@ class Calculation(SimulationRunner):
         return prepared
 
     def equilibrate(self):
-        """Run only the equilibration (+ bulk extraction) and write a per-protein CA
-        RMSF report for manual Boresch-anchor selection — **without** resolving
-        anchors or building the sampling tree.
+        """Prepare or reuse equilibration and write RMSF reports for anchor selection.
 
-        The manual-anchor fallback (the workflow the paper used): call this,
-        inspect ``prep/rmsf_{receptor,target}.dat`` (each ``resid  atom_index  rmsf``
-        plus the auto-suggested stable candidates, listed as ``resid=atom``), set
-        ``restraints.boresch.anchors = {"b": ..., "c": ..., "B": ..., "C": ...}`` to the
-        chosen 1-based residue IDs, then call
-        :meth:`run` — which reuses this equilibration (idempotent) and wires with the
-        chosen anchors.
+        This is the manual-anchor workflow. It builds or reuses the preparation and
+        equilibration artifacts, then submits the lightweight RMSF-report job.
+        It does not resolve Boresch anchors, create the restraint context, or submit
+        umbrella-sampling windows.
 
-        Returns the :class:`~gluebind.system.prep.PreparedSystem`.
+        The reports are written to ``prep/rmsf_receptor.dat`` and
+        ``prep/rmsf_target.dat``. After inspecting them, configure manual anchors
+        and call :meth:`run`.
+
+        Returns
+        -------
+        PreparedSystem
+            The prepared system manifest.
         """
         from gluebind.system.prep import PreparedSystem
         from gluebind.system.prep import prepare as prepare_system
@@ -688,6 +691,7 @@ class Calculation(SimulationRunner):
     # ---- run ---------------------------------------------------------------
 
     def setup(self) -> None:
+        """Override SimulationRunner.setup() because we need to dump resolved config"""
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.config.dump_resolved(self.base_dir)
         for group in self.groups:
@@ -851,7 +855,41 @@ class Calculation(SimulationRunner):
         pmf_provider: PmfProvider | None = None,
         job_slots: SlotPool | None = None,
     ) -> RunState:
-        """Run the calculation, stopping cleanly if :meth:`kill` is requested."""
+        """Run or resume the calculation.
+
+        On the first call, prepare the system and resolve the restraint context if
+        needed. The calculation is then executed in dependency order: RMSD
+        umbrella-sampling stages, sequential Boresch stages, and finally the
+        steered-MD -> separation stages.
+
+        The run is resumable. Completed preparation stages, windows, and Boresch
+        stages with persisted equilibrium values are reused; only incomplete work
+        is submitted. A persistent stop request prevents further submissions and
+        returns the current state with ``stage_status["_control"] == "stopped"``.
+
+        Parameters
+        ----------
+        scheduler
+            Optional scheduler instance. If omitted, one is built from the configured
+            backend and scheduler settings.
+        pmf_provider
+            Optional callable used to analyse Boresch PMFs during sequential
+            execution. The default WHAM provider is used when needed.
+        job_slots
+            Optional shared concurrency limiter for running multiple calculations.
+
+        Returns
+        -------
+        RunState
+            The persisted calculation state after completion or a clean stop.
+
+        Raises
+        ------
+        RuntimeError
+            If a submitted stage produces missing or incomplete window outputs.
+        ValueError
+            If the persisted state is incompatible with the current configuration.
+        """
         try:
             return self._run_impl(
                 scheduler=scheduler,
@@ -896,7 +934,7 @@ class Calculation(SimulationRunner):
             type(self.backend).__name__,
         )
         if self.spec_builder is None:
-            # Auto-prepare (idempotent): a from_config calculation runs end to end
+            # Auto-prepare: a from_config calculation runs end to end
             # from run() alone; prep is skipped if already complete on disk.
             self.prepare()
         self._stop.raise_if_requested()
