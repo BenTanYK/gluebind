@@ -8,7 +8,7 @@ runner from a config alone.
 
 :func:`boresch_centres_from_series` (the binning) is pure and unit-tested;
 :func:`compute_stage_centres` reads the equilibration trajectory and is
-integration-verified (Phase 7), like the rest of the trajectory analysis.
+integration-verified, like the rest of the trajectory analysis.
 """
 
 from __future__ import annotations
