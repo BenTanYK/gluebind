@@ -67,6 +67,7 @@ def test_boresch_spec():
     assert {r["name"] for r in spec.restraints["rmsd"]} == {"receptor", "target"}
     assert all(r["sampled"] is False for r in spec.restraints["rmsd"])
     assert spec.sampling_time_ns == cfg.sampling.boresch.sampling_time_ns
+    assert spec.window_heating_ns == cfg.sampling.window_heating_ns
 
 
 # ---- RMSD ------------------------------------------------------------------
