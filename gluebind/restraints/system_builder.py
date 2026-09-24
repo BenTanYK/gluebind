@@ -73,6 +73,8 @@ def minimise_and_set_temperature(
     ``INITIAL_TEMPERATURE_K`` by :func:`build_simulation`, so it is set to the
     target here.
     """
+    # No subset is supplied: OpenMM minimizes the whole system under all
+    # restraints and the window bias currently installed.
     simulation.minimizeEnergy()
     integrator.setTemperature(
         target_temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
@@ -82,21 +84,40 @@ def minimise_and_set_temperature(
     )
 
 
-def minimise_and_heat(simulation, integrator, *, target_temperature_K: float) -> None:
+def minimise_and_heat(
+    simulation, integrator, *, target_temperature_K: float,
+    heating_steps: int = HEATING_INCREMENTS * HEATING_STEPS_PER_INCREMENT,
+) -> None:
     """Minimise, then ramp the temperature to ``target_temperature_K``.
 
     Uses :func:`heating_schedule` so the ramp is derived from the target and no
     increment is skipped.
     """
+    if heating_steps < 0:
+        raise ValueError("heating_steps must be >= 0")
+    # Minimize the complete system with all window-specific forces active.
+    # This must precede the heating ramp so it starts from a relaxed structure.
+    # No subset is supplied: OpenMM minimizes the whole system under all
+    # restraints and the window bias currently installed.
     simulation.minimizeEnergy()
+    if heating_steps == 0:
+        integrator.setTemperature(target_temperature_K * unit.kelvin)
+        simulation.context.setVelocitiesToTemperature(
+            target_temperature_K * unit.kelvin
+        )
+        return
     simulation.context.setVelocitiesToTemperature(
         INITIAL_TEMPERATURE_K * unit.kelvin  # ty: ignore[unsupported-operator]
     )
-    for temperature in heating_schedule(target_temperature_K):
+    increments = heating_schedule(target_temperature_K)
+    base_steps, remainder = divmod(heating_steps, len(increments))
+    for index, temperature in enumerate(increments):
         integrator.setTemperature(
             temperature * unit.kelvin  # ty: ignore[unsupported-operator]
         )
-        simulation.step(HEATING_STEPS_PER_INCREMENT)
+        steps = base_steps + (remainder if index == len(increments) - 1 else 0)
+        if steps:
+            simulation.step(steps)
     integrator.setTemperature(
         target_temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
     )

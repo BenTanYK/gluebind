@@ -153,6 +153,8 @@ class SamplingConfig(pydantic.BaseModel):
     model_config = _CONFIG
 
     timestep_fs: float = 4.0
+    window_heating_ns: float = 0.0
+    """Heating-ramp duration before each umbrella-sampling window (ns)."""
     hmr_factor: float = 1.5
     pme_cutoff_nm: float = 1.0
     temperature_K: float = 300.0
@@ -203,6 +205,13 @@ class SamplingConfig(pydantic.BaseModel):
     def _positive(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("must be > 0")
+        return v
+
+    @pydantic.field_validator("window_heating_ns")
+    @classmethod
+    def _non_negative_heating(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("window_heating_ns must be >= 0")
         return v
 
     @pydantic.field_validator(

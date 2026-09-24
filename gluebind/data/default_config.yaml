@@ -32,6 +32,7 @@ prep:
 
 sampling:
   timestep_fs: 4.0              # fs
+  window_heating_ns: 0.0        # ns; per-window heating ramp before CV sampling
   hmr_factor: 1.5               # dimensionless; hydrogen-mass repartitioning
   pme_cutoff_nm: 1.0            # nm; PME real-space cutoff
   temperature_K: 300.0          # K
