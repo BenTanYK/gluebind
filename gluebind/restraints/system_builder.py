@@ -101,9 +101,11 @@ def minimise_and_heat(
     # restraints and the window bias currently installed.
     simulation.minimizeEnergy()
     if heating_steps == 0:
-        integrator.setTemperature(target_temperature_K * unit.kelvin)
+        integrator.setTemperature(
+            target_temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
+        )
         simulation.context.setVelocitiesToTemperature(
-            target_temperature_K * unit.kelvin
+            target_temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
         )
         return
     simulation.context.setVelocitiesToTemperature(
