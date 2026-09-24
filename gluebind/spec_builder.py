@@ -129,6 +129,7 @@ class SpecBuilder:
             "replicate": replicate,
             "sampling_time_ns": schedule.sampling_time_ns,
             "equil_discard_ns": schedule.equil_discard_ns,
+            "window_heating_ns": s.window_heating_ns,
             "timestep_fs": s.timestep_fs,
             "hmr_factor": s.hmr_factor,
             "pme_cutoff_nm": s.pme_cutoff_nm,

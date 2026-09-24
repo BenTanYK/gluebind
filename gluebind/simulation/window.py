@@ -69,6 +69,7 @@ class WindowSpec(pydantic.BaseModel):
     force_constant: float
     sampling_time_ns: float
     equil_discard_ns: float = 0.0
+    window_heating_ns: float = 0.0
     timestep_fs: float = 4.0
     hmr_factor: float = 1.5
     pme_cutoff_nm: float = 1.0
@@ -201,19 +202,24 @@ def run_window(work_dir: str | pathlib.Path) -> None:
                 "an RMSD window requires a restraint entry with sampled=True"
             )
 
-    # The window starts from an already-equilibrated structure at the target
-    # temperature (prep-equilibrated complex, or an SMD frame), so minimise with
-    # the restraints in place and go straight to the target temperature — no
-    # per-window heating ramp (the equil_discard/RED truncation handles relaxing
-    # into the biased state).
-    sb.minimise_and_set_temperature(
-        simulation, integrator, target_temperature_K=spec.temperature_K
-    )
+    # Minimise with restraints in place, then optionally reheat each window
+    # before equilibration and CV recording. Heating is outside
+    # collect_cv_samples(), so it is never written to cv_timeseries.dat.
+    ns_per_step = spec.timestep_fs * 1e-6
+    heating_steps = int(spec.window_heating_ns / ns_per_step)
+    if heating_steps:
+        sb.minimise_and_heat(
+            simulation, integrator, target_temperature_K=spec.temperature_K,
+            heating_steps=heating_steps,
+        )
+    else:
+        sb.minimise_and_set_temperature(
+            simulation, integrator, target_temperature_K=spec.temperature_K
+        )
 
     # State data is streamed only to stdout so detached Slurm jobs expose live
     # progress in their job logs. The reporter is attached before the
     # equilibration discard so the complete window history is available.
-    ns_per_step = spec.timestep_fs * 1e-6
     equil_steps = int(spec.equil_discard_ns / ns_per_step)
     sampling_steps = int(spec.sampling_time_ns / ns_per_step)
     state_reporter_kwargs = {
@@ -266,6 +272,7 @@ def run_window(work_dir: str | pathlib.Path) -> None:
         "replicate": spec.replicate,
         "force_constant": spec.force_constant,
         "sampling_time_ns": spec.sampling_time_ns,
+        "window_heating_ns": spec.window_heating_ns,
         "n_samples": int(samples.shape[0]),
         "mean_cv": float(samples[:, 1].mean()) if samples.size else None,
     }
