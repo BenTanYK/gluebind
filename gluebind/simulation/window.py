@@ -247,7 +247,11 @@ def run_window(work_dir: str | pathlib.Path) -> None:
     if spec.save_trajectories:
         simulation.reporters.append(
             app.DCDReporter(
-                str(work_dir / "trajectory.dcd"), spec.trajectory_interval_steps
+                str(work_dir / "trajectory.dcd"),
+                spec.trajectory_interval_steps,
+                # Continuous coordinates so the complex is never split across
+                # periodic images (see production.py).
+                enforcePeriodicBox=False,
             )
         )
 

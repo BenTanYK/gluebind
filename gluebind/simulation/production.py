@@ -121,8 +121,11 @@ def run_production(work_dir: str | pathlib.Path) -> None:
         spec.temperature_K * unit.kelvin  # ty: ignore[unsupported-operator]
     )
     n_steps = int(round(spec.runtime_ns / (spec.timestep_fs * 1e-6)))
+    # Write continuous (unwrapped) coordinates to avoid splitting the complex
     simulation.reporters.append(
-        app.DCDReporter(f"{prefix}.dcd", spec.sample_interval_steps)
+        app.DCDReporter(
+            f"{prefix}.dcd", spec.sample_interval_steps, enforcePeriodicBox=False
+        )
     )
     simulation.reporters.append(
         app.StateDataReporter(
@@ -142,9 +145,10 @@ def run_production(work_dir: str | pathlib.Path) -> None:
     )
     simulation.step(n_steps)
 
+    # Unwrapped - the complex must not be split across periodic images.
     final = simulation.context.getState(
         getPositions=True,
-        enforcePeriodicBox=True,
+        enforcePeriodicBox=False,
     )
     sb.save_rst7(
         spec.topology,

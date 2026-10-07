@@ -62,6 +62,7 @@ class _FakeState:
 class _FakeContext:
     def __init__(self):
         self.velocity_temperature = None
+        self.get_state_kwargs = []
 
     def setPeriodicBoxVectors(self, *v):
         pass
@@ -75,7 +76,8 @@ class _FakeContext:
     def setVelocitiesToTemperature(self, t):
         self.velocity_temperature = t
 
-    def getState(self, getPositions=False, enforcePeriodicBox=False):
+    def getState(self, **kwargs):
+        self.get_state_kwargs.append(kwargs)
         return _FakeState()
 
 
@@ -88,11 +90,9 @@ class _FakeSimulation:
         pass
 
 
-def test_run_production_sets_integrator_bath_to_target(tmp_path, monkeypatch):
-    """Regression: production must set the Langevin thermostat bath to the sampling
-    temperature, not leave it at build_simulation's cold INITIAL_TEMPERATURE_K —
-    otherwise the whole trajectory silently cools to ~6 K."""
-    unit = pytest.importorskip("openmm.unit")
+def _run_with_fakes(tmp_path, monkeypatch, *, temperature_K=300.0):
+    """Run ``run_production`` with OpenMM mocked out; return the recorded calls."""
+    pytest.importorskip("openmm")
 
     from gluebind.restraints import rmsd
     from gluebind.restraints import system_builder as sb
@@ -109,7 +109,11 @@ def test_run_production_sets_integrator_bath_to_target(tmp_path, monkeypatch):
     monkeypatch.setattr(sb, "save_rst7", lambda *a, **k: None)
     monkeypatch.setattr(rmsd, "add_rmsd_restraint", lambda *a, **k: None)
     monkeypatch.setattr(prod, "_platform", lambda name: None)
-    monkeypatch.setattr("openmm.app.DCDReporter", lambda *a, **k: object())
+    dcd_reporters = []
+    monkeypatch.setattr(
+        "openmm.app.DCDReporter",
+        lambda *a, **k: dcd_reporters.append((a, k)) or object(),
+    )
     reporters = []
     monkeypatch.setattr(
         "openmm.app.StateDataReporter",
@@ -125,12 +129,43 @@ def test_run_production_sets_integrator_bath_to_target(tmp_path, monkeypatch):
             {"name": "always_on_0", "atoms": [1, 2, 3], "force_constant": 100.0}
         ],
         runtime_ns=0.01,
-        temperature_K=310.0,
+        temperature_K=temperature_K,
         platform="CPU",
     )
     spec.dump(tmp_path / PRODUCTION_SPEC_FILENAME)
 
     prod.run_production(tmp_path)
+    return integrator, simulation, reporters, dcd_reporters
+
+
+def test_run_production_writes_unwrapped_coordinates(tmp_path, monkeypatch):
+    """Regression: the trajectory and final frame must not be wrapped per molecule.
+
+    OpenMM's default (``enforcePeriodicBox=None``) translates each molecule into
+    the box independently, so the two proteins are written a lattice vector apart
+    once a cell face falls between them — producing spurious jumps in every
+    Boresch DoF computed from the trajectory.
+    """
+    _, simulation, _, dcd_reporters = _run_with_fakes(tmp_path, monkeypatch)
+
+    assert len(dcd_reporters) == 1
+    assert dcd_reporters[0][1].get("enforcePeriodicBox") is False
+    final_frame = [
+        k for k in simulation.context.get_state_kwargs if k.get("getPositions")
+    ]
+    assert final_frame, "final frame never requested"
+    assert all(k.get("enforcePeriodicBox") is False for k in final_frame)
+
+
+def test_run_production_sets_integrator_bath_to_target(tmp_path, monkeypatch):
+    """Regression: production must set the Langevin thermostat bath to the sampling
+    temperature, not leave it at build_simulation's cold INITIAL_TEMPERATURE_K —
+    otherwise the whole trajectory silently cools to ~6 K."""
+    unit = pytest.importorskip("openmm.unit")
+
+    integrator, simulation, reporters, _ = _run_with_fakes(
+        tmp_path, monkeypatch, temperature_K=310.0
+    )
 
     assert integrator.temperature is not None, "integrator bath temperature never set"
     assert integrator.temperature.value_in_unit(unit.kelvin) == pytest.approx(310.0)
