@@ -65,6 +65,11 @@ class WindowSpec(pydantic.BaseModel):
     """Path or URI to the AMBER prm7 for this window's system."""
     coordinates: str
     """Path or URI to the starting coordinates (rst7 / steered-MD frame)."""
+    reference_coordinates: str
+    """Path or URI to the RMSD reference structure: the equilibrated bound complex
+    for every window, including bulk windows (whose RMSD entries map their atoms
+    into it via ``reference_atoms``). Never the window's own starting frame, so the
+    restrained state is the same conformation in every leg of the cycle."""
 
     force_constant: float
     sampling_time_ns: float
@@ -83,9 +88,10 @@ class WindowSpec(pydantic.BaseModel):
     """Resolved restraint context (atom indices already resolved against the
     topology by the runner). Recognised keys:
 
-    * ``rmsd``: list of ``{name, atoms, force_constant, centre|None, sampled}``
-      — every RMSD restraint on the system; the one with ``sampled=True`` is the
-      window's biased CV (for ``cv_type == "rmsd"``).
+    * ``rmsd``: list of ``{name, atoms, reference_atoms, force_constant,
+      centre|None, sampled}`` — every RMSD restraint on the system; the one with
+      ``sampled=True`` is the window's biased CV (for ``cv_type == "rmsd"``).
+      ``reference_atoms`` are the ``atoms``' indices in ``reference_coordinates``.
     * ``boresch``: ``{rec_group, lig_group, anchors:{b,c,B,C}, force_constant,
       fixed:{dof: eq_value}}`` — groups/anchors and the DoFs held fixed.
     * ``separation``: ``{rec_group, lig_group}`` — the interface groups whose
@@ -144,11 +150,10 @@ def run_window(work_dir: str | pathlib.Path) -> None:
     )
     simulation.context.setPeriodicBoxVectors(*box_vectors)
     simulation.context.setPositions(positions)
-    # Restraints reference the equilibrated *input* structure and are applied
-    # BEFORE minimisation/heating, so they hold the structure throughout — rather
-    # than being added after a free heating that could let it drift (and then
-    # referenced to the drifted structure). Matches the template convention.
-    reference = positions
+    # Every RMSD restraint references the equilibrated bound complex (not this
+    # window's starting frame, e.g. an SMD snapshot or a bulk structure), and is
+    # applied BEFORE minimisation/heating so it holds the structure throughout.
+    reference_source, _ = sb.load_coordinates(spec.reference_coordinates)
 
     bias = None  # the force whose collective variable we record
 
@@ -157,7 +162,12 @@ def run_window(work_dir: str | pathlib.Path) -> None:
         force = rmsd.add_rmsd_restraint(
             system,
             entry["atoms"],
-            reference,
+            sb.reference_positions(
+                system.getNumParticles(),
+                entry["atoms"],
+                entry["reference_atoms"],
+                reference_source,
+            ),
             entry["force_constant"],
             name=entry["name"],
             centre=entry.get("centre"),

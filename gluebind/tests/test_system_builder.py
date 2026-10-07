@@ -13,8 +13,8 @@ def test_minimise_and_heat_minimises_before_exact_heating_steps():
 
     simulation = Mock()
     simulation.minimizeEnergy.side_effect = lambda: events.append("minimise")
-    simulation.context.setVelocitiesToTemperature.side_effect = (
-        lambda *_: events.append("velocities")
+    simulation.context.setVelocitiesToTemperature.side_effect = lambda *_: (
+        events.append("velocities")
     )
     simulation.step.side_effect = lambda steps: events.append(("step", steps))
 
@@ -34,6 +34,40 @@ def test_minimise_and_heat_minimises_before_exact_heating_steps():
     assert len(step_events) == sb.HEATING_INCREMENTS
     assert sum(event[1] for event in step_events) == 103
     assert step_events[-1] == ("step", 5)
+
+
+# -- RMSD reference positions ---------------------------------------------------
+
+
+def _nm(rows):
+    import openmm as mm
+    import openmm.unit as unit
+
+    return [mm.Vec3(*r) for r in rows] * unit.nanometer
+
+
+def test_reference_positions_places_mapped_reference_coordinates():
+    import openmm.unit as unit
+
+    source = _nm([[0, 0, 0], [1, 1, 1], [2, 2, 2], [3, 3, 3]])  # e.g. the complex
+    ref = sb.reference_positions(5, [0, 4], [3, 1], source)  # e.g. a bulk system
+    xyz = np.asarray(ref.value_in_unit(unit.nanometer))
+    assert xyz.shape == (5, 3)
+    assert xyz[0].tolist() == [3, 3, 3] and xyz[4].tolist() == [1, 1, 1]
+
+
+@pytest.mark.parametrize(
+    "atoms, reference_atoms, match",
+    [
+        ([0, 1], [0], "reference atoms"),
+        ([0], [9], "outside the reference"),
+        ([7], [0], "outside the system"),
+    ],
+)
+def test_reference_positions_rejects_bad_mappings(atoms, reference_atoms, match):
+    source = _nm([[0, 0, 0], [1, 1, 1]])
+    with pytest.raises(ValueError, match=match):
+        sb.reference_positions(3, atoms, reference_atoms, source)
 
 
 # -- solute joining (periodic re-imaging) --------------------------------------

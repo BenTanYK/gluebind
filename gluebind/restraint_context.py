@@ -70,6 +70,7 @@ def context_from_data(data: dict) -> RestraintContext:
             topology=value["topology"],
             coordinates=value["coordinates"],
             atoms=list(value["atoms"]),
+            to_complex=list(value["to_complex"]),
             held=[(str(n), list(a)) for n, a in value.get("held", [])],
             always_on=[AlwaysOn(**item) for item in value.get("always_on", [])],
         )

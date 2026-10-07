@@ -22,6 +22,14 @@ Restraint conventions (matching the template + the paper's thermodynamic cycle):
 * **Separation** window: all RMSD regions and all five Boresch DoFs fixed, the
   interface-CoM distance biased; coordinates come from the steered-MD frame for
   this window centre.
+
+Every RMSD restraint (sampled, held or always-on, in every window type) is
+measured against one reference structure: the equilibrated bound complex
+(``complex_coordinates``). A window's starting coordinates only set where it
+starts. Each RMSD entry therefore carries ``reference_atoms``, its atoms' indices
+in ``complex_coordinates`` — identical to ``atoms`` in complex-topology windows and
+mapped through :attr:`BulkTarget.to_complex` in bulk windows — so the restrained
+end state is the same conformation in every leg of the cycle.
 """
 
 from __future__ import annotations
@@ -58,8 +66,22 @@ class BulkTarget:
     topology: str
     coordinates: str
     atoms: list[int]
+    to_complex: list[int]
+    """Complex-topology index of each bulk solute atom: bulk atom ``i`` is atom
+    ``to_complex[i]`` of the complex. Used to take every bulk RMSD restraint's
+    reference positions from the bound complex (verified by name and mass)."""
     held: list[tuple[str, list[int]]] = dataclasses.field(default_factory=list)
     always_on: list[AlwaysOn] = dataclasses.field(default_factory=list)
+
+    def reference_atoms(self, atoms: list[int]) -> list[int]:
+        """Map bulk-topology ``atoms`` to their complex-topology indices."""
+        outside = [a for a in atoms if not 0 <= a < len(self.to_complex)]
+        if outside:
+            raise ValueError(
+                f"bulk atoms {outside[:5]} of {self.topology} are not solute atoms "
+                "with a counterpart in the bound complex"
+            )
+        return [self.to_complex[a] for a in atoms]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -140,29 +162,38 @@ class SpecBuilder:
             "save_trajectories": s.save_trajectories,
         }
 
-    def _always_on_entries(self, always_ons: list[AlwaysOn]) -> list[dict]:
+    @staticmethod
+    def _rmsd_entry(name, atoms, k, centre, reference_atoms=None) -> dict:
+        """One RMSD restraint entry. ``reference_atoms`` are the atoms' indices in
+        the complex reference (defaults to ``atoms``: a complex-topology window)."""
+        return {
+            "name": name,
+            "atoms": atoms,
+            "reference_atoms": atoms if reference_atoms is None else reference_atoms,
+            "force_constant": k,
+            "centre": centre,
+            "sampled": centre is not None,
+        }
+
+    def _always_on_entries(
+        self, always_ons: list[AlwaysOn], bulk: BulkTarget | None = None
+    ) -> list[dict]:
         """Fixed-about-zero RMSD entries for always-on restraints (centre=None)."""
         return [
-            {
-                "name": ao.name,
-                "atoms": ao.atoms,
-                "force_constant": ao.force_constant,
-                "centre": None,
-                "sampled": False,
-            }
+            self._rmsd_entry(
+                ao.name,
+                ao.atoms,
+                ao.force_constant,
+                None,
+                bulk.reference_atoms(ao.atoms) if bulk else None,
+            )
             for ao in always_ons
         ]
 
     def _fixed_rmsd_list(self) -> list[dict]:
         k = self.config.sampling.rmsd.force_constant
         entries = [
-            {
-                "name": region,
-                "atoms": self.ctx.rmsd_atoms_bound[region],
-                "force_constant": k,
-                "centre": None,
-                "sampled": False,
-            }
+            self._rmsd_entry(region, self.ctx.rmsd_atoms_bound[region], k, None)
             for region in self.ctx.rmsd_order
         ]
         return entries + self._always_on_entries(self.ctx.always_on)
@@ -188,6 +219,7 @@ class SpecBuilder:
             force_constant=self.config.sampling.boresch.force_constant,
             topology=self.ctx.complex_topology,
             coordinates=self.ctx.complex_coordinates,
+            reference_coordinates=self.ctx.complex_coordinates,
             restraints={
                 "rmsd": self._fixed_rmsd_list(),
                 "boresch": self._boresch_block(boresch_eq_values),
@@ -206,13 +238,12 @@ class SpecBuilder:
             for other in self.ctx.rmsd_order:
                 sampled = other == region
                 rmsd.append(
-                    {
-                        "name": other,
-                        "atoms": self.ctx.rmsd_atoms_bound[other],
-                        "force_constant": k,
-                        "centre": cv_centre if sampled else None,
-                        "sampled": sampled,
-                    }
+                    self._rmsd_entry(
+                        other,
+                        self.ctx.rmsd_atoms_bound[other],
+                        k,
+                        cv_centre if sampled else None,
+                    )
                 )
                 if sampled:
                     break  # regions after this one are not yet applied
@@ -222,25 +253,15 @@ class SpecBuilder:
             topology = bulk.topology
             coordinates = bulk.coordinates
             rmsd = [
-                {
-                    "name": name,
-                    "atoms": atoms,
-                    "force_constant": k,
-                    "centre": None,
-                    "sampled": False,
-                }
+                self._rmsd_entry(name, atoms, k, None, bulk.reference_atoms(atoms))
                 for name, atoms in bulk.held  # earlier same-protein regions held fixed
             ]
             rmsd.append(
-                {
-                    "name": region,
-                    "atoms": bulk.atoms,
-                    "force_constant": k,
-                    "centre": cv_centre,
-                    "sampled": True,
-                }
+                self._rmsd_entry(
+                    region, bulk.atoms, k, cv_centre, bulk.reference_atoms(bulk.atoms)
+                )
             )
-            rmsd += self._always_on_entries(bulk.always_on)
+            rmsd += self._always_on_entries(bulk.always_on, bulk)
 
         return WindowSpec(
             cv_type="rmsd",
@@ -249,6 +270,7 @@ class SpecBuilder:
             force_constant=k,
             topology=topology,
             coordinates=coordinates,
+            reference_coordinates=self.ctx.complex_coordinates,
             restraints={"rmsd": rmsd},
             **self._common("rmsd", stage_name, replicate),
         )
@@ -265,6 +287,7 @@ class SpecBuilder:
             force_constant=self.config.sampling.separation.force_constant,
             topology=self.ctx.complex_topology,
             coordinates=coordinates,
+            reference_coordinates=self.ctx.complex_coordinates,
             restraints={
                 "rmsd": self._fixed_rmsd_list(),
                 "boresch": self._boresch_block(boresch_eq_values),
@@ -421,7 +444,7 @@ def build_restraint_context(
     )
 
     rmsd_order, rmsd_atoms_bound, rmsd_bulk = _resolve_rmsd_regions(
-        config, prepared, cmap, glue_indices, assign
+        config, prepared, cmap, glue_indices, assign, universe
     )
 
     always_on = resolve_always_on(config, cmap)
@@ -579,11 +602,13 @@ def _collect_series(traj, rec_group, lig_group, atom_indices, np):
     return result
 
 
-def _resolve_rmsd_regions(config, prepared, cmap, glue_indices, assign):
+def _resolve_rmsd_regions(config, prepared, cmap, glue_indices, assign, complex_u):
     """RMSD region atom indices for bound (complex) and bulk (isolated) topologies.
 
     Custom CV selections are resolved against their protein's *input* topology and
     mapped into the complex via ``cmap`` (never against the complex directly).
+    Each bulk target also records its verified bulk→complex atom map, so bulk RMSD
+    restraints take their reference positions from the bound complex.
     """
     restraints = config.restraints
     from gluebind.system.mdanalysis import load_amber_universe
@@ -598,6 +623,14 @@ def _resolve_rmsd_regions(config, prepared, cmap, glue_indices, assign):
     target_bulk = load_amber_universe(
         prepared.target_bulk_prm7, prepared.target_bulk_rst7
     )
+    to_complex = {
+        "receptor": _bulk_to_complex(
+            "receptor", receptor_bulk, complex_u, cmap, assign == "receptor"
+        ),
+        "target": _bulk_to_complex(
+            "target", target_bulk, complex_u, cmap, assign == "target"
+        ),
+    }
 
     if restraints.uses_default_all_ca:
         # Whole-protein default: every residue's CA (or backbone) via the mode.
@@ -616,6 +649,7 @@ def _resolve_rmsd_regions(config, prepared, cmap, glue_indices, assign):
                 prepared.receptor_bulk_rst7,
                 receptor_bulk,
                 assign == "receptor",
+                to_complex["receptor"],
                 atom_selection=whole,
             ),
             "target": _bulk_target(
@@ -623,6 +657,7 @@ def _resolve_rmsd_regions(config, prepared, cmap, glue_indices, assign):
                 prepared.target_bulk_rst7,
                 target_bulk,
                 assign == "target",
+                to_complex["target"],
                 atom_selection=whole,
             ),
         }
@@ -643,9 +678,45 @@ def _resolve_rmsd_regions(config, prepared, cmap, glue_indices, assign):
     # into that protein's isolated bulk topology (protein sits at offset 0 there),
     # with earlier same-protein regions held and any always-on restraint present.
     bulk = _resolve_custom_bulk(
-        config, prepared, cmap, receptor_bulk, target_bulk, order, assign
+        config, prepared, cmap, receptor_bulk, target_bulk, order, assign, to_complex
     )
     return order, bound, bulk
+
+
+def _bulk_to_complex(protein, bulk_u, complex_u, cmap, has_glue) -> list[int]:
+    """Verified complex-topology index of every solute atom of a bulk topology.
+
+    A bulk system is its protein extracted from the complex (the first block, in
+    input atom order) followed, when the glue is assigned to it, by the glue. In
+    the complex the glue comes first and the protein sits at ``cmap.offset``.
+    Every mapped pair is checked by atom name and mass; any mismatch raises.
+    """
+    n_protein = cmap.input_universe(protein).atoms.n_atoms
+    offset = cmap.offset(protein)
+    mapping = list(range(offset, offset + n_protein))
+    if has_glue:
+        complex_glue = [int(i) for i in complex_u.select_atoms("resname MOL").indices]
+        bulk_glue = [int(i) for i in bulk_u.select_atoms("resname MOL").indices]
+        expected = list(range(n_protein, n_protein + len(complex_glue)))
+        if bulk_glue != expected:
+            raise ValueError(
+                f"{protein} bulk topology: glue atoms are not the block directly "
+                f"after the protein (expected bulk indices {expected[:1]}..., found "
+                f"{bulk_glue[:1]}...)"
+            )
+        mapping += complex_glue
+    bulk_keys = _atom_keys(bulk_u)
+    complex_keys = _atom_keys(complex_u)
+    if len(bulk_keys) < len(mapping):
+        raise ValueError(f"{protein} bulk topology has fewer atoms than its solute")
+    for i, c in enumerate(mapping):
+        if bulk_keys[i] != complex_keys[c]:
+            raise ValueError(
+                f"{protein} bulk atom {i} {bulk_keys[i]} does not match complex atom "
+                f"{c} {complex_keys[c]}: the bulk system is not the complex's "
+                f"{protein} in the same atom order"
+            )
+    return mapping
 
 
 def _validate_include_glue(name: str, cv, assign: str | None, protein: str) -> None:
@@ -673,7 +744,7 @@ def _validate_include_glue(name: str, cv, assign: str | None, protein: str) -> N
 
 
 def _resolve_custom_bulk(
-    config, prepared, cmap, receptor_bulk, target_bulk, order, assign
+    config, prepared, cmap, receptor_bulk, target_bulk, order, assign, to_complex
 ) -> dict[str, BulkTarget]:
     """Per-region bulk targets: isolated topology, atoms mapped from the protein's
     *input* topology into its bulk topology (the isolated protein sits at offset 0,
@@ -746,6 +817,7 @@ def _resolve_custom_bulk(
             topology=prm7,
             coordinates=rst7,
             atoms=region_atoms[name],
+            to_complex=to_complex[protein],
             held=held,
             always_on=always_on_by_protein[protein],
         )
@@ -753,10 +825,17 @@ def _resolve_custom_bulk(
 
 
 def _bulk_target(
-    prm7, rst7, bulk_universe, include_glue, atom_selection: str = "name CA"
+    prm7,
+    rst7,
+    bulk_universe,
+    include_glue,
+    to_complex: list[int],
+    atom_selection: str = "name CA",
 ) -> BulkTarget:
     selection = atom_selection
     if include_glue:
         selection = f"({selection}) or (resname MOL and not name H*)"
     atoms = [int(i) for i in bulk_universe.select_atoms(selection).indices]
-    return BulkTarget(topology=prm7, coordinates=rst7, atoms=atoms)
+    return BulkTarget(
+        topology=prm7, coordinates=rst7, atoms=atoms, to_complex=to_complex
+    )

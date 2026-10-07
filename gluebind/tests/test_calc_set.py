@@ -249,6 +249,7 @@ def _run_spec_builder(
         dof=dof,
         topology="t.prm7",
         coordinates="c.rst7",
+        reference_coordinates="c.rst7",
         force_constant=5.0,
         sampling_time_ns=1.0,
     )

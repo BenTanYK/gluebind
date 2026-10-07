@@ -29,10 +29,19 @@ def _context():
         rmsd_order=["receptor", "target"],
         rmsd_atoms_bound={"receptor": [1, 2, 3], "target": [4, 5, 6]},
         rmsd_bulk={
+            # bulk atom i is complex atom 100 + i (receptor) / 200 + i (target)
             "receptor": BulkTarget(
-                "receptor_bulk.prm7", "receptor_bulk.rst7", [0, 1, 2]
+                "receptor_bulk.prm7",
+                "receptor_bulk.rst7",
+                [0, 1, 2],
+                to_complex=list(range(100, 110)),
             ),
-            "target": BulkTarget("target_bulk.prm7", "target_bulk.rst7", [0, 1, 2]),
+            "target": BulkTarget(
+                "target_bulk.prm7",
+                "target_bulk.rst7",
+                [0, 1, 2],
+                to_complex=list(range(200, 210)),
+            ),
         },
     )
 
@@ -136,6 +145,7 @@ def _builder_with_always_on():
 _DDB1_ENTRY = {
     "name": "ddb1",
     "atoms": [7, 8],
+    "reference_atoms": [7, 8],  # complex window: reference = the same atoms
     "force_constant": 100.0,
     "centre": None,  # fixed about zero
     "sampled": False,
@@ -207,6 +217,7 @@ def test_rmsd_bulk_applies_held_and_always_on():
                 "target_bulk.prm7",
                 "target_bulk.rst7",
                 atoms=[30, 31],
+                to_complex=list(range(1000, 1060)),  # bulk i -> complex 1000 + i
                 held=[("BD1", [10, 11])],  # earlier same-protein region held fixed
                 always_on=[AlwaysOn("ddb1", [50], 100.0)],
             )
@@ -230,6 +241,141 @@ def test_rmsd_bulk_applies_held_and_always_on():
         ("BD2", True, 0.6, [30, 31]),  # sampled region
         ("ddb1", False, None, [50]),  # always-on last
     ]
+    # every bulk restraint (held, sampled, always-on) references the bound complex
+    assert spec.reference_coordinates == "complex.rst7"
+    assert [r["reference_atoms"] for r in spec.restraints["rmsd"]] == [
+        [1010, 1011],
+        [1030, 1031],
+        [1050],
+    ]
+
+
+# ---- RMSD reference: the bound complex for every window -------------------
+
+
+def _all_window_specs(tmp_path):
+    builder = _builder(smd_frames_dir=tmp_path)
+    common = {"replicate": 1, "boresch_eq_values": {"thetaA": 0.9}}
+    return {
+        "boresch": builder(
+            cv_type="boresch",
+            stage_name="thetaB",
+            dof="thetaB",
+            cv_centre=1.0,
+            **common,
+        ),
+        "rmsd_bound": builder(
+            cv_type="rmsd", stage_name="target_bound", dof=None, cv_centre=0.4, **common
+        ),
+        "rmsd_bulk": builder(
+            cv_type="rmsd", stage_name="target_bulk", dof=None, cv_centre=0.4, **common
+        ),
+        "separation": builder(
+            cv_type="separation",
+            stage_name="separation",
+            dof=None,
+            cv_centre=1.5,
+            **common,
+        ),
+    }
+
+
+def test_every_window_references_the_bound_complex(tmp_path):
+    """Regression (H5): RMSD restraints referenced each window's own starting
+    frame — a different SMD snapshot per separation window, the bulk-equilibrated
+    structure in bulk windows — so the restrained state differed between legs."""
+    specs = _all_window_specs(tmp_path)
+    # separation starts from its SMD frame but is restrained towards the complex
+    assert specs["separation"].coordinates == str(tmp_path / "1.5nm.rst7")
+    assert specs["rmsd_bulk"].coordinates == "target_bulk.rst7"
+    for spec in specs.values():
+        assert spec.reference_coordinates == "complex.rst7"
+
+
+def test_complex_window_reference_atoms_are_the_restrained_atoms(tmp_path):
+    specs = _all_window_specs(tmp_path)
+    for name in ("boresch", "rmsd_bound", "separation"):
+        for entry in specs[name].restraints["rmsd"]:
+            assert entry["reference_atoms"] == entry["atoms"], name
+
+
+def test_bulk_window_reference_atoms_map_into_the_complex(tmp_path):
+    spec = _all_window_specs(tmp_path)["rmsd_bulk"]
+    (entry,) = spec.restraints["rmsd"]
+    assert entry["atoms"] == [0, 1, 2]
+    assert entry["reference_atoms"] == [200, 201, 202]  # target to_complex
+
+
+def test_bulk_atom_without_complex_counterpart_raises():
+    target = BulkTarget("t.prm7", "t.rst7", [0, 5], to_complex=[200, 201])
+    with pytest.raises(ValueError, match="not solute atoms"):
+        target.reference_atoms(target.atoms)
+
+
+def _universe(names, masses, resnames):
+    import MDAnalysis as mda
+
+    u = mda.Universe.empty(
+        len(names), n_residues=len(names), atom_resindex=list(range(len(names)))
+    )
+    u.add_TopologyAttr("names", names)
+    u.add_TopologyAttr("masses", masses)
+    u.add_TopologyAttr("resnames", resnames)
+    return u
+
+
+class _StubMap:
+    """Minimal ``_ComplexMap``: receptor input of 3 atoms at complex offset 2."""
+
+    def __init__(self, receptor_input):
+        self._input = receptor_input
+
+    def input_universe(self, protein):
+        return self._input
+
+    def offset(self, protein):
+        return 2
+
+
+def test_bulk_to_complex_maps_protein_and_glue_blocks():
+    from gluebind.spec_builder import _bulk_to_complex
+
+    # complex: glue (2) | receptor (3) | target (1);  bulk: receptor | glue | water
+    complex_u = _universe(
+        ["C1", "O1", "N", "CA", "C", "CA"],
+        [12.0, 16.0, 14.0, 12.0, 12.0, 12.0],
+        ["MOL", "MOL", "ALA", "ALA", "ALA", "GLY"],
+    )
+    receptor_input = _universe(["N", "CA", "C"], [14.0, 12.0, 12.0], ["ALA"] * 3)
+    bulk_u = _universe(
+        ["N", "CA", "C", "C1", "O1", "O"],
+        [14.0, 12.0, 12.0, 12.0, 16.0, 16.0],
+        ["ALA", "ALA", "ALA", "MOL", "MOL", "WAT"],
+    )
+    cmap = _StubMap(receptor_input)
+    assert _bulk_to_complex("receptor", bulk_u, complex_u, cmap, True) == [
+        2,
+        3,
+        4,
+        0,
+        1,
+    ]
+    assert _bulk_to_complex("receptor", bulk_u, complex_u, cmap, False) == [2, 3, 4]
+
+
+def test_bulk_to_complex_rejects_reordered_atoms():
+    from gluebind.spec_builder import _bulk_to_complex
+
+    complex_u = _universe(["N", "CA", "C"], [14.0, 12.0, 12.0], ["ALA"] * 3)
+    receptor_input = _universe(["N", "CA", "C"], [14.0, 12.0, 12.0], ["ALA"] * 3)
+    swapped = _universe(["CA", "N", "C"], [12.0, 14.0, 12.0], ["ALA"] * 3)
+
+    class _AtZero(_StubMap):
+        def offset(self, protein):
+            return 0
+
+    with pytest.raises(ValueError, match="does not match complex atom"):
+        _bulk_to_complex("receptor", swapped, complex_u, _AtZero(receptor_input), False)
 
 
 def test_validate_include_glue():

@@ -259,6 +259,33 @@ def collect_cv_samples(
     return samples
 
 
+def reference_positions(n_particles, atoms, reference_atoms, source):
+    """Reference positions for an RMSD restraint on ``atoms`` of this system.
+
+    ``source`` are the positions of the reference structure (any topology) and
+    ``reference_atoms[i]`` is the index in it of ``atoms[i]``. Returns a full
+    ``n_particles`` position list (nm) holding the reference coordinates at
+    ``atoms``; the other entries are unused by ``RMSDForce`` and left at zero.
+    """
+    atoms = np.asarray(atoms, dtype=int)
+    reference_atoms = np.asarray(reference_atoms, dtype=int)
+    if atoms.shape != reference_atoms.shape:
+        raise ValueError(
+            f"{len(atoms)} restrained atoms but {len(reference_atoms)} reference atoms"
+        )
+    nm = unit.nanometer  # ty: ignore[unresolved-attribute]
+    source_nm = np.asarray(source.value_in_unit(nm), dtype=float)
+    if reference_atoms.size and (
+        reference_atoms.min() < 0 or reference_atoms.max() >= len(source_nm)
+    ):
+        raise ValueError("reference atom index outside the reference structure")
+    if atoms.size and (atoms.min() < 0 or atoms.max() >= n_particles):
+        raise ValueError("restrained atom index outside the system")
+    positions = np.zeros((n_particles, 3))
+    positions[atoms] = source_nm[reference_atoms]
+    return [mm.Vec3(*xyz) for xyz in positions] * nm
+
+
 def load_coordinates(path):
     """Load an AMBER rst7/inpcrd; return ``(positions, box_vectors)``."""
     inpcrd = app.AmberInpcrdFile(str(pathlib.Path(path)))

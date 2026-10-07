@@ -53,6 +53,7 @@ def _spec_builder(*, cv_type, stage_name, dof, cv_centre, replicate, boresch_eq_
         dof=dof,
         topology="t.prm7",
         coordinates="c.rst7",
+        reference_coordinates="c.rst7",
         force_constant=5.0,
         sampling_time_ns=1.0,
         restraints={"boresch_eq_values": dict(boresch_eq_values)},

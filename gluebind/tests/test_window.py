@@ -18,6 +18,7 @@ def _spec() -> WindowSpec:
         replicate=1,
         topology="system.prm7",
         coordinates="system.rst7",
+        reference_coordinates="complex.rst7",
         force_constant=5.0,
         sampling_time_ns=20.0,
     )

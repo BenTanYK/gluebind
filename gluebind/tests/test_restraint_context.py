@@ -55,7 +55,12 @@ def _context() -> RestraintContext:
         rmsd_atoms_bound={"receptor": [1, 2]},
         rmsd_bulk={
             "receptor": BulkTarget(
-                "receptor.prm7", "receptor.rst7", [1, 2], [("held", [3])], [always]
+                "receptor.prm7",
+                "receptor.rst7",
+                [1, 2],
+                to_complex=[20, 21, 22, 23],
+                held=[("held", [3])],
+                always_on=[always],
             )
         },
         always_on=[always],
@@ -142,9 +147,9 @@ def test_wire_reuses_context_artifact_without_mdanalysis(tmp_path, monkeypatch):
     monkeypatch.setattr(
         spec_builder,
         "build_restraint_context",
-        lambda *args, **kwargs: (
-            _ for _ in ()
-        ).throw(AssertionError("must not resolve")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("must not resolve")
+        ),
     )
     monkeypatch.setattr(steered_md, "make_steered_md_runner", lambda **kwargs: object())
 
