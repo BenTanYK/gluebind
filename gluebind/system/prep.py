@@ -2,9 +2,11 @@
 
 Dispatches raw-input system construction (glue parameterisation, assembly and
 solvation) and equilibration to a backend. Construction writes the solvated
-AMBER inputs; equilibration is one job per stage (minimisation -> NVT heat ->
-NPT -> long NVT production; see :func:`run_equilibration_stages` and
-:mod:`gluebind.simulation.prep_stage`). The isolated bulk species are likewise
+AMBER inputs; equilibration is one job per stage: minimisation -> NVT heat ->
+NPT through BioSimSpace (:func:`run_equilibration_stages`,
+:mod:`gluebind.simulation.prep_stage`), then the long NVT production through the
+direct OpenMM worker (:mod:`gluebind.simulation.production`). The isolated bulk
+species are likewise
 equilibrated through the backend. It then writes a
 :class:`PreparedSystem` manifest — the hand-off to Phase 4
 (selection) and the runner's ``spec_builder``. A single equilibration run is
@@ -213,11 +215,10 @@ def equilibration_stage_plan(prep_config: PrepConfig) -> list[dict]:
        the box volume)
     4. **equilibration** — long NVT production run at production T (the trajectory
        used for RMSF/anchor selection and Boresch distributions, and the source of
-       the bound-state structure). Run unrestrained via BSS, *unless* the config
-       defines always-on restraints, in which case :func:`prepare` runs this stage
-       in OpenMM instead so those constant restraints are applied (see
-       :mod:`gluebind.simulation.production`); this dict then supplies its
-       runtime/temperature.
+       the bound-state structure). Stages 1–3 run through BioSimSpace; this stage
+       always runs through the direct OpenMM production worker
+       (:mod:`gluebind.simulation.production`), with any always-on restraints
+       applied, so this dict only supplies its runtime/temperature.
 
     Pure and unit-testable; the keys match :class:`PrepStageSpec`'s fields.
     """
