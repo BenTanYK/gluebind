@@ -119,6 +119,23 @@ def test_bad_override_key_rejected():
         s.for_cv("rmsd", "BD1_bulk")
 
 
+@pytest.mark.parametrize(
+    "cv_type, stage",
+    [("rmsd", "BD1_bulk"), ("boresch", "phiA"), ("separation", "separation")],
+)
+def test_force_constant_override_rejected(cv_type, stage):
+    """Regression: a per-stage k reached the WHAM metafile but not the simulated
+    bias, held restraints or free-energy integrals — a silently wrong PMF."""
+    s = SamplingConfig()
+    with pytest.raises(ValueError, match="force_constant cannot be overridden"):
+        getattr(s, cv_type).overrides = {stage: {"force_constant": 1.0}}
+    # also rejected when the config is loaded, not only on assignment
+    data = SamplingConfig().model_dump()
+    data[cv_type]["overrides"] = {stage: {"force_constant": 1.0}}
+    with pytest.raises(ValueError, match=f"force_constant cannot be .*{stage}"):
+        SamplingConfig.model_validate(data)
+
+
 def test_default_force_constants():
     s = SamplingConfig()
     assert s.boresch.force_constant == 100.0

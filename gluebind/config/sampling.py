@@ -61,7 +61,24 @@ class WindowSampling(pydantic.BaseModel):
     still derived from the equilibration trajectory.
     """
     overrides: dict[str, dict] = pydantic.Field(default_factory=dict)
-    """Per-stage overrides, keyed by stage name (e.g. ``"BD1_bulk"``)."""
+    """Per-stage overrides of the schedule fields, keyed by stage name (e.g.
+    ``"BD1_bulk"``). ``force_constant`` cannot be overridden: see
+    :meth:`_no_force_constant_override`."""
+
+    @pydantic.field_validator("overrides")
+    @classmethod
+    def _no_force_constant_override(cls, v: dict[str, dict]) -> dict[str, dict]:
+        # One k per CV type: it is both the umbrella strength and the strength of
+        # the restraint held in every later leg (and in the free-energy integrals
+        # and standard-state correction), so a per-stage value would break the
+        # thermodynamic cycle or desynchronise WHAM from the simulated bias.
+        stages = sorted(name for name, o in v.items() if "force_constant" in o)
+        if stages:
+            raise ValueError(
+                "force_constant cannot be overridden per stage (found for "
+                f"{', '.join(stages)}); set it once on the CV schedule instead"
+            )
+        return v
 
     @pydantic.field_validator("force_constant", "sampling_time_ns")
     @classmethod
