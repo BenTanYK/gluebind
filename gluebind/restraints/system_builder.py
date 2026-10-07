@@ -23,7 +23,12 @@ FRICTION_PER_PS = 1.0
 
 
 def build_system(prmtop_path, *, hmr_factor: float = 1.5, pme_cutoff_nm: float = 1.0):
-    """Load an AMBER prmtop and create the OpenMM ``System``."""
+    """Load an AMBER prmtop and create the OpenMM ``System``.
+
+    The solute (every receptor/target chain, the glue and any structural ions;
+    see :func:`solute_molecules`) is joined into a single OpenMM molecule so that
+    periodic re-imaging can never separate its parts (:func:`join_molecules`).
+    """
     prmtop = app.AmberPrmtopFile(str(prmtop_path))
     system = prmtop.createSystem(
         nonbondedMethod=app.PME,
@@ -31,7 +36,97 @@ def build_system(prmtop_path, *, hmr_factor: float = 1.5, pme_cutoff_nm: float =
         nonbondedCutoff=pme_cutoff_nm * unit.nanometer,  # ty: ignore[unresolved-attribute]
         constraints=app.HBonds,
     )
+    solute = solute_molecules(prmtop.topology)
+    if join_molecules(system, solute) is not None:
+        print(
+            f"gluebind: joined {len(solute)} solute molecules "
+            f"({sum(len(m) for m in solute)} atoms) into one periodic-imaging unit",
+            flush=True,
+        )
     return prmtop, system
+
+
+def topology_molecules(topology) -> list[list[int]]:
+    """Atom indices of each covalently connected molecule, in topology order.
+
+    The same connectivity OpenMM uses to define molecules for periodic
+    re-imaging (bonds; constraints are a subset of them), computed by union-find.
+    Molecules are ordered by their first atom.
+    """
+    n_atoms = topology.getNumAtoms()
+    parent = list(range(n_atoms))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for bond in topology.bonds():
+        root_a, root_b = find(bond[0].index), find(bond[1].index)
+        if root_a != root_b:
+            parent[max(root_a, root_b)] = min(root_a, root_b)
+
+    molecules: dict[int, list[int]] = {}
+    for i in range(n_atoms):
+        molecules.setdefault(find(i), []).append(i)
+    return list(molecules.values())
+
+
+def _is_water(atoms) -> bool:
+    """Water by composition (one O plus hydrogens / massless virtual sites), so
+    crystal and solvent waters are recognised whatever their residue name."""
+    elements = [atom.element for atom in atoms]
+    oxygens = sum(1 for e in elements if e is not None and e.symbol == "O")
+    others = sum(1 for e in elements if e is not None and e.symbol not in ("O", "H"))
+    return oxygens == 1 and others == 0 and len(elements) >= 3
+
+
+def solute_molecules(topology) -> list[list[int]]:
+    """The molecules that must stay together under periodic re-imaging.
+
+    Every molecule except waters and the *solvent* ions (monatomic molecules after
+    the first water). Assembly places the solute — glue, receptor and target
+    blocks, each possibly several molecules (chains, ``TER`` breaks) — before any
+    water, so structural ions supplied inside a protein topology are kept while
+    the bulk ions added by solvation are not. Defined from connectivity and
+    composition, never residue or chain names.
+    """
+    atoms = list(topology.atoms())
+    solute: list[list[int]] = []
+    seen_water = False
+    for molecule in topology_molecules(topology):
+        if _is_water([atoms[i] for i in molecule]):
+            seen_water = True
+            continue
+        if len(molecule) == 1 and seen_water:
+            continue  # solvent ion
+        solute.append(molecule)
+    return solute
+
+
+def join_molecules(system, molecules) -> mm.HarmonicBondForce | None:
+    """Make ``molecules`` a single OpenMM molecule with zero-energy bonds.
+
+    OpenMM re-images each molecule into the periodic box independently, and its
+    molecules are defined by bond topology alone, regardless of force constant.
+    Non-periodic restraint forces (``RMSDForce``, centroid CVs) that span several
+    molecules would otherwise see one part jump by a box vector when re-imaged,
+    e.g. a two-chain protein's RMSD spiking by ~4 nm. A ``k = 0`` bond from the
+    first molecule to each other one (n−1 bonds) prevents this without changing
+    the energy, forces or nonbonded exclusions. Returns the added force, or
+    ``None`` when there is nothing to join.
+    """
+    if len(molecules) < 2:
+        return None
+    force = mm.HarmonicBondForce()
+    if hasattr(force, "setName"):  # OpenMM >= 8.1
+        force.setName("gluebind_solute_join")
+    root = molecules[0][0]
+    for molecule in molecules[1:]:
+        force.addBond(root, molecule[0], 0.0, 0.0)
+    system.addForce(force)
+    return force
 
 
 def build_simulation(prmtop, system, *, timestep_fs: float, platform=None):
