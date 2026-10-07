@@ -11,7 +11,7 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import pathlib
-from collections.abc import Iterator, Sequence
+from collections.abc import Generator, Sequence
 
 STOP_FILENAME = ".gluebind-stop"
 
@@ -35,7 +35,7 @@ class StopController:
         return marker.with_name(f"{marker.name}.lock")
 
     @contextlib.contextmanager
-    def _locked(self, mode: int) -> Iterator[None]:
+    def _locked(self, mode: int) -> Generator[None, None, None]:
         files = []
         try:
             for marker in self.paths:
@@ -58,7 +58,7 @@ class StopController:
             raise StopRequested("a persistent GlueBind stop request is active")
 
     @contextlib.contextmanager
-    def submission_permit(self) -> Iterator[None]:
+    def submission_permit(self) -> Generator[None, None, None]:
         """Permit one submission only while no stop marker is present.
 
         The caller must also persist the resulting backend handle inside this
