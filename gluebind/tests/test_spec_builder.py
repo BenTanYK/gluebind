@@ -281,7 +281,7 @@ def _all_window_specs(tmp_path):
 
 
 def test_every_window_references_the_bound_complex(tmp_path):
-    """Regression (H5): RMSD restraints referenced each window's own starting
+    """Regression: RMSD restraints referenced each window's own starting
     frame — a different SMD snapshot per separation window, the bulk-equilibrated
     structure in bulk windows — so the restrained state differed between legs."""
     specs = _all_window_specs(tmp_path)
