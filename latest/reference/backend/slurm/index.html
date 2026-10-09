@@ -2969,8 +2969,8 @@
 such jobs are submitted independently and SLURM spreads them across the nodes of
 the configured partition (targeting specific nodes is done with a <code>nodelist</code>
 entry in :attr:<code>SlurmConfig.extra_options</code>). Submitted jobs are <em>detached</em> — they
-outlive the driver — so a run can be resumed by reconciling handles against
-<code>squeue</code>.</p>
+outlive the driver. A resumed driver polls the recorded handles against
+<code>squeue</code> and refuses to start while any are still queued or running.</p>
 
 
 
