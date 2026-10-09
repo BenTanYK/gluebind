@@ -4,8 +4,8 @@ Scaffolds one umbrella-sampling window into one sbatch job and submits it. Many
 such jobs are submitted independently and SLURM spreads them across the nodes of
 the configured partition (targeting specific nodes is done with a ``nodelist``
 entry in :attr:`SlurmConfig.extra_options`). Submitted jobs are *detached* — they
-outlive the driver — so a run can be resumed by reconciling handles against
-``squeue``.
+outlive the driver. A resumed driver polls the recorded handles against
+``squeue`` and refuses to start while any are still queued or running.
 """
 
 from __future__ import annotations

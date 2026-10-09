@@ -283,14 +283,14 @@ def test_calc_set_run_completes_boresch_without_explicit_provider(
     cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.01)
     calc = cset.calcs["A"]
 
-    def fake_prepare():  # avoid real BSS prep; wire trivially
+    def fake_prepare(**_):  # avoid real BSS prep; wire trivially
         calc.spec_builder = _run_spec_builder
         calc.command_factory = _run_trivial_cmd
         calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
         calc.groups = calc._build_groups()
         calc.sub_runners = list(calc.groups)
 
-    calc.prepare = fake_prepare
+    calc._prepare = fake_prepare
 
     cset.run()  # must NOT raise "pmf_provider is required"
 
@@ -310,14 +310,14 @@ def test_calc_set_run_continues_past_failed_system(tmp_path, monkeypatch):
     cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.01)
 
     def wire(calc, cmd):
-        def fake_prepare():
+        def fake_prepare(**_):
             calc.spec_builder = _run_spec_builder
             calc.command_factory = cmd
             calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
             calc.groups = calc._build_groups()
             calc.sub_runners = list(calc.groups)
 
-        calc.prepare = fake_prepare
+        calc._prepare = fake_prepare
 
     wire(cset.calcs["A"], _run_trivial_cmd)
     wire(cset.calcs["B"], lambda: [sys.executable, "-c", "raise SystemExit(1)"])
@@ -330,14 +330,14 @@ def test_calc_set_run_continues_past_failed_system(tmp_path, monkeypatch):
 
 
 def _wire_trivial(calc):
-    def fake_prepare():
+    def fake_prepare(**_):
         calc.spec_builder = _run_spec_builder
         calc.command_factory = _run_trivial_cmd
         calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
         calc.groups = calc._build_groups()
         calc.sub_runners = list(calc.groups)
 
-    calc.prepare = fake_prepare
+    calc._prepare = fake_prepare
 
 
 def test_calc_set_run_parallel_completes_all(tmp_path, monkeypatch):
@@ -373,7 +373,7 @@ def test_calc_set_run_parallel_surfaces_failures(tmp_path, monkeypatch):
     cset = CalcSet(tmp_path, LocalBackend(), poll_interval=0.0)
     _wire_trivial(cset.calcs["A"])
 
-    def fake_prepare_b():
+    def fake_prepare_b(**_):
         calc = cset.calcs["B"]
         calc.spec_builder = _run_spec_builder
         calc.command_factory = lambda: [sys.executable, "-c", "raise SystemExit(1)"]
@@ -381,7 +381,7 @@ def test_calc_set_run_parallel_surfaces_failures(tmp_path, monkeypatch):
         calc.groups = calc._build_groups()
         calc.sub_runners = list(calc.groups)
 
-    cset.calcs["B"].prepare = fake_prepare_b
+    cset.calcs["B"]._prepare = fake_prepare_b
 
     with pytest.raises(RuntimeError, match="1/2 system"):
         cset.run(max_parallel_systems=2)

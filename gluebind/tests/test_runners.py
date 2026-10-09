@@ -5,6 +5,7 @@ These exercise the orchestration with a trivial ``spec_builder`` and a trivial
 job command (no OpenMM MD), so they run fast and don't need real structures.
 """
 
+import itertools
 import json
 import math
 import os
@@ -322,6 +323,91 @@ def test_kill_without_state_is_a_noop(tmp_path):
     assert backend.cancelled == []
 
 
+# ---- one driver per calculation, no duplicate jobs -------------------------
+
+
+def _save_state_with_handles(calc, handles):
+    from gluebind import RunState
+    from gluebind.state import now_utc_iso
+
+    RunState(
+        calc_id="test",
+        submitted_at=now_utc_iso(),
+        config_hash=calc.config.config_hash,
+        config_path=str(calc.base_dir),
+        handles=handles,
+    ).save(calc.base_dir)
+
+
+def test_second_driver_on_the_same_directory_is_refused(tmp_path):
+    first, second = _calc(tmp_path), _calc(tmp_path)
+    with first._driver_session():
+        with pytest.raises(RuntimeError, match="already driving"):
+            second.run(
+                scheduler=Scheduler(second.backend, poll_interval=0.01),
+                pmf_provider=_fake_pmf,
+            )
+        with pytest.raises(RuntimeError, match="already driving"):
+            second.prepare()
+
+
+def test_driver_lock_is_released_when_a_run_fails(tmp_path):
+    calc = _calc(tmp_path)
+    with pytest.raises(ValueError), calc._driver_session():
+        raise ValueError("driver crashed")
+    with calc._driver_session():  # a later driver can take over
+        pass
+
+
+def test_run_refuses_to_resubmit_while_recorded_jobs_are_live(tmp_path):
+    # Regression: a resumed run resubmitted every replicate without a result,
+    # including ones whose jobs were still queued or running, so two jobs wrote
+    # the same directory.
+    backend = _CancellableBackend()  # reports every handle PENDING; submit fails
+    calc = Calculation(tmp_path, _config(), backend, _spec_builder)
+    _save_state_with_handles(calc, {"thetaA": {"1rad": ["100", ""]}})
+
+    with pytest.raises(RuntimeError, match=r"1 job\(s\) .* still queued or running"):
+        calc.run(
+            scheduler=Scheduler(backend, poll_interval=0.0), pmf_provider=_fake_pmf
+        )
+
+
+def test_finished_recorded_jobs_do_not_block_a_resume(tmp_path):
+    calc = _calc(tmp_path)  # LocalBackend reports unknown (earlier) handles finished
+    _save_state_with_handles(calc, {"_auxiliary": {"system_build": ["old-job"]}})
+
+    state = calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    assert state.stage_status.get("thetaA") == "done"
+
+
+def test_resubmission_keeps_the_superseded_handle_for_kill(tmp_path):
+    from gluebind import RunState
+
+    first = _calc(tmp_path)
+    first.run(
+        scheduler=Scheduler(first.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    stage = "receptor_bound"  # RMSD stages are resubmitted; determined DoFs are not
+    window = next(w for w in first._iter_windows() if w.stage_name == stage)
+    old = RunState.load(tmp_path).handles[stage][window.label][0]
+    (window.replicate_dir(1) / "result.json").unlink()  # force a resubmission
+
+    second = _calc(tmp_path)
+    # LocalBackend numbers jobs from 1 in every process; give the resumed driver
+    # distinct ids, as a real scheduler would.
+    second.backend._counter = itertools.count(1000)
+    second.run(
+        scheduler=Scheduler(second.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    handles = RunState.load(tmp_path).handles
+    assert handles[stage][window.label][0] != old
+    assert handles["_superseded"][f"{stage}/{window.label}"] == [old]
+    assert old in second.kill()
+
+
 def test_run_surfaces_failed_windows(tmp_path):
     # A job that exits without writing result.json is a failure; it must be
     # surfaced here (naming the window) rather than downstream as a WHAM crash.
@@ -571,12 +657,13 @@ def test_from_config_defers_wiring(tmp_path):
 
 
 def test_run_auto_prepares_when_not_wired(tmp_path):
-    # run() on a from_config calculation calls prepare() itself (end to end from
-    # a single call). We stub prepare() to wire trivially, avoiding real MD/BSS.
+    # run() on a from_config calculation prepares itself (end to end from a single
+    # call), via the private _prepare() since run() already holds the driver
+    # session. We stub it to wire trivially, avoiding real MD/BSS.
     calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
     calls = {"prepare": 0}
 
-    def fake_prepare():
+    def fake_prepare(**_):
         calls["prepare"] += 1
         calc.spec_builder = _spec_builder
         calc.command_factory = _trivial_command
@@ -584,7 +671,7 @@ def test_run_auto_prepares_when_not_wired(tmp_path):
         calc.groups = calc._build_groups()
         calc.sub_runners = list(calc.groups)
 
-    calc.prepare = fake_prepare
+    calc._prepare = fake_prepare
     calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
     )
@@ -673,10 +760,11 @@ def _dump_prepared(base_dir):
     ).dump(base_dir / "prep")
 
 
-def test_equilibrate_reuses_prep_and_does_not_wire(tmp_path):
-    # equilibrate() runs prep + writes the RMSF report but must NOT resolve anchors
-    # or build the sampling tree (spec_builder stays None) — the manual-anchor
-    # fallback. Prep is stubbed via the on-disk manifest; RMSF write stubbed (MDA).
+def test_prepare_without_restraints_reuses_prep_and_does_not_wire(tmp_path):
+    # prepare(resolve_restraints=False) runs prep + writes the RMSF report but must
+    # NOT resolve anchors or build the sampling tree (spec_builder stays None) — the
+    # manual-anchor workflow. Prep is stubbed via the on-disk manifest; RMSF write
+    # stubbed (MDA).
     _dump_prepared(tmp_path)
     calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
     written = {}
@@ -684,7 +772,7 @@ def test_equilibrate_reuses_prep_and_does_not_wire(tmp_path):
         "paths", {"receptor": "rmsf_receptor.dat", "target": "rmsf_target.dat"}
     )
 
-    prepared = calc.equilibrate()
+    prepared = calc.prepare(resolve_restraints=False)
 
     assert prepared.complex_prm7 == "c.prm7"  # loaded the existing prep (no re-run)
     assert calc.spec_builder is None  # NOT wired — anchors not resolved

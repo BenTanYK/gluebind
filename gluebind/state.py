@@ -3,12 +3,13 @@
 Record a single JSON file at the calculation base directory, written by the
 orchestrator and read back by any fresh process so the driver can be
 reconstructed and a run resumed after the terminal / IDE / SSH session closes.
-The filesystem plus the live SLURM queue are the source of truth; this file
-holds the *pointers* (job handles) and the mid-run *determined values* that
+It holds the *pointers* (job handles) and the mid-run *determined values* that
 later stages depend on.
 
-Completion is deliberately *not* stored as truth here; it is reconciled live
-against ``squeue`` and the on-disk output files.
+Completion is deliberately *not* stored as truth here: a replicate is complete
+when its result file exists on disk. The recorded handles are used to cancel
+jobs (``Calculation.kill``) and to refuse to resume while jobs from an earlier
+driver are still queued or running; they are not used to adopt such jobs.
 """
 
 from __future__ import annotations

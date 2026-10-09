@@ -24,6 +24,7 @@ window centres come from the sampling schedule.
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import json
 import os
 import pathlib
@@ -59,6 +60,9 @@ from gluebind.stop import StopController, StopRequested
 # free-energy integrals) work in nm. 1 Å^-2 = 100 nm^-2.
 _A2_TO_NM2 = 100.0
 ANALYSIS_RESULT_FILENAME = "analysis.json"
+# Held exclusively by the process driving a calculation (run/prepare), so a second
+# driver on the same directory fails instead of submitting duplicate jobs.
+RUN_LOCK_FILENAME = ".gluebind-run.lock"
 
 PmfProvider = Callable[[Stage], "tuple"]
 
@@ -289,7 +293,7 @@ class Calculation(SimulationRunner):
             stop_paths=stop_paths,
         )
 
-    def prepare(self):
+    def prepare(self, *, resolve_restraints: bool = True):
         """Prepare and equilibrate the system, then resolve restraint metadata.
 
         Existing preparation artifacts are reused when valid. Otherwise, the
@@ -298,18 +302,42 @@ class Calculation(SimulationRunner):
         writes the resolved restraint context, RMSF reports, and Boresch DoF
         distributions, and wires the calculation tree.
 
+        With ``resolve_restraints=False`` it stops after equilibration and only
+        writes the per-protein CA RMSF reports (``prep/rmsf_receptor.dat`` and
+        ``prep/rmsf_target.dat``). This is the manual-anchor workflow: inspect the
+        reports, set the anchors in the configuration, then call :meth:`run`. No
+        anchors are selected or persisted, so configuring them afterwards is safe.
+
         This method does not submit umbrella-sampling windows. It is idempotent and
         may be called before :meth:`run`.
+
+        Parameters
+        ----------
+        resolve_restraints
+            Resolve the restraint geometry and wire the calculation tree (the
+            default), or stop after equilibration and the RMSF reports.
 
         Returns
         -------
         PreparedSystem
             The prepared system manifest loaded from ``prep/prepared.json``.
+
+        Raises
+        ------
+        RuntimeError
+            If another process is driving this calculation, or jobs recorded by an
+            earlier driver are still queued or running.
         """
+        with self._driver_session():
+            return self._prepare(resolve_restraints=resolve_restraints)
+
+    def _prepare(self, *, resolve_restraints: bool = True):
+        """:meth:`prepare` without the driver session, for callers that hold it."""
         from gluebind.system.prep import PreparedSystem
         from gluebind.system.prep import prepare as prepare_system
 
         self._stop.raise_if_requested()
+        add_file_handler(self.base_dir, logger_name=self._log.name)
         prep_dir = self.base_dir / "prep"
         try:
             prepared = PreparedSystem.load(prep_dir)  # resume: prep already complete
@@ -329,57 +357,16 @@ class Calculation(SimulationRunner):
                 handle_recorder=self._record_auxiliary_handle,
                 submission_guard=self._stop.submission_permit,
             )
+        if not resolve_restraints:
+            report = self._submit_rmsf_report(prepared)
+            self._log.info(
+                "prepare %s: RMSF report for manual anchor selection -> %s",
+                self.base_dir.name,
+                ", ".join(report.values()),
+            )
+            return prepared
         self._resolve_restraint_context(prepared)
         self._wire(prepared)
-        return prepared
-
-    def equilibrate(self):
-        """Prepare or reuse equilibration and write RMSF reports for anchor selection.
-
-        This is the manual-anchor workflow. It builds or reuses the preparation and
-        equilibration artifacts, then submits the lightweight RMSF-report job.
-        It does not resolve Boresch anchors, create the restraint context, or submit
-        umbrella-sampling windows.
-
-        The reports are written to ``prep/rmsf_receptor.dat`` and
-        ``prep/rmsf_target.dat``. After inspecting them, configure manual anchors
-        and call :meth:`run`.
-
-        Returns
-        -------
-        PreparedSystem
-            The prepared system manifest.
-        """
-        from gluebind.system.prep import PreparedSystem
-        from gluebind.system.prep import prepare as prepare_system
-
-        self._stop.raise_if_requested()
-        add_file_handler(self.base_dir, logger_name=self._log.name)
-        prep_dir = self.base_dir / "prep"
-        try:
-            prepared = PreparedSystem.load(prep_dir)
-            self._log.info(
-                "equilibrate %s: reusing existing prepared system", self.base_dir.name
-            )
-        except FileNotFoundError:
-            self._log.info(
-                "equilibrate %s: building and equilibrating system", self.base_dir.name
-            )
-            prepared = prepare_system(
-                self.config,
-                prep_dir,
-                self.backend,
-                platform=self.platform,
-                poll_interval=self._effective_poll_interval,
-                handle_recorder=self._record_auxiliary_handle,
-                submission_guard=self._stop.submission_permit,
-            )
-        report = self._submit_rmsf_report(prepared)
-        self._log.info(
-            "equilibrate %s: RMSF report for anchor selection -> %s",
-            self.base_dir.name,
-            ", ".join(report.values()),
-        )
         return prepared
 
     def _submit_rmsf_report(self, prepared) -> dict[str, str]:
@@ -733,6 +720,69 @@ class Calculation(SimulationRunner):
             handles.append(handle)
         state.save(self.base_dir)
 
+    @staticmethod
+    def _recorded_handles(state: RunState) -> list[str]:
+        """Every backend handle recorded in ``state``, de-duplicated, in order."""
+        return list(
+            dict.fromkeys(
+                handle
+                for per_stage in state.handles.values()
+                for per_window in per_stage.values()
+                for handle in per_window
+                if handle
+            )
+        )
+
+    @contextlib.contextmanager
+    def _driver_session(self) -> Iterator[None]:
+        """Be the only process driving this calculation, with no stray jobs.
+
+        Holds an exclusive lock on the run directory for the duration, so a second
+        driver (another process, or another ``Calculation`` on the same directory)
+        fails immediately instead of submitting duplicate jobs. The operating
+        system releases the lock if the driver dies. ``kill()`` does not take this
+        lock and can still stop an active driver.
+
+        Then refuses to start while any job recorded by an earlier driver is still
+        queued or running: resuming would otherwise submit it again into the same
+        directory. Backends that cannot see jobs submitted by another process
+        (``LocalBackend``) report them as finished.
+        """
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        with (self.base_dir / RUN_LOCK_FILENAME).open("a+") as lock:
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise RuntimeError(
+                    f"another process is already driving the calculation in "
+                    f"{self.base_dir}; wait for it to finish, or stop it with kill()"
+                ) from None
+            try:
+                self._raise_if_recorded_jobs_live()
+                yield
+            finally:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+    def _raise_if_recorded_jobs_live(self) -> None:
+        """Raise if any job recorded in the run state is still queued or running."""
+        try:
+            state = RunState.load(self.base_dir)
+        except FileNotFoundError:
+            return
+        handles = self._recorded_handles(state)
+        if not handles:
+            return
+        states = self.backend.poll(handles)
+        live = [h for h in handles if not states[h].is_terminal]
+        if live:
+            shown = ", ".join(live[:5]) + (", ..." if len(live) > 5 else "")
+            raise RuntimeError(
+                f"{len(live)} job(s) recorded by an earlier run of this calculation "
+                f"are still queued or running ({shown}). Resuming now would submit "
+                "them again into the same directories. Wait for them to finish, or "
+                "cancel them with kill() and clear_stop_request(), then run again."
+            )
+
     def kill(self) -> list[str]:
         """Stop further submission and cancel every recorded job for this calculation.
 
@@ -749,15 +799,7 @@ class Calculation(SimulationRunner):
             self._log.info("kill %s: no submitted jobs recorded", self.base_dir.name)
             return []
 
-        handles = list(
-            dict.fromkeys(
-                handle
-                for per_stage in state.handles.values()
-                for per_window in per_stage.values()
-                for handle in per_window
-                if handle
-            )
-        )
+        handles = self._recorded_handles(state)
         for handle in handles:
             try:
                 self.backend.cancel(handle)
@@ -891,24 +933,27 @@ class Calculation(SimulationRunner):
         Raises
         ------
         RuntimeError
-            If a submitted stage produces missing or incomplete window outputs.
+            If a submitted stage produces missing or incomplete window outputs, if
+            another process is driving this calculation, or if jobs recorded by an
+            earlier driver are still queued or running.
         ValueError
             If the persisted state is incompatible with the current configuration.
         """
-        try:
-            return self._run_impl(
-                scheduler=scheduler,
-                pmf_provider=pmf_provider,
-                job_slots=job_slots,
-            )
-        except StopRequested:
-            state = self._load_or_init_state()
-            state.stage_status["_control"] = "stopped"
-            state.save(self.base_dir)
-            self._log.info(
-                "run %s: stopped by persistent stop request", self.base_dir.name
-            )
-            return state
+        with self._driver_session():
+            try:
+                return self._run_impl(
+                    scheduler=scheduler,
+                    pmf_provider=pmf_provider,
+                    job_slots=job_slots,
+                )
+            except StopRequested:
+                state = self._load_or_init_state()
+                state.stage_status["_control"] = "stopped"
+                state.save(self.base_dir)
+                self._log.info(
+                    "run %s: stopped by persistent stop request", self.base_dir.name
+                )
+                return state
 
     def _run_impl(
         self,
@@ -940,8 +985,9 @@ class Calculation(SimulationRunner):
         )
         if self.spec_builder is None:
             # Auto-prepare: a from_config calculation runs end to end
-            # from run() alone; prep is skipped if already complete on disk.
-            self.prepare()
+            # from run() alone; prep is skipped if already complete on disk. The
+            # private _prepare: run() already holds the driver session.
+            self._prepare()
         self._stop.raise_if_requested()
         self.setup()
         state = self._load_or_init_state()
@@ -1037,6 +1083,12 @@ class Calculation(SimulationRunner):
             per_window = state.handles.setdefault(stage.name, {}).setdefault(
                 window.label, [""] * window.ensemble_size
             )
+            previous = per_window[replicate - 1]
+            if previous and previous != handle:
+                # Keep the earlier job's handle so kill() can still reach it.
+                state.handles.setdefault("_superseded", {}).setdefault(
+                    f"{stage.name}/{window.label}", []
+                ).append(previous)
             per_window[replicate - 1] = handle
             state.stage_status[stage.name] = "running"
             # A detached backend may outlive this driver; persist every handle
