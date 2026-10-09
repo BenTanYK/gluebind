@@ -10,7 +10,13 @@ import threading
 import time
 from collections.abc import Callable
 
-from gluebind.backend.base import Backend, JobHandle, JobSpec, JobState
+from gluebind.backend.base import (
+    Backend,
+    JobHandle,
+    JobSpec,
+    JobState,
+    run_status_query,
+)
 from gluebind.config.grid_engine import GridEngineConfig
 
 
@@ -20,10 +26,15 @@ class GridEngineBackend(Backend):
     detached = True
 
     def __init__(
-        self, config: GridEngineConfig, *, clock: Callable[[], float] = time.monotonic
+        self,
+        config: GridEngineConfig,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.config = config
         self._clock = clock
+        self._sleep = sleep  # waits between retries of a failed qstat
         self._submitted_at: dict[JobHandle, float] = {}
         self._seen: set[JobHandle] = set()
         self._lock = threading.Lock()
@@ -87,13 +98,13 @@ class GridEngineBackend(Backend):
         return result
 
     def _visible_job_states(self) -> dict[JobHandle, JobState]:
-        proc = subprocess.run(
+        stdout = run_status_query(
             ["qstat", "-u", getpass.getuser()],
-            capture_output=True,
-            text=True,
-            check=True,
+            retries=self.config.poll_retries,
+            wait_s=self.config.poll_retry_wait_s,
+            sleep=self._sleep,
         )
-        return self._parse_qstat(proc.stdout)
+        return self._parse_qstat(stdout)
 
     @staticmethod
     def _parse_qstat(qstat_stdout: str) -> dict[JobHandle, JobState]:

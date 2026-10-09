@@ -283,7 +283,7 @@ def test_slurm_submit_shell_quotes_command(tmp_path, monkeypatch):
     from gluebind.config.slurm import SlurmConfig
 
     class _CompletedProcess:
-        stdout = "Submitted batch job 12345\n"
+        stdout = "12345\n"  # sbatch --parsable
 
     monkeypatch.setattr(
         "gluebind.backend.slurm.subprocess.run",
@@ -323,7 +323,7 @@ def test_slurm_poll_grace_period_and_resume(monkeypatch):
     cfg = SlurmConfig(job_submission_wait=100)
     clock = [1000.0]
     backend = SlurmBackend(cfg, clock=lambda: clock[0])
-    monkeypatch.setattr(backend, "_running_job_ids", lambda: set())
+    monkeypatch.setattr(backend, "_queue_states", lambda: {})
 
     # freshly submitted, not yet visible in squeue, within the grace window -> RUNNING
     backend._submitted_at["j1"] = 1000.0
@@ -333,10 +333,10 @@ def test_slurm_poll_grace_period_and_resume(monkeypatch):
     assert backend.poll(["j1"])["j1"] is JobState.FINISHED
 
     # a job seen in the queue, then gone, is FINISHED (normal completion)
-    monkeypatch.setattr(backend, "_running_job_ids", lambda: {"j2"})
+    monkeypatch.setattr(backend, "_queue_states", lambda: {"j2": "RUNNING"})
     backend._submitted_at["j2"] = clock[0]
     assert backend.poll(["j2"])["j2"] is JobState.RUNNING  # seen now
-    monkeypatch.setattr(backend, "_running_job_ids", lambda: set())
+    monkeypatch.setattr(backend, "_queue_states", lambda: {})
     assert backend.poll(["j2"])["j2"] is JobState.FINISHED  # left the queue
 
     # a handle from a prior process (resume) has no grace basis -> FINISHED, not stuck
@@ -344,9 +344,133 @@ def test_slurm_poll_grace_period_and_resume(monkeypatch):
 
 
 def test_slurm_parse_job_id():
-    assert SlurmBackend._parse_job_id("Submitted batch job 12345\n") == "12345"
+    assert SlurmBackend._parse_job_id("12345\n") == "12345"
+    assert SlurmBackend._parse_job_id("12345;cluster2\n") == "12345"  # multi-cluster
 
 
-def test_slurm_parse_job_id_empty_raises():
-    with pytest.raises(RuntimeError):
-        SlurmBackend._parse_job_id("")
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        "",
+        # Regression: the last token was taken as the id, giving "foo" here, an id
+        # that never appears in squeue, so the running job read as finished.
+        "Submitted batch job 12345 on cluster foo\n",
+        "sbatch: error: something odd\n",
+    ],
+)
+def test_slurm_parse_job_id_rejects_anything_but_a_numeric_id(stdout):
+    with pytest.raises(RuntimeError, match="could not parse job id"):
+        SlurmBackend._parse_job_id(stdout)
+
+
+@pytest.mark.parametrize(
+    "slurm_state, expected",
+    [
+        ("PENDING", JobState.PENDING),
+        ("RUNNING", JobState.RUNNING),
+        # Regression: states outside R,PD,S,CG were invisible, so a job that was
+        # still CONFIGURING or REQUEUED read as finished.
+        ("CONFIGURING", JobState.RUNNING),
+        ("REQUEUED", JobState.RUNNING),
+        ("COMPLETING", JobState.RUNNING),
+        ("SOME_FUTURE_STATE", JobState.RUNNING),  # unknown -> wait, never "done"
+        ("COMPLETED", JobState.FINISHED),
+        ("TIMEOUT", JobState.FAILED),
+        ("CANCELLED", JobState.FAILED),
+        ("OUT_OF_MEMORY", JobState.FAILED),
+    ],
+)
+def test_slurm_poll_maps_every_squeue_state(monkeypatch, slurm_state, expected):
+    from gluebind.config.slurm import SlurmConfig
+
+    backend = SlurmBackend(SlurmConfig())
+    monkeypatch.setattr(backend, "_queue_states", lambda: {"7": slurm_state})
+    assert backend.poll(["7"])["7"] is expected
+
+
+def test_slurm_queue_states_lists_all_states_for_the_user(monkeypatch):
+    from gluebind.config.slurm import SlurmConfig
+
+    calls = []
+
+    class _Completed:
+        stdout = "11 RUNNING\n12 CONFIGURING\n13 COMPLETED\n"
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return _Completed()
+
+    monkeypatch.setattr("gluebind.backend.slurm.getpass.getuser", lambda: "me")
+    monkeypatch.setattr("gluebind.backend.base.subprocess.run", fake_run)
+    states = SlurmBackend(SlurmConfig())._queue_states()
+    assert states == {"11": "RUNNING", "12": "CONFIGURING", "13": "COMPLETED"}
+    assert calls == [["squeue", "-h", "-t", "all", "-u", "me", "-o", "%i %T"]]
+
+
+# ---- retrying transient scheduler-query failures -----------------------------
+
+
+def _flaky_run(failures, stdout="ok\n", exc=None):
+    """A subprocess.run stand-in failing ``failures`` times, then succeeding."""
+    calls = []
+
+    class _Completed:
+        pass
+
+    def run(cmd, **kwargs):
+        calls.append(kwargs)
+        if len(calls) <= failures:
+            raise exc or subprocess.CalledProcessError(
+                1, cmd, stderr="slurm_load_jobs error: Socket timed out"
+            )
+        done = _Completed()
+        done.stdout = stdout
+        return done
+
+    return run, calls
+
+
+def test_status_query_retries_with_doubling_waits_then_succeeds(monkeypatch):
+    from gluebind.backend.base import run_status_query
+
+    run, calls = _flaky_run(failures=2)
+    monkeypatch.setattr("gluebind.backend.base.subprocess.run", run)
+    waits = []
+    out = run_status_query(["squeue"], retries=5, wait_s=30.0, sleep=waits.append)
+    assert out == "ok\n"
+    assert waits == [30.0, 60.0]
+    assert all(kwargs["timeout"] > 0 for kwargs in calls)  # never hangs forever
+
+
+def test_status_query_retries_a_timeout(monkeypatch):
+    from gluebind.backend.base import run_status_query
+
+    run, _ = _flaky_run(failures=1, exc=subprocess.TimeoutExpired(["squeue"], 60))
+    monkeypatch.setattr("gluebind.backend.base.subprocess.run", run)
+    assert run_status_query(["squeue"], retries=3, wait_s=1.0, sleep=lambda s: None)
+
+
+def test_status_query_gives_up_after_the_last_attempt(monkeypatch):
+    # Regression: a single failed squeue (a busy controller) aborted the driver.
+    # Now only persistent failure does, after every retry, with the error shown.
+    from gluebind.backend.base import run_status_query
+
+    run, calls = _flaky_run(failures=10)
+    monkeypatch.setattr("gluebind.backend.base.subprocess.run", run)
+    waits = []
+    with pytest.raises(RuntimeError, match="failed 4 time.*Socket timed out"):
+        run_status_query(["squeue"], retries=4, wait_s=30.0, sleep=waits.append)
+    assert len(calls) == 4
+    assert waits == [30.0, 60.0, 120.0]
+
+
+def test_slurm_poll_uses_the_configured_retries(monkeypatch):
+    from gluebind.config.slurm import SlurmConfig
+
+    run, calls = _flaky_run(failures=2, stdout="5 RUNNING\n")
+    monkeypatch.setattr("gluebind.backend.base.subprocess.run", run)
+    waits = []
+    cfg = SlurmConfig(poll_retries=3, poll_retry_wait_s=10.0)
+    backend = SlurmBackend(cfg, sleep=waits.append)
+    assert backend.poll(["5"])["5"] is JobState.RUNNING
+    assert waits == [10.0, 20.0]

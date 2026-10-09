@@ -23,3 +23,19 @@ class SchedulerConfig(pydantic.BaseModel):
         ge=1,
         description="Maximum number of jobs allowed in the scheduler queue at once.",
     )
+    poll_retries: int = pydantic.Field(
+        5,
+        ge=1,
+        description=(
+            "Attempts at a queue-status query (squeue/qstat) before giving up, so "
+            "a transient controller error does not stop the driver."
+        ),
+    )
+    poll_retry_wait_s: float = pydantic.Field(
+        30.0,
+        gt=0,
+        description=(
+            "Seconds to wait before the first retry of a failed queue-status query; "
+            "each further retry waits twice as long."
+        ),
+    )

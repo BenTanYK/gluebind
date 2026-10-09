@@ -280,7 +280,8 @@ def test_slurm_render_and_submission_cmds(tmp_path):
     )
     cmds = slurm.get_submission_cmds("python -c pass", tmp_path, "prep_system")
     assert cmds[0] == "sbatch"
-    assert cmds[1] == f"--chdir={tmp_path}"
+    assert cmds[1] == "--parsable"  # prints just the job id
+    assert cmds[2] == f"--chdir={tmp_path}"
     script = (tmp_path / "gluebind.sh").read_text()
     assert "#SBATCH --job-name=prep_system" in script
     assert "#SBATCH --partition=gpu" in script

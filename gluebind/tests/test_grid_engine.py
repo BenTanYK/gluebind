@@ -113,16 +113,39 @@ def test_grid_engine_visible_states_runs_qstat_for_current_user(monkeypatch):
         return Completed()
 
     monkeypatch.setattr("gluebind.backend.grid_engine.getpass.getuser", lambda: "user")
-    monkeypatch.setattr("gluebind.backend.grid_engine.subprocess.run", fake_run)
+    monkeypatch.setattr("gluebind.backend.base.subprocess.run", fake_run)
     assert GridEngineBackend(GridEngineConfig())._visible_job_states() == {
         "1": JobState.RUNNING
     }
     assert calls == [
         (
             (["qstat", "-u", "user"],),
-            {"capture_output": True, "text": True, "check": True},
+            {"capture_output": True, "text": True, "check": True, "timeout": 60.0},
         )
     ]
+
+
+def test_grid_engine_qstat_retries_transient_failures(monkeypatch):
+    import subprocess
+
+    attempts = []
+
+    class Completed:
+        stdout = "1 0.1 running user r 09/07/2026 10:00:00 queue@host 1\n"
+
+    def flaky_run(cmd, **kwargs):
+        attempts.append(cmd)
+        if len(attempts) == 1:
+            raise subprocess.CalledProcessError(1, cmd, stderr="qmaster unreachable")
+        return Completed()
+
+    monkeypatch.setattr("gluebind.backend.base.subprocess.run", flaky_run)
+    waits = []
+    backend = GridEngineBackend(
+        GridEngineConfig(poll_retries=2, poll_retry_wait_s=5.0), sleep=waits.append
+    )
+    assert backend._visible_job_states() == {"1": JobState.RUNNING}
+    assert waits == [5.0]
 
 
 @pytest.mark.parametrize(

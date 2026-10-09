@@ -98,9 +98,18 @@ class SlurmConfig(SchedulerConfig):
     def get_submission_cmds(
         self, cmd: str, run_dir: str | pathlib.Path, job_name: str = "gluebind"
     ) -> list[str]:
-        """Write the script and return the ``sbatch`` command list."""
+        """Write the script and return the ``sbatch`` command list.
+
+        ``--parsable`` makes sbatch print only ``<jobid>`` (or ``<jobid>;<cluster>``
+        on multi-cluster sites), so the job id is read unambiguously.
+        """
         script_path = self.write_submission_script(cmd, run_dir, job_name)
-        return ["sbatch", f"--chdir={script_path.parent}", str(script_path)]
+        return [
+            "sbatch",
+            "--parsable",
+            f"--chdir={script_path.parent}",
+            str(script_path),
+        ]
 
     def slurm_output_glob(self, run_dir: str | pathlib.Path) -> str:
         """Glob matching a job's SLURM ``.out`` file(s) in ``run_dir``."""

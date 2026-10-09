@@ -29,6 +29,45 @@ from __future__ import annotations
 import abc
 import dataclasses
 import enum
+import subprocess
+import time
+from collections.abc import Callable
+
+QUERY_TIMEOUT_S = 60.0
+"""Seconds before a single queue-status query (squeue/qstat) is abandoned."""
+
+
+def run_status_query(
+    cmd: list[str],
+    *,
+    retries: int,
+    wait_s: float,
+    sleep: Callable[[float], None] = time.sleep,
+    timeout_s: float = QUERY_TIMEOUT_S,
+) -> str:
+    """Run a read-only scheduler query and return its stdout, retrying failures.
+
+    A busy or restarting controller makes ``squeue``/``qstat`` fail or hang for a
+    while even though the jobs are fine, so a failed or timed-out query is retried
+    up to ``retries`` attempts in total, waiting ``wait_s`` seconds and doubling the
+    wait each time. Only after the last attempt is the error raised. Not for job
+    submission: a submit that appeared to fail may still have been accepted, so
+    retrying it could duplicate the job.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            return subprocess.run(
+                cmd, capture_output=True, text=True, check=True, timeout=timeout_s
+            ).stdout
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            if attempt == retries:
+                detail = getattr(exc, "stderr", None) or str(exc)
+                raise RuntimeError(
+                    f"{cmd[0]} failed {retries} time(s) in a row; the scheduler "
+                    f"appears unreachable. Last error: {detail}"
+                ) from exc
+            sleep(wait_s * 2 ** (attempt - 1))
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 class JobState(enum.Enum):
