@@ -30,7 +30,7 @@ import os
 import pathlib
 import tempfile
 import warnings
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Generator, Iterator, Sequence
 
 from gluebind.analysis.free_energy import (
     binding_free_energy,
@@ -734,7 +734,7 @@ class Calculation(SimulationRunner):
         )
 
     @contextlib.contextmanager
-    def _driver_session(self) -> Iterator[None]:
+    def _driver_session(self) -> Generator[None, None, None]:
         """Be the only process driving this calculation, with no stray jobs.
 
         Holds an exclusive lock on the run directory for the duration, so a second
@@ -878,10 +878,12 @@ class Calculation(SimulationRunner):
             raise ValueError(f"no {cv_type!r} stage named {stage_name!r}")
 
         if cv_type == "separation":
+            from gluebind.simulation.steered_md import smd_frame_path
+
             sep = self.config.sampling.for_cv("separation", "separation")
             frames_dir = self.base_dir / "smd_frames"
             for centre in centres:
-                frame = frames_dir / f"{float(centre):.4g}nm.rst7"
+                frame = smd_frame_path(frames_dir, float(centre))
                 if not frame.exists():
                     raise ValueError(
                         f"no SMD snapshot for a separation window at {centre} nm "
@@ -1033,9 +1035,8 @@ class Calculation(SimulationRunner):
         separation_group = self._group("separation")
         if separation_group:
             self._stop.raise_if_requested()
-            if (
-                self.steered_md_runner is not None
-                and state.stage_status.get("steered_md") != "done"
+            if self.steered_md_runner is not None and not self._smd_frames_ready(
+                state, separation_group
             ):
                 # Generate the separation-window starting frames with the resolved
                 # Boresch restraints in place. Recorded in state so a resumed run
@@ -1050,6 +1051,30 @@ class Calculation(SimulationRunner):
         state.save(self.base_dir)
         self._log.info("run %s: all stages complete", self.base_dir.name)
         return state
+
+    def _smd_frames_ready(self, state: RunState, separation_group: Group) -> bool:
+        """Whether steered MD is done and every separation window has its frame.
+
+        A step recorded as done is not trusted on its own: if any window's
+        starting frame is missing (a crashed or truncated pull), steered MD is
+        run again rather than leaving every separation window to fail.
+        """
+        if state.stage_status.get("steered_md") != "done":
+            return False
+        from gluebind.simulation.steered_md import missing_frames
+
+        missing = missing_frames(
+            self.base_dir / "smd_frames",
+            [w.centre for stage in separation_group.stages for w in stage.windows],
+        )
+        if missing:
+            self._log.warning(
+                "steered MD is recorded as done but the frames for separation "
+                "window(s) at %s nm are missing; running it again",
+                ", ".join(f"{c:g}" for c in missing),
+            )
+            return False
+        return True
 
     def _run_stage(
         self,

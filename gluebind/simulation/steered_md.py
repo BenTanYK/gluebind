@@ -39,6 +39,21 @@ def separation_window_targets(centres) -> list[float]:
     return sorted({round(float(c), 4) for c in centres})
 
 
+def smd_frame_path(frames_dir: str | pathlib.Path, centre: float) -> pathlib.Path:
+    """Path of the SMD snapshot that seeds the separation window at ``centre`` nm."""
+    return pathlib.Path(frames_dir) / f"{centre:.4g}nm.rst7"
+
+
+def missing_frames(frames_dir: str | pathlib.Path, centres) -> list[float]:
+    """The ``centres`` (nm) whose SMD snapshot is absent or empty, sorted."""
+    return [
+        c
+        for c in separation_window_targets(centres)
+        if not smd_frame_path(frames_dir, c).is_file()
+        or smd_frame_path(frames_dir, c).stat().st_size == 0
+    ]
+
+
 def closest_periodic_image(positions, box_vectors, atoms) -> tuple[float, int, int]:
     """Closest approach of ``atoms`` to any of their periodic images.
 
@@ -221,10 +236,11 @@ def make_steered_md_runner(
     driver); the job writes the per-centre frames into ``out_dir``, which the spec
     builder then reads for the separation windows.
 
-    After the job, the periodic-image report is checked and ``warn`` (default: this
-    module's logger) is called once if any frame's solute comes within
+    After the job, the callable raises if it produced no result or no frame for
+    any of ``window_centres`` (the current separation schedule), so a failed pull
+    is never taken as complete. ``warn`` (default: this module's logger) reports
+    spare snapshots that were not captured, and frames whose solute comes within
     :data:`PERIODIC_IMAGE_WARNING_ANGSTROM` of its periodic image.
-    ``window_centres`` (the current separation schedule) marks affected windows.
     """
     from gluebind.backend.base import JobSpec, JobState
 
@@ -252,6 +268,11 @@ def make_steered_md_runner(
             platform=platform,
         )
         spec.dump(work_dir / SMD_SPEC_FILENAME)
+        result_path = work_dir / SMD_RESULT_FILENAME
+        images_path = work_dir / SMD_PERIODIC_IMAGES_FILENAME
+        # A re-run must not be judged by an earlier run's outputs.
+        result_path.unlink(missing_ok=True)
+        images_path.unlink(missing_ok=True)
         job = JobSpec(
             command=smd_launch_command(), work_dir=str(work_dir), name="steered_md"
         )
@@ -265,17 +286,36 @@ def make_steered_md_runner(
         )
         if state is not JobState.FINISHED:
             raise RuntimeError(f"steered MD did not finish (state={state})")
-        images_path = work_dir / SMD_PERIODIC_IMAGES_FILENAME
+        # Slurm reports a crashed job as finished too: judge by the outputs.
+        if not result_path.exists():
+            raise RuntimeError(
+                f"steered MD produced no result; inspect its job log in {work_dir}"
+            )
+        missing = missing_frames(out_dir, window_centres)
+        if missing:
+            raise RuntimeError(
+                "steered MD produced no starting frame for the separation window(s) "
+                f"at {', '.join(f'{c:g}' for c in missing)} nm (the pull may not "
+                f"have reached them); inspect its job log in {work_dir}"
+            )
+        log_warning = warn or logging.getLogger(__name__).warning
+        windows = set(separation_window_targets(window_centres))
+        spare = [
+            c for c in missing_frames(out_dir, snapshot_centres) if c not in windows
+        ]
+        if spare:
+            log_warning(
+                "steered MD did not capture the spare snapshot(s) at "
+                f"{', '.join(f'{c:g}' for c in spare)} nm; separation windows cannot "
+                "be added there without re-running steered MD."
+            )
         if images_path.exists():
             message = periodic_image_warning(
                 json.loads(images_path.read_text()), window_centres
             )
             if message is not None:
-                (warn or logging.getLogger(__name__).warning)(message)
-        result_path = work_dir / SMD_RESULT_FILENAME
-        if result_path.exists():
-            return {float(k): v for k, v in json.loads(result_path.read_text()).items()}
-        return {}
+                log_warning(message)
+        return {float(k): v for k, v in json.loads(result_path.read_text()).items()}
 
     return _generate
 
@@ -450,7 +490,7 @@ def run_steered_md(
         while remaining and current >= remaining[0]:
             target = remaining.pop(0)
             state = simulation.context.getState(getPositions=True)
-            out_path = out_dir / f"{target:.4g}nm.rst7"
+            out_path = smd_frame_path(out_dir, target)
             sb.save_rst7(
                 topology, state.getPositions(), state.getPeriodicBoxVectors(), out_path
             )

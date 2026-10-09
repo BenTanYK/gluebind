@@ -72,17 +72,28 @@ def test_smd_launch_command():
 
 
 class _FakeSmdBackend(Backend):
-    """Simulates the SMD job: records the spec and writes the frames result.json."""
+    """Simulates the SMD job: records the spec, writes a frame per snapshot centre
+    (except those in ``skip``) and the result.json mapping centre -> frame."""
 
-    def __init__(self):
+    def __init__(self, skip=()):
         self.submitted: list[SmdSpec] = []
         self._counter = 0
+        self.skip = set(skip)
 
     def submit(self, spec):
+        from gluebind.simulation.steered_md import smd_frame_path
+
         wd = pathlib.Path(spec.work_dir)
         smd_spec = SmdSpec.load(wd / SMD_SPEC_FILENAME)
         self.submitted.append(smd_spec)
-        frames = {str(c): f"{c}nm.rst7" for c in smd_spec.window_centres}
+        frames = {}
+        for c in smd_spec.window_centres:
+            if c in self.skip:
+                continue  # the pull "did not reach" this separation
+            path = smd_frame_path(smd_spec.out_dir, c)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("frame")
+            frames[str(c)] = str(path)
         (wd / SMD_RESULT_FILENAME).write_text(json.dumps(frames))
         self._counter += 1
         return f"smd-{self._counter}"
@@ -128,7 +139,10 @@ def test_make_steered_md_runner_submits_backend_job(tmp_path):
     spec = backend.submitted[0]
     assert spec.boresch_eq_values == {"thetaA": 1.0}
     assert spec.window_centres == [1.5, 2.0]  # deduped + sorted
-    assert frames == {1.5: "1.5nm.rst7", 2.0: "2.0nm.rst7"}
+    assert frames == {
+        1.5: str(tmp_path / "frames" / "1.5nm.rst7"),
+        2.0: str(tmp_path / "frames" / "2nm.rst7"),
+    }
 
 
 # ---- periodic-image check --------------------------------------------------
@@ -194,7 +208,7 @@ class _FakeSmdBackendWithImages(_FakeSmdBackend):
         return handle
 
 
-def _runner(tmp_path, backend, warnings):
+def _runner(tmp_path, backend, warnings, snapshots=(1.5, 2.0), windows=(1.5, 2.0)):
     return make_steered_md_runner(
         backend=backend,
         scheduler_factory=lambda: Scheduler(backend, poll_interval=0.0),
@@ -206,9 +220,9 @@ def _runner(tmp_path, backend, warnings):
         lig_group=[3, 4],
         anchors={"b": 1, "c": 2, "B": 3, "C": 4},
         rmsd_atoms_bound={"receptor": [1, 2]},
-        snapshot_centres=[1.5, 2.0],
+        snapshot_centres=list(snapshots),
         sampling=_Sampling(),
-        window_centres=[1.5, 2.0],
+        window_centres=list(windows),
         warn=warnings.append,
     )
 
@@ -224,3 +238,59 @@ def test_steered_md_runner_is_silent_without_a_report(tmp_path):
     warnings: list[str] = []
     _runner(tmp_path, _FakeSmdBackend(), warnings)({"thetaA": 1.0})
     assert warnings == []
+
+
+# ---- a failed or truncated pull is never taken as complete -----------------
+
+
+class _CrashedSmdBackend(_FakeSmdBackend):
+    """The job leaves the queue (reported finished) without writing anything."""
+
+    def submit(self, spec):
+        self._counter += 1
+        return f"smd-{self._counter}"
+
+
+def test_steered_md_runner_raises_when_the_job_produced_no_result(tmp_path):
+    # Regression: a crashed SMD job (reported finished by Slurm) returned no
+    # frames silently and was then recorded as done.
+    import pytest
+
+    with pytest.raises(RuntimeError, match="produced no result"):
+        _runner(tmp_path, _CrashedSmdBackend(), [])({"thetaA": 1.0})
+
+
+def test_steered_md_runner_ignores_a_stale_result_from_an_earlier_run(tmp_path):
+    import pytest
+
+    (tmp_path / "smd").mkdir()
+    (tmp_path / "smd" / SMD_RESULT_FILENAME).write_text("{}")  # earlier run's
+    with pytest.raises(RuntimeError, match="produced no result"):
+        _runner(tmp_path, _CrashedSmdBackend(), [])({"thetaA": 1.0})
+
+
+def test_steered_md_runner_raises_when_a_window_frame_is_missing(tmp_path):
+    import pytest
+
+    backend = _FakeSmdBackend(skip={2.0})  # the pull never reached 2.0 nm
+    with pytest.raises(RuntimeError, match="separation window.* at 2 nm"):
+        _runner(tmp_path, backend, [])({"thetaA": 1.0})
+
+
+def test_steered_md_runner_only_warns_for_a_missing_spare_snapshot(tmp_path):
+    warnings: list[str] = []
+    backend = _FakeSmdBackend(skip={2.5})  # captured for later windows only
+    runner = _runner(
+        tmp_path, backend, warnings, snapshots=(1.5, 2.0, 2.5), windows=(1.5, 2.0)
+    )
+    frames = runner({"thetaA": 1.0})
+    assert set(frames) == {1.5, 2.0}
+    assert len(warnings) == 1 and "spare snapshot(s) at 2.5 nm" in warnings[0]
+
+
+def test_missing_frames_treats_empty_files_as_missing(tmp_path):
+    from gluebind.simulation.steered_md import missing_frames, smd_frame_path
+
+    smd_frame_path(tmp_path, 1.0).write_text("frame")
+    smd_frame_path(tmp_path, 1.5).write_text("")  # truncated write
+    assert missing_frames(tmp_path, [2.0, 1.5, 1.0, 1.0]) == [1.5, 2.0]

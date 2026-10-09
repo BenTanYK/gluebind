@@ -523,27 +523,63 @@ def test_run_without_separation_skips_steered_md(tmp_path):
     assert calls == []
 
 
+def _counting_smd(tmp_path, counter):
+    """A steered-MD stand-in that writes the 1.5 nm separation frame and counts runs."""
+    from gluebind.simulation.steered_md import smd_frame_path
+
+    def run(eq):
+        counter["n"] += 1
+        frame = smd_frame_path(tmp_path / "smd_frames", 1.5)
+        frame.parent.mkdir(parents=True, exist_ok=True)
+        frame.write_text("frame")
+
+    return run
+
+
+def _smd_calc(tmp_path, counter):
+    return Calculation(
+        tmp_path,
+        _config(),
+        LocalBackend(),
+        _spec_builder,
+        command_factory=_trivial_command,
+        stage_centres={"thetaA": [1.0], "separation": [1.5]},
+        steered_md_runner=_counting_smd(tmp_path, counter),
+    )
+
+
 def test_steered_md_runs_once_across_resume(tmp_path):
     counter = {"n": 0}
-
-    def _mk():
-        return Calculation(
-            tmp_path,
-            _config(),
-            LocalBackend(),
-            _spec_builder,
-            command_factory=_trivial_command,
-            stage_centres={"thetaA": [1.0], "separation": [1.5]},
-            steered_md_runner=lambda eq: counter.__setitem__("n", counter["n"] + 1),
+    for _ in range(2):
+        _smd_calc(tmp_path, counter).run(
+            scheduler=Scheduler(LocalBackend(), poll_interval=0.01),
+            pmf_provider=_fake_pmf,
         )
-
-    _mk().run(
-        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
-    )
-    _mk().run(
-        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
-    )
     assert counter["n"] == 1  # not repeated on the resumed run
+
+
+def test_steered_md_reruns_when_a_window_frame_is_missing(tmp_path):
+    # Regression: steered MD recorded as done with a window's frame missing (a
+    # crashed or truncated pull) was never re-run, so the separation windows
+    # failed on every resume.
+    from gluebind import RunState
+    from gluebind.simulation.steered_md import smd_frame_path
+
+    counter = {"n": 0}
+    _smd_calc(tmp_path, counter).run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    smd_frame_path(tmp_path / "smd_frames", 1.5).unlink()
+    for window in _smd_calc(tmp_path, counter)._iter_windows():
+        if window.stage_name == "separation":
+            (window.replicate_dir(1) / "result.json").unlink()
+
+    _smd_calc(tmp_path, counter).run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    assert counter["n"] == 2  # steered MD ran again
+    assert smd_frame_path(tmp_path / "smd_frames", 1.5).exists()
+    assert RunState.load(tmp_path).stage_status["steered_md"] == "done"
 
 
 # ---- analysis --------------------------------------------------------------

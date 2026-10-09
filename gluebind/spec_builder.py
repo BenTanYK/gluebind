@@ -39,6 +39,7 @@ import pathlib
 from collections.abc import Mapping
 
 from gluebind.config.calculation import CalculationConfig
+from gluebind.simulation.steered_md import smd_frame_path
 from gluebind.simulation.window import WindowSpec
 from gluebind.system.atom_map import map_indices, verify_block
 
@@ -277,7 +278,7 @@ class SpecBuilder:
 
     def _separation(self, cv_centre, replicate, boresch_eq_values) -> WindowSpec:
         if self.smd_frames_dir is not None:
-            coordinates = str(self.smd_frames_dir / f"{cv_centre:.4g}nm.rst7")
+            coordinates = str(smd_frame_path(self.smd_frames_dir, cv_centre))
         else:
             coordinates = self.ctx.complex_coordinates
         return WindowSpec(
