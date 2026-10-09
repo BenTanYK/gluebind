@@ -600,6 +600,11 @@ class Calculation(SimulationRunner):
                 sampling=self.config.sampling,
                 platform=self.platform,
                 handle_recorder=self._record_auxiliary_handle,
+                window_centres=self.stage_centres.get("separation")
+                or enumerate_centres(
+                    self.config.sampling.for_cv("separation", "separation")
+                ),
+                warn=self._log.warning,
             )
         else:
             self.steered_md_runner = None

@@ -129,3 +129,98 @@ def test_make_steered_md_runner_submits_backend_job(tmp_path):
     assert spec.boresch_eq_values == {"thetaA": 1.0}
     assert spec.window_centres == [1.5, 2.0]  # deduped + sorted
     assert frames == {1.5: "1.5nm.rst7", 2.0: "2.0nm.rst7"}
+
+
+# ---- periodic-image check --------------------------------------------------
+
+
+def test_closest_periodic_image_across_a_cubic_face():
+    import numpy as np
+    import pytest
+
+    from gluebind.simulation.steered_md import closest_periodic_image
+
+    # 3 A apart through the +x face of a 30 A box, 27 A apart within the cell
+    positions = np.array([[1.0, 15.0, 15.0], [28.0, 15.0, 15.0], [50.0, 50.0, 50.0]])
+    distance, i, j = closest_periodic_image(positions, 30.0 * np.eye(3), [0, 1])
+    assert distance == pytest.approx(3.0)
+    assert {i, j} == {0, 1}  # atom 2 is not solute and is ignored
+
+
+def test_closest_periodic_image_in_a_truncated_octahedron():
+    import numpy as np
+    import pytest
+    from MDAnalysis.lib.mdamath import triclinic_vectors
+
+    from gluebind.simulation.steered_md import closest_periodic_image
+
+    # A single atom's nearest image is one shortest lattice vector away: the edge.
+    box = triclinic_vectors(np.array([100.0, 100.0, 100.0, 70.5288, 109.4712, 70.5288]))
+    distance, i, j = closest_periodic_image(np.array([[3.0, 4.0, 5.0]]), box, [0])
+    assert distance == pytest.approx(100.0, rel=1e-4)
+    assert i == j == 0
+
+
+def test_periodic_image_warning_is_none_when_all_frames_are_clear():
+    from gluebind.simulation.steered_md import periodic_image_warning
+
+    images = {"1.5": {"distance_A": 40.0, "atoms": [1, 2]}}
+    assert periodic_image_warning(images, [1.5]) is None
+
+
+def test_periodic_image_warning_names_close_frames_and_affected_windows():
+    from gluebind.simulation.steered_md import periodic_image_warning
+
+    images = {
+        "2.5": {"distance_A": 20.0, "atoms": [1, 2]},
+        "3.0": {"distance_A": 14.0, "atoms": [1, 2]},
+        "3.5": {"distance_A": 9.5, "atoms": [3, 4]},
+    }
+    message = periodic_image_warning(images, window_centres=[2.5, 3.0])
+    assert "2 frame(s) between 3 and 3.5 nm" in message
+    assert "closest 9.5 A at 3.5 nm" in message
+    assert "windows at 3 nm" in message  # 3.5 nm was only captured, not sampled
+
+
+class _FakeSmdBackendWithImages(_FakeSmdBackend):
+    """Also writes the periodic-image report, with one frame too close."""
+
+    def submit(self, spec):
+        handle = super().submit(spec)
+        report = {"1.5": {"distance_A": 30.0, "atoms": [1, 2]}}
+        report["2.0"] = {"distance_A": 12.0, "atoms": [3, 4]}
+        path = pathlib.Path(spec.work_dir) / "periodic_images.json"
+        path.write_text(json.dumps(report))
+        return handle
+
+
+def _runner(tmp_path, backend, warnings):
+    return make_steered_md_runner(
+        backend=backend,
+        scheduler_factory=lambda: Scheduler(backend, poll_interval=0.0),
+        work_dir=tmp_path / "smd",
+        out_dir=tmp_path / "frames",
+        topology="t.prm7",
+        coordinates="c.rst7",
+        rec_group=[1, 2],
+        lig_group=[3, 4],
+        anchors={"b": 1, "c": 2, "B": 3, "C": 4},
+        rmsd_atoms_bound={"receptor": [1, 2]},
+        snapshot_centres=[1.5, 2.0],
+        sampling=_Sampling(),
+        window_centres=[1.5, 2.0],
+        warn=warnings.append,
+    )
+
+
+def test_steered_md_runner_warns_once_for_periodic_image_contact(tmp_path):
+    warnings: list[str] = []
+    _runner(tmp_path, _FakeSmdBackendWithImages(), warnings)({"thetaA": 1.0})
+    assert len(warnings) == 1
+    assert "closest 12.0 A at 2 nm" in warnings[0]
+
+
+def test_steered_md_runner_is_silent_without_a_report(tmp_path):
+    warnings: list[str] = []
+    _runner(tmp_path, _FakeSmdBackend(), warnings)({"thetaA": 1.0})
+    assert warnings == []

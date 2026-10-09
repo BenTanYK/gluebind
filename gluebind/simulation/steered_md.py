@@ -17,6 +17,7 @@ tested; OpenMM/ParmEd are imported lazily inside the MD functions.
 from __future__ import annotations
 
 import json
+import logging
 import pathlib
 import sys
 from collections.abc import Callable
@@ -25,11 +26,83 @@ import pydantic
 
 SMD_SPEC_FILENAME = "smd.json"
 SMD_RESULT_FILENAME = "result.json"
+SMD_PERIODIC_IMAGES_FILENAME = "periodic_images.json"
+
+PERIODIC_IMAGE_WARNING_ANGSTROM = 15.0
+"""Warn when an SMD frame's solute comes closer than this to its own periodic
+image: separation windows started from such frames may include interactions
+between the partners and their periodic copies (an under-sized box)."""
 
 
 def separation_window_targets(centres) -> list[float]:
     """Sorted, de-duplicated window centres (nm) to snapshot during the pull."""
     return sorted({round(float(c), 4) for c in centres})
+
+
+def closest_periodic_image(positions, box_vectors, atoms) -> tuple[float, int, int]:
+    """Closest approach of ``atoms`` to any of their periodic images.
+
+    ``positions`` is an ``(n_atoms, 3)`` array and ``box_vectors`` the three
+    triclinic box vectors (rows), in the same length unit. Returns
+    ``(distance, i, j)``: atom ``j`` comes within ``distance`` of a periodic copy
+    (a non-zero lattice translation) of atom ``i``. Pairs within the same cell are
+    ignored; translations of up to two cells along each box vector are searched.
+    """
+    import itertools
+
+    import numpy as np
+    from scipy.spatial import KDTree
+
+    atoms = np.asarray(atoms, dtype=int)
+    xyz = np.asarray(positions, dtype=float)[atoms]
+    lattice = np.asarray(box_vectors, dtype=float)
+    tree = KDTree(xyz)
+    best = (float("inf"), -1, -1)
+    for shift in itertools.product(range(-2, 3), repeat=3):
+        if not any(shift):
+            continue
+        distances, nearest = tree.query(xyz + np.asarray(shift) @ lattice)
+        k = int(np.argmin(distances))
+        if distances[k] < best[0]:
+            best = (float(distances[k]), int(atoms[k]), int(atoms[nearest[k]]))
+    return best
+
+
+def periodic_image_warning(
+    periodic_images: dict,
+    window_centres=(),
+    threshold_A: float = PERIODIC_IMAGE_WARNING_ANGSTROM,
+) -> str | None:
+    """Warning text for SMD frames whose solute is within ``threshold_A`` of its
+    periodic image, or ``None`` if every frame is clear.
+
+    ``periodic_images`` is the ``{centre_nm: {distance_A, atoms}}`` report written
+    by :func:`run_smd`; ``window_centres`` marks which frames seed separation
+    windows in the current schedule (the rest were captured for later windows).
+    """
+    close = sorted(
+        (float(c), float(v["distance_A"]))
+        for c, v in periodic_images.items()
+        if float(v["distance_A"]) < threshold_A
+    )
+    if not close:
+        return None
+    windows = {round(float(c), 4) for c in window_centres}
+    used = [c for c, _ in close if round(c, 4) in windows]
+    centre, distance = min(close, key=lambda item: item[1])
+    message = (
+        f"steered MD: the solute comes within {threshold_A:g} A of its own periodic "
+        f"image in {len(close)} frame(s) between {close[0][0]:g} and "
+        f"{close[-1][0]:g} nm (closest {distance:.1f} A at {centre:g} nm). "
+    )
+    if used:
+        message += (
+            f"Separation windows at {', '.join(f'{c:g}' for c in used)} nm start "
+            "from these frames and may include periodic-image interactions; "
+        )
+    else:
+        message += "No current separation window starts from these frames; "
+    return message + "increase prep.box_padding_angstrom before sampling there."
 
 
 def smd_snapshot_targets(schedule) -> list[float]:
@@ -135,6 +208,8 @@ def make_steered_md_runner(
     sampling,
     platform: str = "CUDA",
     handle_recorder: Callable[[str, str], None] | None = None,
+    window_centres=(),
+    warn: Callable[[str], None] | None = None,
 ):
     """Return the ``callable(boresch_eq_values)`` the runner invokes between the
     Boresch and separation stages.
@@ -145,6 +220,11 @@ def make_steered_md_runner(
     submits a single backend job (so the pull runs on a compute node, not the
     driver); the job writes the per-centre frames into ``out_dir``, which the spec
     builder then reads for the separation windows.
+
+    After the job, the periodic-image report is checked and ``warn`` (default: this
+    module's logger) is called once if any frame's solute comes within
+    :data:`PERIODIC_IMAGE_WARNING_ANGSTROM` of its periodic image.
+    ``window_centres`` (the current separation schedule) marks affected windows.
     """
     from gluebind.backend.base import JobSpec, JobState
 
@@ -185,6 +265,13 @@ def make_steered_md_runner(
         )
         if state is not JobState.FINISHED:
             raise RuntimeError(f"steered MD did not finish (state={state})")
+        images_path = work_dir / SMD_PERIODIC_IMAGES_FILENAME
+        if images_path.exists():
+            message = periodic_image_warning(
+                json.loads(images_path.read_text()), window_centres
+            )
+            if message is not None:
+                (warn or logging.getLogger(__name__).warning)(message)
         result_path = work_dir / SMD_RESULT_FILENAME
         if result_path.exists():
             return {float(k): v for k, v in json.loads(result_path.read_text()).items()}
@@ -196,13 +283,16 @@ def make_steered_md_runner(
 def run_smd(work_dir: str | pathlib.Path) -> None:
     """Run the steered MD whose spec is at ``work_dir/smd.json`` (backend entry point).
 
-    Writes the per-centre ``<centre>nm.rst7`` frames into ``spec.out_dir`` and a
-    ``result.json`` mapping centre -> path into ``work_dir``. Raises on failure.
+    Writes the per-centre ``<centre>nm.rst7`` frames into ``spec.out_dir``, a
+    ``result.json`` mapping centre -> path, and ``periodic_images.json`` (each
+    frame's closest solute approach to its periodic image) into ``work_dir``.
+    Raises on failure.
     """
     work_dir = pathlib.Path(work_dir)
     spec = SmdSpec.load(work_dir / SMD_SPEC_FILENAME)
     import openmm as mm
 
+    periodic_images: dict = {}
     frames = run_steered_md(
         topology=spec.topology,
         coordinates=spec.coordinates,
@@ -226,6 +316,10 @@ def run_smd(work_dir: str | pathlib.Path) -> None:
         increment_steps=spec.increment_steps,
         state_data_interval_steps=spec.state_data_interval_steps,
         platform=mm.Platform.getPlatformByName(spec.platform),
+        periodic_images=periodic_images,
+    )
+    (work_dir / SMD_PERIODIC_IMAGES_FILENAME).write_text(
+        json.dumps(periodic_images, indent=2)
     )
     (work_dir / SMD_RESULT_FILENAME).write_text(json.dumps(frames, indent=2))
 
@@ -254,12 +348,17 @@ def run_steered_md(
     increment_steps: int = 100,
     state_data_interval_steps: int = 10000,
     platform=None,
+    periodic_images: dict | None = None,
 ) -> dict[float, str]:
     """Steer the interface separation outward, saving an rst7 per window centre.
 
     Returns ``{centre_nm: rst7_path}``. Force constants default to the template's
     steered-MD values (stiffer than the US windows). Reuses the shared system
     builder and restraint modules so the geometry is identical to sampling.
+
+    If ``periodic_images`` is given, it is filled with ``{centre_nm: {distance_A,
+    atoms}}``: each saved frame's closest approach of the solute to its own
+    periodic image (:func:`closest_periodic_image`).
     """
     import openmm as mm
     import openmm.app as app
@@ -277,6 +376,7 @@ def run_steered_md(
     prmtop, system = sb.build_system(
         topology, hmr_factor=hmr_factor, pme_cutoff_nm=pme_cutoff_nm
     )
+    solute_atoms = sorted(i for m in sb.solute_molecules(prmtop.topology) for i in m)
     positions, box = sb.load_coordinates(coordinates)
     simulation, integrator = sb.build_simulation(
         prmtop, system, timestep_fs=timestep_fs, platform=platform
@@ -355,5 +455,14 @@ def run_steered_md(
                 topology, state.getPositions(), state.getPeriodicBoxVectors(), out_path
             )
             frames[target] = str(out_path)
+            if periodic_images is not None:
+                distance, i, j = closest_periodic_image(
+                    state.getPositions(asNumpy=True).value_in_unit(unit.angstrom),
+                    state.getPeriodicBoxVectors(asNumpy=True).value_in_unit(
+                        unit.angstrom
+                    ),
+                    solute_atoms,
+                )
+                periodic_images[target] = {"distance_A": distance, "atoms": [i, j]}
 
     return frames
