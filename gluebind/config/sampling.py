@@ -53,6 +53,11 @@ class WindowSampling(pydantic.BaseModel):
     smd_pull_margin: float | None = None
     """(separation) Extra distance (nm) SMD steers past ``smd_capture_max`` to
     guarantee the final snapshot is reached."""
+    smd_compression_margin: float | None = None
+    """(separation) Before pulling the partners apart, SMD first steers the
+    separation from its measured starting value down to ``window_min`` minus this
+    distance (nm), then pulls outward, capturing each window's frame on the way
+    out. Sets the compression depth (0 compresses to exactly ``window_min``)."""
     centres: list[float] | dict[str, list[float]] | None = None
     """Explicit window centres — an escape hatch overriding spacing/range.
 
@@ -105,6 +110,13 @@ class WindowSampling(pydantic.BaseModel):
     def _positive_optional(cls, v: float | None) -> float | None:
         if v is not None and v <= 0:
             raise ValueError("must be > 0 when set")
+        return v
+
+    @pydantic.field_validator("smd_compression_margin")
+    @classmethod
+    def _non_negative_optional(cls, v: float | None) -> float | None:
+        if v is not None and v < 0:
+            raise ValueError("must be >= 0 when set")
         return v
 
     def resolved(self, stage_name: str) -> "WindowSampling":
@@ -160,6 +172,7 @@ def _separation_default() -> WindowSampling:
         smd_snapshot_spacing=0.05,
         smd_capture_max=4.0,
         smd_pull_margin=0.5,
+        smd_compression_margin=0.1,
         sampling_time_ns=30.0,
     )
 

@@ -65,6 +65,53 @@ def test_smd_spec_roundtrip(tmp_path):
     assert SmdSpec.load(path) == spec
 
 
+def test_smd_spec_uses_the_published_force_constants(tmp_path):
+    spec = _smd_spec(tmp_path)
+    assert (spec.k_smd, spec.k_rmsd, spec.k_boresch) == (100.0, 100.0, 200.0)
+    assert spec.smd_compression_margin == 0.1
+
+
+# ---- steering schedule: compress, then pull apart --------------------------
+
+
+def test_smd_pull_plan_compresses_from_the_measured_start():
+    # Regression: steering started from a hard-coded 1.15 nm whatever the real
+    # separation, kicking the complex and saving every target below it from the
+    # same first frame.
+    import pytest
+
+    from gluebind.simulation.steered_md import smd_pull_plan
+
+    targets = [0.9, 1.0, 2.0, 4.0]
+    compressed, step, n_compress = smd_pull_plan(
+        1.17, targets, compression_margin=0.1, pull_margin=0.5, n_pull_increments=1000
+    )
+    assert compressed == pytest.approx(0.8)  # smallest target minus the margin
+    assert step == pytest.approx((4.0 + 0.5 - 0.8) / 1000)  # outward rate
+    assert n_compress == 100  # (1.17 - 0.8) / step increments at the same rate
+
+
+def test_smd_pull_plan_with_zero_margin_compresses_to_the_smallest_target():
+    import pytest
+
+    from gluebind.simulation.steered_md import smd_pull_plan
+
+    compressed, _, n_compress = smd_pull_plan(
+        1.17, [0.9, 2.0], compression_margin=0.0, pull_margin=0.5, n_pull_increments=10
+    )
+    assert compressed == pytest.approx(0.9)
+    assert n_compress > 0
+
+
+def test_smd_pull_plan_skips_compression_below_the_compressed_point():
+    from gluebind.simulation.steered_md import smd_pull_plan
+
+    compressed, _, n_compress = smd_pull_plan(
+        0.75, [0.9, 2.0], compression_margin=0.1, pull_margin=0.5, n_pull_increments=10
+    )
+    assert (compressed, n_compress) == (0.75, 0)  # pulled out from where it is
+
+
 def test_smd_launch_command():
     cmd = smd_launch_command()
     assert cmd[:2] == ["python", "-c"]
@@ -114,6 +161,7 @@ class _Sampling:
 
     class separation:
         smd_pull_margin = 0.5
+        smd_compression_margin = 0.1
 
 
 def test_make_steered_md_runner_submits_backend_job(tmp_path):
@@ -143,6 +191,32 @@ def test_make_steered_md_runner_submits_backend_job(tmp_path):
         1.5: str(tmp_path / "frames" / "1.5nm.rst7"),
         2.0: str(tmp_path / "frames" / "2nm.rst7"),
     }
+    assert spec.smd_compression_margin == 0.1
+
+
+def test_steered_md_runner_keeps_a_zero_compression_margin(tmp_path):
+    # 0 is a valid margin (compress to exactly window_min), not "unset".
+    class _ZeroMargin(_Sampling):
+        class separation:
+            smd_pull_margin = 0.5
+            smd_compression_margin = 0.0
+
+    backend = _FakeSmdBackend()
+    make_steered_md_runner(
+        backend=backend,
+        scheduler_factory=lambda: Scheduler(backend, poll_interval=0.0),
+        work_dir=tmp_path / "smd",
+        out_dir=tmp_path / "frames",
+        topology="t.prm7",
+        coordinates="c.rst7",
+        rec_group=[1, 2],
+        lig_group=[3, 4],
+        anchors={"b": 1, "c": 2, "B": 3, "C": 4},
+        rmsd_atoms_bound={"receptor": [1, 2]},
+        snapshot_centres=[1.5],
+        sampling=_ZeroMargin(),
+    )({"thetaA": 1.0})
+    assert backend.submitted[0].smd_compression_margin == 0.0
 
 
 # ---- periodic-image check --------------------------------------------------

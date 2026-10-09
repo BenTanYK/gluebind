@@ -178,6 +178,14 @@ def test_default_force_constants():
     assert s.separation.force_constant == 10.0
 
 
+def test_smd_compression_margin_defaults_and_validation():
+    s = SamplingConfig()
+    assert s.separation.smd_compression_margin == 0.1
+    s.separation.smd_compression_margin = 0.0  # compress to exactly window_min
+    with pytest.raises(ValueError, match=">= 0"):
+        s.separation.smd_compression_margin = -0.1
+
+
 def test_auto_extend_is_rejected():
     with pytest.raises(ValueError, match="auto_extend"):
         SamplingConfig.model_validate({"rmsd": {"auto_extend": True}})

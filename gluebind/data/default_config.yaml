@@ -77,6 +77,7 @@ sampling:
     smd_snapshot_spacing: 0.05   # nm; SMD snapshot grid
     smd_capture_max: 4.0         # nm; largest SMD snapshot separation
     smd_pull_margin: 0.5         # nm; extra SMD pull distance
+    smd_compression_margin: 0.1  # nm; SMD compresses to window_min minus this first
     centres: null                # nm; explicit window centres
     overrides: {}
 

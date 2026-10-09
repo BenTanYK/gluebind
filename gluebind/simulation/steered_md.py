@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import pathlib
 import sys
 from collections.abc import Callable
@@ -37,6 +38,33 @@ between the partners and their periodic copies (an under-sized box)."""
 def separation_window_targets(centres) -> list[float]:
     """Sorted, de-duplicated window centres (nm) to snapshot during the pull."""
     return sorted({round(float(c), 4) for c in centres})
+
+
+def smd_pull_plan(
+    start_nm: float,
+    targets,
+    *,
+    compression_margin: float,
+    pull_margin: float,
+    n_pull_increments: int,
+) -> tuple[float, float, int]:
+    """The steering-centre schedule: compress, then pull the partners apart.
+
+    The centre ``r0`` starts at the measured separation ``start_nm`` and moves
+    down by ``step`` per increment, for ``n_compress`` increments, to
+    ``compressed`` (the smallest target minus ``compression_margin``). It then
+    moves up by ``step`` for ``n_pull_increments`` increments, ending
+    ``pull_margin`` beyond the largest target, so every target is crossed on the
+    way out. Compression uses the outward rate, and is skipped if the start is
+    already at or below ``compressed``.
+
+    Returns ``(compressed, step, n_compress)`` in nm.
+    """
+    targets = separation_window_targets(targets)
+    compressed = min(start_nm, targets[0] - compression_margin)
+    step = (targets[-1] + pull_margin - compressed) / n_pull_increments
+    n_compress = math.ceil((start_nm - compressed) / step - 1e-9)
+    return compressed, step, n_compress
 
 
 def smd_frame_path(frames_dir: str | pathlib.Path, centre: float) -> pathlib.Path:
@@ -177,11 +205,15 @@ class SmdSpec(pydantic.BaseModel):
     timestep_fs: float
     temperature_K: float
 
-    # Steered-MD force constants / schedule (template defaults; stiffer than US)
+    # Steered-MD force constants / schedule (the published protocol's values;
+    # stiffer than US): kcal/mol/Å² for the separation and RMSD restraints,
+    # kcal/mol/rad² for the Boresch restraints.
     k_smd: float = 100.0
-    k_rmsd: float = 50.0
-    k_boresch: float = 250.0
-    initial_r0_nm: float = 1.15
+    k_rmsd: float = 100.0
+    k_boresch: float = 200.0
+    smd_compression_margin: float = 0.1
+    """Distance (nm) below the smallest snapshot target to compress to, from the
+    measured starting separation, before pulling outward."""
     smd_pull_margin: float = 0.5
     """Distance (nm) to steer past the furthest snapshot target so it is reached."""
     total_steps: int = 750_000
@@ -265,6 +297,11 @@ def make_steered_md_runner(
             temperature_K=sampling.temperature_K,
             state_data_interval_steps=sampling.state_data_interval_steps,
             smd_pull_margin=sampling.separation.smd_pull_margin or 0.5,
+            smd_compression_margin=(
+                sampling.separation.smd_compression_margin
+                if sampling.separation.smd_compression_margin is not None
+                else 0.1
+            ),
             platform=platform,
         )
         spec.dump(work_dir / SMD_SPEC_FILENAME)
@@ -350,7 +387,7 @@ def run_smd(work_dir: str | pathlib.Path) -> None:
         k_smd=spec.k_smd,
         k_rmsd=spec.k_rmsd,
         k_boresch=spec.k_boresch,
-        initial_r0_nm=spec.initial_r0_nm,
+        smd_compression_margin=spec.smd_compression_margin,
         smd_pull_margin=spec.smd_pull_margin,
         total_steps=spec.total_steps,
         increment_steps=spec.increment_steps,
@@ -380,9 +417,9 @@ def run_steered_md(
     timestep_fs: float,
     temperature_K: float,
     k_smd: float = 100.0,
-    k_rmsd: float = 50.0,
-    k_boresch: float = 250.0,
-    initial_r0_nm: float = 1.15,
+    k_rmsd: float = 100.0,
+    k_boresch: float = 200.0,
+    smd_compression_margin: float = 0.1,
     smd_pull_margin: float = 0.5,
     total_steps: int = 750_000,
     increment_steps: int = 100,
@@ -390,11 +427,15 @@ def run_steered_md(
     platform=None,
     periodic_images: dict | None = None,
 ) -> dict[float, str]:
-    """Steer the interface separation outward, saving an rst7 per window centre.
+    """Steer the interface separation, saving an rst7 per window centre.
 
-    Returns ``{centre_nm: rst7_path}``. Force constants default to the template's
-    steered-MD values (stiffer than the US windows). Reuses the shared system
-    builder and restraint modules so the geometry is identical to sampling.
+    The steering centre starts at the measured separation, first compresses the
+    partners to ``smd_compression_margin`` below the smallest target, then pulls
+    them apart to ``smd_pull_margin`` beyond the largest, saving each target's
+    frame the first time it is reached on the way out (:func:`smd_pull_plan`);
+    ``total_steps`` covers the outward pull. Returns ``{centre_nm: rst7_path}``.
+    Reuses the shared system builder and restraint modules so the geometry is
+    identical to sampling.
 
     If ``periodic_images`` is given, it is filled with ``{centre_nm: {distance_A,
     atoms}}``: each saved frame's closest approach of the solute to its own
@@ -440,18 +481,31 @@ def run_steered_md(
     sb.minimise_and_heat(simulation, integrator, target_temperature_K=temperature_K)
 
     # The moving separation bias, added after heating the restrained bound state.
+    # Its centre starts at the measured separation, so steering begins smoothly.
     cv = separation_mod.make_cv(rec_group, lig_group)
     steer = mm.CustomCVForce("0.5*k_smd*(cv-r0)^2")
     steer.addGlobalParameter(
         "k_smd", k_smd * unit.kilocalories_per_mole / unit.angstrom**2
     )
-    steer.addGlobalParameter(
-        "r0",
-        initial_r0_nm * unit.nanometers,  # ty: ignore[unresolved-attribute]
-    )
+    steer.addGlobalParameter("r0", 0.0)  # nm; set before the first step
     steer.addCollectiveVariable("cv", cv)
     system.addForce(steer)
     simulation.context.reinitialize(preserveState=True)
+    start = steer.getCollectiveVariableValues(simulation.context)[0]
+
+    n_pull = total_steps // increment_steps
+    compressed, step, n_compress = smd_pull_plan(
+        start,
+        targets,
+        compression_margin=smd_compression_margin,
+        pull_margin=smd_pull_margin,
+        n_pull_increments=n_pull,
+    )
+    print(
+        f"steered MD: starting separation {start:.3f} nm; compressing to "
+        f"{compressed:.3f} nm, then pulling to {targets[-1] + smd_pull_margin:.3f} nm",
+        flush=True,
+    )
     simulation.reporters.append(
         app.StateDataReporter(
             sys.stdout,
@@ -464,29 +518,38 @@ def run_steered_md(
             speed=True,
             progress=True,
             remainingTime=True,
-            totalSteps=total_steps,
+            totalSteps=(n_compress + n_pull) * increment_steps,
             separator="\t",
         )
     )
 
-    # Pull r0 from the initial value out past the furthest target, snapshotting
-    # each target the first time the measured distance reaches it.
-    r0 = initial_r0_nm
-    span = max(targets) - initial_r0_nm + smd_pull_margin
-    per_increment = span / (total_steps // increment_steps)
-    frames: dict[float, str] = {}
-    remaining = list(targets)
-
-    for _ in range(total_steps // increment_steps):
-        if not remaining:
-            break
-        r0 += per_increment
+    def steer_to(r0: float) -> float:
+        """Move the steering centre to ``r0`` (nm), run one increment, and
+        return the measured separation (nm)."""
         simulation.context.setParameter(
             "r0",
             r0 * unit.nanometers,  # ty: ignore[unresolved-attribute]
         )
         simulation.step(increment_steps)
-        current = steer.getCollectiveVariableValues(simulation.context)[0]
+        return steer.getCollectiveVariableValues(simulation.context)[0]
+
+    # Compress: bring the partners together to below the smallest target.
+    closest = start
+    for k in range(1, n_compress + 1):
+        closest = min(closest, steer_to(max(start - k * step, compressed)))
+    print(
+        f"steered MD: closest separation reached while compressing: {closest:.3f} nm",
+        flush=True,
+    )
+
+    # Pull outward past the furthest target, snapshotting each target the first
+    # time the measured distance reaches it.
+    frames: dict[float, str] = {}
+    remaining = list(targets)
+    for k in range(1, n_pull + 1):
+        if not remaining:
+            break
+        current = steer_to(compressed + k * step)
         while remaining and current >= remaining[0]:
             target = remaining.pop(0)
             state = simulation.context.getState(getPositions=True)
