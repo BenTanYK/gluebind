@@ -35,6 +35,18 @@ _CONFIG = pydantic.ConfigDict(extra="forbid", validate_assignment=True)
 RESOLVED_CONFIG_FILENAME = "config_resolved.yaml"
 
 
+def _file_digest(path: str) -> str | None:
+    """SHA-256 of a file's contents, or ``None`` if there is no such file."""
+    file = pathlib.Path(path)
+    if not file.is_file():
+        return None
+    digest = hashlib.sha256()
+    with file.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 class MoleculeInput(pydantic.BaseModel):
     """A pre-parameterised protein, as an AMBER topology/coordinate pair."""
 
@@ -161,19 +173,26 @@ class CalculationConfig(pydantic.BaseModel):
         Persisted in the run state; a resume against a mutated config is caught
         by comparing this hash.
 
-        ``sampling.run_rmsd_us`` is deliberately excluded: it is a scope flag (it
-        only controls whether the RMSD US *stages* are built), not a physics
-        parameter — no already-sampled window's physics depends on it. Excluding it
-        lets a separation-PMF-only run (``run_rmsd_us=False``) be *upgraded* to the
-        full cycle by flipping the flag and re-running, which resumes and simply
-        adds the RMSD stages rather than aborting as config drift.
+        Input files enter the hash as a SHA-256 of their *contents*, not their
+        paths. The hash is therefore the same wherever the run and its inputs live
+        (e.g. a cluster run rsynced to a workstation for analysis), and an input
+        edited in place is detected. A missing input file contributes no digest, so
+        a run whose inputs cannot be read no longer matches.
+
+        The scope flags ``sampling.run_rmsd_us`` and ``sampling.run_separation_us``
+        are deliberately excluded: they only control which stages are built, not
+        the physics of any window. Excluding them lets a run be *upgraded* (e.g. a
+        separation-PMF-only run to the full cycle) by flipping a flag and
+        re-running, which resumes and adds the missing stages rather than aborting
+        as config drift.
         """
-        canonical = json.dumps(
-            self.model_dump(
-                mode="json",
-                exclude={"sampling": {"run_rmsd_us", "run_separation_us"}},
-            ),
-            sort_keys=True,
-            separators=(",", ":"),
+        data = self.model_dump(
+            mode="json",
+            exclude={"sampling": {"run_rmsd_us", "run_separation_us"}},
         )
+        for entry in data["inputs"].values():  # target, receptor, glue, waters
+            for key in ("prm7", "rst7", "sdf", "mol2"):
+                if isinstance(entry, dict) and entry.get(key) is not None:
+                    entry[key] = _file_digest(entry[key])
+        canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode()).hexdigest()

@@ -102,6 +102,41 @@ def test_config_hash_changes_with_content():
     assert a.config_hash != b.config_hash
 
 
+def _write_inputs(directory: pathlib.Path) -> CalculationConfig:
+    """Write tiny input files under ``directory``; return a config using them."""
+    directory.mkdir(parents=True, exist_ok=True)
+    inputs = {}
+    for name, value in MIN_INPUTS.items():
+        inputs[name] = dict(value)
+        for key in ("prm7", "rst7", "sdf"):
+            if key in value:
+                (directory / value[key]).write_text(f"{name} {key}\n")
+                inputs[name][key] = str(directory / value[key])
+    return CalculationConfig.model_validate({"inputs": inputs})
+
+
+def test_config_hash_is_independent_of_where_the_inputs_live(tmp_path):
+    # Regression: absolute input paths entered the hash, so a run rsynced to
+    # another machine failed the hash check and could not be analysed there.
+    on_cluster = _write_inputs(tmp_path / "cluster" / "inputs")
+    on_workstation = _write_inputs(tmp_path / "workstation" / "copy" / "inputs")
+    assert on_cluster.config_hash == on_workstation.config_hash
+
+
+def test_config_hash_detects_an_input_edited_in_place(tmp_path):
+    cfg = _write_inputs(tmp_path)
+    before = cfg.config_hash
+    pathlib.Path(cfg.inputs.receptor.prm7).write_text("re-parameterised\n")
+    assert cfg.config_hash != before
+
+
+def test_config_hash_no_longer_matches_when_an_input_is_missing(tmp_path):
+    cfg = _write_inputs(tmp_path)
+    before = cfg.config_hash
+    pathlib.Path(cfg.inputs.target.rst7).unlink()
+    assert cfg.config_hash != before
+
+
 def test_sampling_override_resolves_per_stage():
     s = SamplingConfig()
     s.rmsd.overrides = {"BD1_bulk": {"sampling_time_ns": 40.0, "window_max": 4.0}}
