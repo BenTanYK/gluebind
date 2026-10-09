@@ -38,9 +38,10 @@ dependencies:
   - pytest-cov
   - codecov
 
-  # Static type checking
+  # Static type checking. Pinned: ty is pre-1.0 and new releases add checks, so
+  # an unpinned install lets CI fail on unchanged code. Bump deliberately.
   - pip:
-      - ty
+      - ty==0.0.85
 
   # Docs
   - mkdocs
