@@ -145,10 +145,13 @@ def run_production(work_dir: str | pathlib.Path) -> None:
     )
     simulation.step(n_steps)
 
-    # Unwrapped - the complex must not be split across periodic images.
+    # Wrapped, unlike the trajectory: after a long run unwrapped waters drift far
+    # outside the box (>1000 A over 100 ns), overflowing rst7's F12.7 fields. This
+    # cannot split the complex, because build_system joins the solute into a
+    # single OpenMM molecule that is wrapped as one unit.
     final = simulation.context.getState(
         getPositions=True,
-        enforcePeriodicBox=False,
+        enforcePeriodicBox=True,
     )
     sb.save_rst7(
         spec.topology,

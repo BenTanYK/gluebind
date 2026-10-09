@@ -138,13 +138,14 @@ def _run_with_fakes(tmp_path, monkeypatch, *, temperature_K=300.0):
     return integrator, simulation, reporters, dcd_reporters
 
 
-def test_run_production_writes_unwrapped_coordinates(tmp_path, monkeypatch):
-    """Regression: the trajectory and final frame must not be wrapped per molecule.
+def test_run_production_periodic_output(tmp_path, monkeypatch):
+    """Regression: the trajectory is unwrapped and the final rst7 frame wrapped.
 
-    OpenMM's default (``enforcePeriodicBox=None``) translates each molecule into
-    the box independently, so the two proteins are written a lattice vector apart
-    once a cell face falls between them — producing spurious jumps in every
-    Boresch DoF computed from the trajectory.
+    A per-molecule-wrapped trajectory wrote the two proteins a lattice vector
+    apart once a cell face fell between them, producing spurious jumps in every
+    Boresch DoF. An unwrapped final frame, however, let waters drift >1000 A out
+    of the box over 100 ns, overflowing rst7's fixed-width fields; wrapping it is
+    safe because build_system joins the solute into one molecule.
     """
     _, simulation, _, dcd_reporters = _run_with_fakes(tmp_path, monkeypatch)
 
@@ -154,7 +155,9 @@ def test_run_production_writes_unwrapped_coordinates(tmp_path, monkeypatch):
         k for k in simulation.context.get_state_kwargs if k.get("getPositions")
     ]
     assert final_frame, "final frame never requested"
-    assert all(k.get("enforcePeriodicBox") is False for k in final_frame)
+    # The final rst7 frame is wrapped (the joined solute stays whole); unwrapped
+    # waters overflow rst7's fixed-width fields after a long run.
+    assert all(k.get("enforcePeriodicBox") is True for k in final_frame)
 
 
 def test_run_production_sets_integrator_bath_to_target(tmp_path, monkeypatch):

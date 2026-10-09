@@ -70,6 +70,19 @@ def test_reference_positions_rejects_bad_mappings(atoms, reference_atoms, match)
         sb.reference_positions(3, atoms, reference_atoms, source)
 
 
+# -- rst7 writing ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", [-1283.5, 10000.5])
+def test_save_rst7_rejects_coordinates_that_overflow_rst7(tmp_path, bad):
+    """Regression: an unwrapped 100 ns production frame had waters at -1283 A,
+    which overflow rst7's F12.7 fields and made the file unreadable."""
+    positions = _nm([[0, 0, 0], [bad / 10, 0, 0]])
+    with pytest.raises(ValueError, match="outside the rst7 range"):
+        sb.save_rst7("unused.prm7", positions, None, tmp_path / "out.rst7")
+    assert not (tmp_path / "out.rst7").exists()
+
+
 # -- solute joining (periodic re-imaging) --------------------------------------
 
 BOX_NM = 3.0

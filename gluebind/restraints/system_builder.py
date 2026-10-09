@@ -292,9 +292,30 @@ def load_coordinates(path):
     return inpcrd.positions, inpcrd.boxVectors
 
 
+# AMBER rst7 stores coordinates as F12.7: anything outside this range overflows
+# its 12-character field and corrupts the file for every reader.
+RST7_COORDINATE_RANGE_ANGSTROM = (-999.9999999, 9999.9999999)
+
+
 def save_rst7(prmtop_path, positions, box_vectors, out_path) -> None:
-    """Write an AMBER rst7 (positions + box) that a later run can reload."""
+    """Write an AMBER rst7 (positions + box) that a later run can reload.
+
+    Raises if any coordinate does not fit rst7's fixed-width fields (e.g. an
+    unwrapped frame after a long run), rather than writing an unreadable file.
+    """
     import parmed
+
+    xyz = np.asarray(
+        positions.value_in_unit(unit.angstrom),
+        dtype=float,
+    )
+    low, high = RST7_COORDINATE_RANGE_ANGSTROM
+    if xyz.size and (xyz.min() < low or xyz.max() > high):
+        raise ValueError(
+            f"cannot write {out_path}: coordinates span {xyz.min():.1f} to "
+            f"{xyz.max():.1f} A, outside the rst7 range [{low:.0f}, {high:.0f}] A; "
+            "write wrapped positions (getState(enforcePeriodicBox=True))"
+        )
 
     structure = parmed.load_file(str(prmtop_path))
     structure.positions = positions
