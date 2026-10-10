@@ -568,9 +568,16 @@ class Calculation(SimulationRunner):
 
             # SMD saves a dense snapshot grid (decoupled from — and finer than —
             # the US window schedule), so windows can be added later without
-            # re-running SMD.
+            # re-running SMD. With window_min "auto" the grid starts at the value
+            # restraint resolution resolved it to (the smallest separation window).
+            sep_schedule = self.config.sampling.for_cv("separation", "separation")
             snapshot_centres = smd_snapshot_targets(
-                self.config.sampling.for_cv("separation", "separation")
+                sep_schedule,
+                window_min=(
+                    min(self.stage_centres["separation"])
+                    if sep_schedule.window_min == "auto"
+                    else None
+                ),
             )
             self.steered_md_runner = make_steered_md_runner(
                 backend=self.backend,

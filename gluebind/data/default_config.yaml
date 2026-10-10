@@ -70,7 +70,9 @@ sampling:
     sampling_time_ns: 30.0       # ns; recorded sampling per window
     equil_discard_ns: 0.0        # ns; discarded equilibration per window
     window_spacing: 0.05         # nm; separation window spacing
-    window_min: 0.9              # nm
+    window_min: auto             # nm, or "auto": equilibrium separation minus the
+                                 # offset below, rounded down to window_spacing
+    window_min_auto_offset: 0.3  # nm; used when window_min is auto
     window_max: 3.0              # nm
     coarse_from: 2.1             # nm
     coarse_spacing: 0.1          # nm

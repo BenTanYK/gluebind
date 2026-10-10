@@ -72,23 +72,32 @@ def run_restraint_resolution(work_dir: str | pathlib.Path) -> None:
     # restraint resolution, so the driver never needs MDAnalysis.
     write_rmsf_report(prepared, spec.config, spec.prep_dir)
     prepared_identity = prepared_hash(prepared)
+    report: dict = {}
+    stage_centres = compute_stage_centres(
+        prepared,
+        context,
+        spec.config,
+        distributions_dir=pathlib.Path(spec.prep_dir) / BORESCH_DISTRIBUTION_DIRNAME,
+        distribution_metadata={
+            "config_hash": spec.config_hash,
+            "prepared_hash": prepared_identity,
+            "anchors": context.anchors,
+        },
+        report=report,
+    )
+    if report:
+        print(
+            "restraint resolution: equilibrium separation "
+            f"{report['separation_equilibrium_nm']:.3f} nm; window_min auto -> "
+            f"{report['separation_window_min_nm']:g} nm",
+            flush=True,
+        )
     resolved = ResolvedRestraintContext(
         config_hash=spec.config_hash,
         prepared_hash=prepared_identity,
         context=context_to_data(context),
-        stage_centres=compute_stage_centres(
-            prepared,
-            context,
-            spec.config,
-            distributions_dir=(
-                pathlib.Path(spec.prep_dir) / BORESCH_DISTRIBUTION_DIRNAME
-            ),
-            distribution_metadata={
-                "config_hash": spec.config_hash,
-                "prepared_hash": prepared_identity,
-                "anchors": context.anchors,
-            },
-        ),
+        stage_centres=stage_centres,
+        **report,
     )
     resolved.dump(spec.output_path)
     (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).write_text(

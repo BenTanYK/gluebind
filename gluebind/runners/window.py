@@ -49,6 +49,11 @@ def enumerate_centres(schedule) -> list[float]:
         )
     if schedule.centres is not None:
         return [round(c, 4) for c in schedule.centres]
+    if schedule.window_min == "auto":
+        raise ValueError(
+            "window_min 'auto' is resolved from the equilibration trajectory during "
+            "restraint resolution; resolve it before enumerating windows"
+        )
     if (
         not schedule.window_spacing
         or schedule.window_min is None

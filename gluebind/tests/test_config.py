@@ -186,6 +186,30 @@ def test_smd_compression_margin_defaults_and_validation():
         s.separation.smd_compression_margin = -0.1
 
 
+def test_separation_window_min_defaults_to_auto_and_accepts_a_number():
+    s = SamplingConfig()
+    assert s.separation.window_min == "auto"
+    assert s.separation.window_min_auto_offset == 0.3
+    custom = SamplingConfig.model_validate(
+        {"separation": {**s.separation.model_dump(), "window_min": 0.9}}
+    )
+    assert custom.separation.window_min == 0.9  # a user value is kept as given
+
+
+@pytest.mark.parametrize("cv", ["rmsd", "boresch"])
+def test_auto_window_min_is_only_for_the_separation_schedule(cv):
+    data = SamplingConfig().model_dump()
+    data[cv]["window_min"] = "auto"
+    with pytest.raises(ValueError, match="only the separation schedule"):
+        SamplingConfig.model_validate(data)
+
+
+def test_auto_window_min_offset_must_be_positive():
+    s = SamplingConfig()
+    with pytest.raises(ValueError, match="> 0"):
+        s.separation.window_min_auto_offset = 0.0
+
+
 def test_auto_extend_is_rejected():
     with pytest.raises(ValueError, match="auto_extend"):
         SamplingConfig.model_validate({"rmsd": {"auto_extend": True}})

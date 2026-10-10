@@ -31,7 +31,9 @@ def test_smd_snapshot_targets_dense_grid_and_windows_subset():
     from gluebind.runners.window import enumerate_centres
     from gluebind.simulation.steered_md import smd_snapshot_targets
 
-    sep = SamplingConfig().for_cv("separation", "separation")
+    s = SamplingConfig()
+    s.separation.window_min = 0.9
+    sep = s.for_cv("separation", "separation")
     targets = smd_snapshot_targets(sep)
     assert targets[0] == 0.9
     assert targets[-1] == 4.0  # smd_capture_max, denser than the US schedule
@@ -39,6 +41,19 @@ def test_smd_snapshot_targets_dense_grid_and_windows_subset():
     # every US window centre must land on the snapshot grid (so it has a seed frame)
     grid = set(targets)
     assert all(round(c, 4) in grid for c in enumerate_centres(sep))
+
+
+def test_smd_snapshot_targets_start_from_a_resolved_auto_window_min():
+    import pytest
+
+    from gluebind.config.sampling import SamplingConfig
+    from gluebind.simulation.steered_md import smd_snapshot_targets
+
+    sep = SamplingConfig().for_cv("separation", "separation")  # window_min "auto"
+    with pytest.raises(ValueError, match="must be resolved"):
+        smd_snapshot_targets(sep)
+    targets = smd_snapshot_targets(sep, window_min=0.85)
+    assert targets[0] == 0.85 and targets[-1] == 4.0
 
 
 def _smd_spec(tmp_path):

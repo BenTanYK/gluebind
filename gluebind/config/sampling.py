@@ -17,6 +17,8 @@ Force-constant units are per-CV-type:
 
 from __future__ import annotations
 
+from typing import Literal
+
 import pydantic
 
 _CONFIG = pydantic.ConfigDict(extra="forbid", validate_assignment=True)
@@ -34,7 +36,15 @@ class WindowSampling(pydantic.BaseModel):
     """Spacing between window centres. ``None`` when ``centres`` is given, or
     when the range is derived at runtime (e.g. Boresch from the unrestrained-MD
     distribution, separation from steered-MD save points)."""
-    window_min: float | None = None
+    window_min: float | Literal["auto"] | None = None
+    """Smallest window centre. For the separation CV, ``"auto"`` places it
+    ``window_min_auto_offset`` below the equilibrium separation measured over the
+    equilibration trajectory, rounded down to the ``window_spacing`` grid; it is
+    resolved during restraint resolution."""
+    window_min_auto_offset: float | None = None
+    """(separation) Distance (nm) below the measured equilibrium separation at
+    which ``window_min: auto`` starts the windows, so the inner wall of the PMF is
+    covered."""
     window_max: float | None = None
     coarse_from: float | None = None
     """Transition point beyond which ``coarse_spacing`` replaces ``window_spacing``
@@ -105,6 +115,7 @@ class WindowSampling(pydantic.BaseModel):
         "smd_snapshot_spacing",
         "smd_capture_max",
         "smd_pull_margin",
+        "window_min_auto_offset",
     )
     @classmethod
     def _positive_optional(cls, v: float | None) -> float | None:
@@ -157,14 +168,18 @@ def _rmsd_default() -> WindowSampling:
 
 
 def _separation_default() -> WindowSampling:
-    # Two-phase schedule (nm): 0.05 nm windows over 0.90-2.10 nm (fine, near
-    # contact), then 0.10 nm beyond up to window_max. These fall on the 0.05 nm
-    # SMD snapshot grid, so windows can be added later without re-running SMD.
-    # window_max defaults to 3.0 nm (compute-saving); the plateau check flags if
-    # more windows (up to the 4.0 nm SMD capture range) are needed.
+    # Two-phase schedule (nm): 0.05 nm windows from window_min to 2.10 nm (fine,
+    # near contact), then 0.10 nm beyond up to window_max. window_min is "auto":
+    # 0.3 nm below the measured equilibrium separation (the deepest the inner PMF
+    # wall was sampled across benchmark systems was ~0.3 nm), on the 0.05 nm grid.
+    # The windows fall on the 0.05 nm SMD snapshot grid, so windows can be added
+    # later without re-running SMD. window_max defaults to 3.0 nm (compute-saving);
+    # the plateau check flags if more windows (up to the 4.0 nm SMD capture range)
+    # are needed.
     return WindowSampling(
         force_constant=10.0,
-        window_min=0.90,
+        window_min="auto",
+        window_min_auto_offset=0.3,
         window_max=3.0,
         window_spacing=0.05,
         coarse_from=2.10,
@@ -243,6 +258,25 @@ class SamplingConfig(pydantic.BaseModel):
         if v < 0:
             raise ValueError("window_heating_ns must be >= 0")
         return v
+
+    @pydantic.model_validator(mode="after")
+    def _auto_window_min_only_for_separation(self):
+        # The equilibrium value that "auto" is measured from only exists for the
+        # separation CV.
+        for name in ("boresch", "rmsd"):
+            if getattr(self, name).window_min == "auto":
+                raise ValueError(
+                    f"{name}.window_min cannot be 'auto'; only the separation "
+                    "schedule supports it"
+                )
+        if (
+            self.separation.window_min == "auto"
+            and self.separation.window_min_auto_offset is None
+        ):
+            raise ValueError(
+                "separation.window_min 'auto' needs separation.window_min_auto_offset"
+            )
+        return self
 
     @pydantic.field_validator(
         "sample_interval_steps",

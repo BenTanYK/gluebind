@@ -71,7 +71,6 @@ def test_boresch_centres_broad_contiguous_is_fine():
     assert centres[0] <= -2.0 and centres[-1] >= 2.0
 
 
-
 def test_write_boresch_distributions_preserves_raw_and_analysis_values(tmp_path):
     series = {
         "thetaA": np.array([0.1, 0.2]),
@@ -97,6 +96,7 @@ def test_write_boresch_distributions_preserves_raw_and_analysis_values(tmp_path)
     assert metadata["config_hash"] == "abc"
     assert metadata["frame_count"] == 2
 
+
 def test_compute_stage_centres_uses_explicit_boresch_centres_without_trajectory():
     config = _config(
         {
@@ -107,15 +107,75 @@ def test_compute_stage_centres_uses_explicit_boresch_centres_without_trajectory(
             "phiC": [0.7, 0.8],
         }
     )
+    config.sampling.separation.window_min = 0.9  # no trajectory to resolve "auto"
     prepared = type("Prepared", (), {"complex_trajectory": None})()
     centres = compute_stage_centres(prepared, None, config)
     assert centres["thetaA"] == [0.91, 1.03]
-    assert set(centres) == {
-        "thetaA", "thetaB", "phiA", "phiB", "phiC", "separation"
-    }
+    assert set(centres) == {"thetaA", "thetaB", "phiA", "phiB", "phiC", "separation"}
 
 
 def test_compute_stage_centres_requires_trajectory_for_missing_boresch_centres():
     prepared = type("Prepared", (), {"complex_trajectory": None})()
     with pytest.raises(ValueError, match="need an equilibration trajectory"):
         compute_stage_centres(prepared, None, _config())
+
+
+# ---- window_min: auto ------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "equilibrium, expected",
+    [
+        (1.17, 0.85),  # 0.87 rounds down, keeping at least 0.3 nm below
+        (1.15, 0.85),  # exactly on the grid
+        (0.93, 0.60),  # a compact interface
+        (1.42, 1.10),  # a loose interface
+    ],
+)
+def test_auto_window_min_is_offset_below_equilibrium_on_the_grid(equilibrium, expected):
+    from gluebind.stage_centres import auto_window_min
+
+    assert auto_window_min(equilibrium, 0.3, 0.05) == pytest.approx(expected)
+
+
+def test_auto_window_min_rejects_a_non_positive_result():
+    from gluebind.stage_centres import auto_window_min
+
+    with pytest.raises(ValueError, match="set window_min explicitly"):
+        auto_window_min(0.25, 0.3, 0.05)
+
+
+def test_compute_stage_centres_resolves_auto_window_min(monkeypatch):
+    # The default separation window_min ("auto") follows the system: a fixed
+    # 0.9 nm under-covered the PMF's inner wall for compact interfaces.
+    import gluebind.stage_centres as sc
+
+    boresch = {
+        "thetaA": [0.91],
+        "thetaB": [0.81],
+        "phiA": [-0.2],
+        "phiB": [0.4],
+        "phiC": [0.7],
+    }
+    trajectory_separation = np.array([1.15, 1.17, 1.19])  # nm; mean 1.17
+    monkeypatch.setattr(
+        sc, "_load_boresch_series", lambda p, c: {"separation": trajectory_separation}
+    )
+    prepared = type("Prepared", (), {"complex_trajectory": "eq.dcd"})()
+    report: dict = {}
+    centres = compute_stage_centres(prepared, None, _config(boresch), report=report)
+    assert centres["separation"][0] == pytest.approx(0.85)
+    assert centres["separation"][1] == pytest.approx(0.90)
+    assert report == {
+        "separation_equilibrium_nm": pytest.approx(1.17),
+        "separation_window_min_nm": pytest.approx(0.85),
+    }
+
+
+def test_auto_window_min_without_a_trajectory_asks_for_an_explicit_value():
+    config = _config(
+        {"thetaA": [1], "thetaB": [1], "phiA": [0], "phiB": [0], "phiC": [0]}
+    )
+    prepared = type("Prepared", (), {"complex_trajectory": None})()
+    with pytest.raises(ValueError, match="set separation.window_min explicitly"):
+        compute_stage_centres(prepared, None, config)

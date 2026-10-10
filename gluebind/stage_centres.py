@@ -21,6 +21,24 @@ BORESCH_DISTRIBUTION_DIRNAME = "boresch_distributions"
 BORESCH_DISTRIBUTION_METADATA = "metadata.json"
 
 
+def auto_window_min(
+    equilibrium_nm: float, offset_nm: float, spacing_nm: float
+) -> float:
+    """The separation ``window_min`` for ``window_min: auto``.
+
+    ``offset_nm`` below the equilibrium separation, rounded *down* to a multiple of
+    ``spacing_nm`` so the windows reach at least ``offset_nm`` below equilibrium
+    and lie on the SMD snapshot grid. Raises if that is not a positive separation.
+    """
+    value = math.floor((equilibrium_nm - offset_nm) / spacing_nm + 1e-9) * spacing_nm
+    if value <= 0:
+        raise ValueError(
+            f"window_min 'auto' gives {value:.3f} nm (equilibrium separation "
+            f"{equilibrium_nm:.3f} nm minus {offset_nm} nm); set window_min explicitly"
+        )
+    return round(value, 4)
+
+
 def periodic_image(values):
     """Map angular values to the periodic image around their circular mean."""
     import numpy as np
@@ -76,7 +94,8 @@ def boresch_centres_from_series(
 
 
 def _load_boresch_series(prepared, context):
-    """Load the equilibration trajectory and calculate all five DoF series."""
+    """Load the equilibration trajectory and calculate all five DoF series, plus
+    ``"separation"``: the interface-centroid distance (nm) in every frame."""
     import numpy as np
 
     from gluebind.boresch_geometry import DOFS
@@ -102,7 +121,10 @@ def _load_boresch_series(prepared, context):
         "B": series[context.anchors["B"]],
         "C": series[context.anchors["C"]],
     }
-    return {dof: dof_timeseries(points, dof) for dof in DOFS}
+    result = {dof: dof_timeseries(points, dof) for dof in DOFS}
+    # Same centroids as the separation CV (Å -> nm).
+    result["separation"] = np.linalg.norm(points["A"] - points["a"], axis=1) / 10.0
+    return result
 
 
 def write_boresch_distributions(
@@ -164,6 +186,7 @@ def compute_stage_centres(
     *,
     distributions_dir: str | pathlib.Path | None = None,
     distribution_metadata: dict | None = None,
+    report: dict | None = None,
 ) -> dict[str, list[float]]:
     """Boresch DoF centres (from the equilibration trajectory) + separation centres.
 
@@ -172,15 +195,21 @@ def compute_stage_centres(
       window spacing. Requires ``prepared.complex_trajectory``.
     * **Separation** — from the configured schedule (explicit ``centres`` or
       ``window_min``/``window_max``/``window_spacing``); these are the centres the
-      steered MD snapshots.
+      steered MD snapshots. ``window_min: auto`` is resolved here from the mean
+      interface-centroid separation over the equilibration trajectory
+      (:func:`auto_window_min`); if ``report`` is given, it receives
+      ``separation_equilibrium_nm`` and the resolved ``separation_window_min_nm``.
 
     RMSD stage centres are *not* returned — the runner derives those from the
     sampling schedule directly.
     """
+    import numpy as np
+
     from gluebind.boresch_geometry import DOFS
     from gluebind.runners.window import enumerate_centres
 
     centres: dict[str, list[float]] = {}
+    series = None
     configured = config.sampling.boresch.centres
     if isinstance(configured, dict):
         explicit = {
@@ -218,7 +247,24 @@ def compute_stage_centres(
         )
     centres.update(explicit)
 
-    centres["separation"] = enumerate_centres(
-        config.sampling.for_cv("separation", "separation")
-    )
+    schedule = config.sampling.for_cv("separation", "separation")
+    if schedule.window_min == "auto":
+        if not schedule.window_spacing:
+            raise ValueError("window_min 'auto' needs separation.window_spacing")
+        if series is None:
+            if prepared.complex_trajectory is None:
+                raise ValueError(
+                    "window_min 'auto' needs the equilibration trajectory; set "
+                    "separation.window_min explicitly"
+                )
+            series = _load_boresch_series(prepared, context)
+        equilibrium = float(np.mean(series["separation"]))
+        window_min = auto_window_min(
+            equilibrium, schedule.window_min_auto_offset, schedule.window_spacing
+        )
+        schedule = schedule.model_copy(update={"window_min": window_min})
+        if report is not None:
+            report["separation_equilibrium_nm"] = round(equilibrium, 4)
+            report["separation_window_min_nm"] = window_min
+    centres["separation"] = enumerate_centres(schedule)
     return centres

@@ -160,12 +160,22 @@ def test_enumerate_two_phase_separation():
     assert max(centres) <= 3.0
 
 
-def test_separation_default_enumerates():
-    # regression: the separation default must be enumerable (previously raised)
+def test_separation_schedule_enumerates_with_an_explicit_window_min():
     from gluebind.config.sampling import SamplingConfig
 
-    centres = enumerate_centres(SamplingConfig().for_cv("separation", "separation"))
+    s = SamplingConfig()
+    s.separation.window_min = 0.9
+    centres = enumerate_centres(s.for_cv("separation", "separation"))
     assert centres[0] == 0.9 and max(centres) <= 3.0
+
+
+def test_separation_default_auto_window_min_needs_resolution():
+    # The default window_min is "auto", resolved from the equilibration
+    # trajectory during restraint resolution, so it cannot be enumerated before.
+    from gluebind.config.sampling import SamplingConfig
+
+    with pytest.raises(ValueError, match="restraint resolution"):
+        enumerate_centres(SamplingConfig().for_cv("separation", "separation"))
 
 
 def test_format_label():

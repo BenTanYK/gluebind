@@ -32,6 +32,11 @@ class ResolvedRestraintContext(pydantic.BaseModel):
     prepared_hash: str
     context: dict
     stage_centres: dict[str, list[float]]
+    separation_equilibrium_nm: float | None = None
+    """Mean interface-centroid separation over the equilibration trajectory, when
+    measured to resolve ``window_min: auto`` (provenance)."""
+    separation_window_min_nm: float | None = None
+    """The separation ``window_min`` that ``auto`` resolved to (provenance)."""
 
     def dump(self, path: str | pathlib.Path) -> pathlib.Path:
         path = pathlib.Path(path)

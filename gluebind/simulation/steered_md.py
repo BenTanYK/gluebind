@@ -148,16 +148,24 @@ def periodic_image_warning(
     return message + "increase prep.box_padding_angstrom before sampling there."
 
 
-def smd_snapshot_targets(schedule) -> list[float]:
+def smd_snapshot_targets(schedule, window_min: float | None = None) -> list[float]:
     """Dense SMD snapshot grid (nm) from a separation :class:`WindowSampling`.
 
     Snapshots are saved from ``window_min`` to ``smd_capture_max`` at
     ``smd_snapshot_spacing`` — finer than, and independent of, the US window
     schedule. The US windows are a subset of this grid, so windows can be added
     later (up to ``smd_capture_max``) without re-running steered MD.
+    ``window_min`` overrides the schedule's, e.g. with the value ``"auto"``
+    resolved to during restraint resolution.
     """
+    lo = schedule.window_min if window_min is None else window_min
+    if lo == "auto":
+        raise ValueError(
+            "window_min 'auto' must be resolved (restraint resolution) before the "
+            "SMD snapshot grid can be built"
+        )
     if (
-        schedule.window_min is None
+        lo is None
         or schedule.smd_snapshot_spacing is None
         or schedule.smd_capture_max is None
     ):
@@ -165,11 +173,7 @@ def smd_snapshot_targets(schedule) -> list[float]:
             "separation schedule needs window_min, smd_snapshot_spacing and "
             "smd_capture_max to build the SMD snapshot grid"
         )
-    lo, hi, step = (
-        schedule.window_min,
-        schedule.smd_capture_max,
-        schedule.smd_snapshot_spacing,
-    )
+    hi, step = schedule.smd_capture_max, schedule.smd_snapshot_spacing
     n = int(round((hi - lo) / step))
     return [round(lo + i * step, 4) for i in range(n + 1)]
 
