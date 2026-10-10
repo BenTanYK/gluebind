@@ -67,9 +67,14 @@ def test_separation_contribution_rejects_r_star_outside_the_sampled_pmf(r_star):
         fe.separation_contribution(x, pmf, r_star=r_star)
 
 
-def test_separation_contribution_rejects_an_unsampled_w_r_star():
+@pytest.mark.parametrize(
+    "bad",
+    [np.inf, np.nan, -np.inf],
+    ids=["unsampled bin (inf)", "failed WHAM run (nan)", "-inf"],
+)
+def test_separation_contribution_rejects_a_non_finite_w_r_star(bad):
     x, pmf = _pmf_with_unsampled_margins()
-    pmf[np.argmax(x >= 2.5)] = np.inf  # a gap inside the sampled range
+    pmf[np.argmax(x >= 2.5)] = bad  # a bad bin inside the sampled range
     with pytest.raises(ValueError, match=r"W\(r\*\) is not finite"):
         fe.separation_contribution(x, pmf, r_star=2.5)
 
