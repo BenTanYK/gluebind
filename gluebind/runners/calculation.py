@@ -60,6 +60,10 @@ from gluebind.stop import StopController, StopRequested
 # free-energy integrals) work in nm. 1 Å^-2 = 100 nm^-2.
 _A2_TO_NM2 = 100.0
 ANALYSIS_RESULT_FILENAME = "analysis.json"
+# The default r* sits this far inside the outermost separation window centre, so
+# W(r*) is always read from a grid point within the sampled windows rather than
+# depending on exactly where WHAM's bins fall relative to that centre.
+R_STAR_BUFFER_NM = 0.01
 # Held exclusively by the process driving a calculation (run/prepare), so a second
 # driver on the same directory fails instead of submitting duplicate jobs.
 RUN_LOCK_FILENAME = ".gluebind-run.lock"
@@ -1181,8 +1185,8 @@ class Calculation(SimulationRunner):
         With no arguments, everything is resolved from the run: ``pmf_provider``
         defaults to a local WHAM provider, the ``theta_*`` minima come from the
         Boresch equilibrium values in the run state, and ``r_star_nm`` is the
-        outermost separation window centre. Any of them may be passed explicitly
-        to override.
+        outermost separation window centre minus :data:`R_STAR_BUFFER_NM`
+        (0.01 nm). Any of them may be passed explicitly to override.
 
         ``pmf_provider(stage)`` returns ``(cv, mean_pmf)`` or, to enable the
         uncertainty estimate, ``(cv, mean_pmf, [pmf_per_repeat, ...])``. The
@@ -1239,7 +1243,7 @@ class Calculation(SimulationRunner):
                     sep = enumerate_centres(
                         self.config.sampling.for_cv("separation", "separation")
                     )
-                r_star_nm = max(sep)
+                r_star_nm = max(sep) - R_STAR_BUFFER_NM
 
         k_boresch = self.config.sampling.boresch.force_constant  # kcal/mol/rad^2
         k_rmsd = (

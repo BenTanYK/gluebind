@@ -742,9 +742,23 @@ def test_analyse_derives_theta_and_r_star_from_state(tmp_path):
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
     )
 
-    # No r_star/theta passed: theta minima from the run state, r_star from the
-    # outermost separation centre (1.5).
-    result = calc.analyse(_fake_pmf)
+    # No r_star/theta passed: theta minima from the run state, r_star just inside
+    # the outermost separation centre (1.5 - 0.01 nm).
+    import gluebind.runners.calculation as calc_mod
+
+    seen = {}
+    real_correction = calc_mod.standard_state_correction
+
+    def spy(r_star, *args, **kwargs):
+        seen["r_star"] = r_star
+        return real_correction(r_star, *args, **kwargs)
+
+    calc_mod.standard_state_correction = spy
+    try:
+        result = calc.analyse(_fake_pmf)
+    finally:
+        calc_mod.standard_state_correction = real_correction
+    assert seen["r_star"] == pytest.approx(1.5 - calc_mod.R_STAR_BUFFER_NM)
     assert set(result) == {
         "dg_bind",
         "dg_bind_sem",
