@@ -108,8 +108,8 @@ def _r_star_point(x: np.ndarray, pmf: np.ndarray, r_star: float) -> tuple[int, f
     index = int(np.argmax(x >= r_star))
     if not sampled[index]:
         raise ValueError(
-            f"W(r*) is undefined: the PMF bin at {x[index]:.4f} nm (first point at "
-            f"or beyond r* = {r_star:.4f} nm) was not sampled"
+            f"W(r*) is not finite at {x[index]:.4f} nm (the first PMF point at or "
+            f"beyond r* = {r_star:.4f} nm): an unsampled bin or a failed WHAM run"
         )
     return index, float(pmf[index])
 
