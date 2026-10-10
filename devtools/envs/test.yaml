@@ -50,5 +50,6 @@ dependencies:
   - mkdocs-literate-nav
   - mkdocstrings
   - mkdocstrings-python >=1.10.8
+  - pymdown-extensions <12.2
   - black
   - mike

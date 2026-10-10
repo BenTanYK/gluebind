@@ -21,7 +21,7 @@ nav:
 - Home:
   - Overview: index.md
 - Theory: theory.md
-- Getting started: geting_started.md
+- Getting started: getting_started.md
 - API reference: reference/
 - Development: development.md
 
