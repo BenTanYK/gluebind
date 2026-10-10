@@ -889,9 +889,11 @@ def test_analyse_r_star_falls_back_to_config(tmp_path):
     # When stage_centres lacks separation (e.g. a fresh/degenerate wiring), r_star
     # falls back to the config schedule instead of raising.
     cfg = _config()
+    # Within the fake PMF's 0-2 nm grid, so the derived r* (1.65 - 0.01) is valid.
     cfg.sampling.separation.window_min = 1.15
-    cfg.sampling.separation.window_max = 3.0
+    cfg.sampling.separation.window_max = 1.65
     cfg.sampling.separation.window_spacing = 0.5
+    cfg.sampling.separation.coarse_from = None  # single-phase grid up to window_max
     calc = Calculation(
         tmp_path,
         cfg,

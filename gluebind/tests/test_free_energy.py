@@ -50,6 +50,54 @@ def test_separation_requires_two_points():
         fe.separation_contribution([1.0], [0.0], r_star=1.0)
 
 
+def _pmf_with_unsampled_margins():
+    """WHAM-like output: sampled 0.9-3.0 nm, empty (inf) margin bins either side."""
+    x = np.round(np.arange(0.80, 3.1001, 0.01), 4)
+    pmf = np.where((x >= 0.9) & (x <= 3.0), 10.0 * (x - 1.2) ** 2, np.inf)
+    return x, pmf
+
+
+@pytest.mark.parametrize("r_star", [3.5, 3.05, 0.85])
+def test_separation_contribution_rejects_r_star_outside_the_sampled_pmf(r_star):
+    # Regression: r* beyond the grid silently took W(r*) from pmf[0] and
+    # integrated everything (a plausible-looking but wrong ΔG); r* in an unsampled
+    # margin bin gave W(r*) = inf and a NaN result.
+    x, pmf = _pmf_with_unsampled_margins()
+    with pytest.raises(ValueError, match="outside the sampled separation PMF"):
+        fe.separation_contribution(x, pmf, r_star=r_star)
+
+
+def test_separation_contribution_rejects_an_unsampled_w_r_star():
+    x, pmf = _pmf_with_unsampled_margins()
+    pmf[np.argmax(x >= 2.5)] = np.inf  # a gap inside the sampled range
+    with pytest.raises(ValueError, match="was not sampled"):
+        fe.separation_contribution(x, pmf, r_star=2.5)
+
+
+def test_separation_contribution_unchanged_for_a_valid_r_star():
+    # W(r*) is the first grid point at or beyond r*, and the integral includes it.
+    x, pmf = _pmf_with_unsampled_margins()
+    r_star = 2.99
+    i = int(np.argmax(x >= r_star))
+    beta = 1.0 / (fe.BOLTZMANN * fe.TEMPERATURE)
+    width = float(x[1] - x[0])
+    expected_integral = width * sum(
+        math.exp(-beta * (p - pmf[i])) for p in pmf[: i + 1] if np.isfinite(p)
+    )
+    expected = -math.log(3.0 * expected_integral / fe.RADIUS_SPHERE_NM) / beta
+    assert fe.separation_contribution(x, pmf, r_star) == pytest.approx(expected)
+
+
+def test_separation_convergence_check_rejects_r_star_outside_the_sampled_pmf():
+    x, pmf = _pmf_with_unsampled_margins()
+    with pytest.raises(ValueError, match="outside the sampled separation PMF"):
+        fe.contribution_converged(
+            x, pmf, cv_type="separation", force_constant=0.0, r_star=3.5
+        )
+    # without r*, it uses the last sampled point rather than an empty margin bin
+    fe.contribution_converged(x, pmf, cv_type="separation", force_constant=0.0)
+
+
 def test_standard_state_correction_finite():
     dg = fe.standard_state_correction(
         r_star=3.0, theta_a_min=1.2, theta_b_min=1.4, force_constant=100.0

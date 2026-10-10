@@ -89,29 +89,50 @@ def boresch_contribution(
     return -math.log(numerator / denominator) / beta
 
 
+def _r_star_point(x: np.ndarray, pmf: np.ndarray, r_star: float) -> tuple[int, float]:
+    """Index and value of W(r*): the PMF at the first grid point at or beyond r*.
+
+    Raises if ``r_star`` lies outside the sampled (finite) part of the PMF, or if
+    that grid point is unsampled, rather than reading W(r*) from an arbitrary bin
+    and returning a plausible-looking but wrong free energy.
+    """
+    sampled = np.isfinite(pmf)
+    if not sampled.any():
+        raise ValueError("separation PMF has no sampled (finite) points")
+    lo, hi = float(x[sampled].min()), float(x[sampled].max())
+    if not lo <= r_star <= hi:
+        raise ValueError(
+            f"r* = {r_star:.4f} nm lies outside the sampled separation PMF "
+            f"({lo:.4f}-{hi:.4f} nm); choose r* within the separation windows"
+        )
+    index = int(np.argmax(x >= r_star))
+    if not sampled[index]:
+        raise ValueError(
+            f"W(r*) is undefined: the PMF bin at {x[index]:.4f} nm (first point at "
+            f"or beyond r* = {r_star:.4f} nm) was not sampled"
+        )
+    return index, float(pmf[index])
+
+
 def separation_contribution(
     x, pmf, r_star: float, *, temperature: float = TEMPERATURE
 ) -> float:
-    """Integrate the separation PMF out to ``r_star`` (all lengths in nm)."""
+    """Integrate the separation PMF out to ``r_star`` (all lengths in nm).
+
+    Raises if ``r_star`` lies outside the sampled part of the PMF, or W(r*) falls
+    on an unsampled bin.
+    """
     beta = _beta(temperature)
     x = np.asarray(x, dtype=float)
     pmf = _finite_pmf(np.asarray(pmf, dtype=float))
     if x.size < 2:
         raise ValueError("separation PMF needs at least two points")
 
-    # W(r*): the PMF at the first point beyond r_star.
-    w_r_star = pmf[0]
-    for xi, yi in zip(x, pmf, strict=False):
-        if xi >= r_star:
-            w_r_star = yi
-            break
-
+    r_star_index, w_r_star = _r_star_point(x, pmf, r_star)
     width = float(x[1] - x[0])
-    integral = 0.0
-    for xi, yi in zip(x, pmf, strict=False):
-        integral += width * math.exp(-beta * (yi - w_r_star))
-        if xi >= r_star:
-            break
+    integral = width * float(
+        np.sum(np.exp(-beta * (pmf[: r_star_index + 1] - w_r_star)))
+    )
     return -1.0 / beta * math.log(3.0 * integral / RADIUS_SPHERE_NM)
 
 
@@ -222,12 +243,8 @@ def contribution_converged(
 
     if cv_type == "separation":
         if r_star is None:
-            r_star = float(cv[-1])
-        w_star = float(pmf[0])
-        for xi, yi in zip(cv, pmf, strict=False):
-            if xi >= r_star:
-                w_star = float(yi)
-                break
+            r_star = float(cv[np.isfinite(pmf)].max())  # last sampled point
+        _, w_star = _r_star_point(cv, pmf, r_star)
         selection = cv <= r_star
         checks = [np.exp(-beta * (pmf[selection] - w_star))]
     else:
