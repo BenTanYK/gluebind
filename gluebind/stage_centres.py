@@ -17,6 +17,8 @@ import json
 import math
 import pathlib
 
+from gluebind.config.sampling import DEFAULT_WINDOW_MIN_AUTO_OFFSET_NM
+
 BORESCH_DISTRIBUTION_DIRNAME = "boresch_distributions"
 BORESCH_DISTRIBUTION_METADATA = "metadata.json"
 
@@ -259,9 +261,10 @@ def compute_stage_centres(
                 )
             series = _load_boresch_series(prepared, context)
         equilibrium = float(np.mean(series["separation"]))
-        window_min = auto_window_min(
-            equilibrium, schedule.window_min_auto_offset, schedule.window_spacing
-        )
+        offset = schedule.window_min_auto_offset
+        if offset is None:
+            offset = DEFAULT_WINDOW_MIN_AUTO_OFFSET_NM
+        window_min = auto_window_min(equilibrium, offset, schedule.window_spacing)
         schedule = schedule.model_copy(update={"window_min": window_min})
         if report is not None:
             report["separation_equilibrium_nm"] = round(equilibrium, 4)

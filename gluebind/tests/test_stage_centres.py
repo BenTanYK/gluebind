@@ -172,6 +172,21 @@ def test_compute_stage_centres_resolves_auto_window_min(monkeypatch):
     }
 
 
+def test_auto_window_min_unset_offset_falls_back_to_the_default(monkeypatch):
+    import gluebind.stage_centres as sc
+
+    config = _config(
+        {"thetaA": [1], "thetaB": [1], "phiA": [0], "phiB": [0], "phiC": [0]}
+    )
+    config.sampling.separation.window_min_auto_offset = None
+    monkeypatch.setattr(
+        sc, "_load_boresch_series", lambda p, c: {"separation": np.array([1.17])}
+    )
+    prepared = type("Prepared", (), {"complex_trajectory": "eq.dcd"})()
+    centres = compute_stage_centres(prepared, None, config)
+    assert centres["separation"][0] == pytest.approx(0.85)  # 1.17 - 0.3, on grid
+
+
 def test_auto_window_min_without_a_trajectory_asks_for_an_explicit_value():
     config = _config(
         {"thetaA": [1], "thetaB": [1], "phiA": [0], "phiB": [0], "phiC": [0]}

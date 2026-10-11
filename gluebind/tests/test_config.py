@@ -204,6 +204,24 @@ def test_auto_window_min_is_only_for_the_separation_schedule(cv):
         SamplingConfig.model_validate(data)
 
 
+def test_auto_window_min_accepts_a_separation_block_without_the_offset():
+    # A user-written separation block replaces the whole default schedule, so keys
+    # it omits are unset; the offset then falls back to the default at resolution.
+    s = SamplingConfig.model_validate(
+        {
+            "separation": {
+                "force_constant": 10.0,
+                "sampling_time_ns": 30.0,
+                "window_spacing": 0.05,
+                "window_min": "auto",
+                "window_max": 3.0,
+            }
+        }
+    )
+    assert s.separation.window_min == "auto"
+    assert s.separation.window_min_auto_offset is None
+
+
 def test_auto_window_min_offset_must_be_positive():
     s = SamplingConfig()
     with pytest.raises(ValueError, match="> 0"):

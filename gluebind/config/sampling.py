@@ -23,6 +23,10 @@ import pydantic
 
 _CONFIG = pydantic.ConfigDict(extra="forbid", validate_assignment=True)
 
+DEFAULT_WINDOW_MIN_AUTO_OFFSET_NM = 0.3
+"""Offset (nm) below the equilibrium separation used by ``window_min: auto`` when
+``window_min_auto_offset`` is unset."""
+
 
 class WindowSampling(pydantic.BaseModel):
     """Sampling schedule and bias strength for one collective variable."""
@@ -44,7 +48,7 @@ class WindowSampling(pydantic.BaseModel):
     window_min_auto_offset: float | None = None
     """(separation) Distance (nm) below the measured equilibrium separation at
     which ``window_min: auto`` starts the windows, so the inner wall of the PMF is
-    covered."""
+    covered. Unset: :data:`DEFAULT_WINDOW_MIN_AUTO_OFFSET_NM`."""
     window_max: float | None = None
     coarse_from: float | None = None
     """Transition point beyond which ``coarse_spacing`` replaces ``window_spacing``
@@ -179,7 +183,7 @@ def _separation_default() -> WindowSampling:
     return WindowSampling(
         force_constant=10.0,
         window_min="auto",
-        window_min_auto_offset=0.3,
+        window_min_auto_offset=DEFAULT_WINDOW_MIN_AUTO_OFFSET_NM,
         window_max=3.0,
         window_spacing=0.05,
         coarse_from=2.10,
@@ -269,13 +273,6 @@ class SamplingConfig(pydantic.BaseModel):
                     f"{name}.window_min cannot be 'auto'; only the separation "
                     "schedule supports it"
                 )
-        if (
-            self.separation.window_min == "auto"
-            and self.separation.window_min_auto_offset is None
-        ):
-            raise ValueError(
-                "separation.window_min 'auto' needs separation.window_min_auto_offset"
-            )
         return self
 
     @pydantic.field_validator(
