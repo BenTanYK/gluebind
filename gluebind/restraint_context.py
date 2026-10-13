@@ -33,10 +33,13 @@ class ResolvedRestraintContext(pydantic.BaseModel):
     context: dict
     stage_centres: dict[str, list[float]]
     separation_equilibrium_nm: float | None = None
-    """Mean interface-centroid separation over the equilibration trajectory, when
-    measured to resolve ``window_min: auto`` (provenance)."""
+    """Average distance (nm) between the two interface centres over the
+    equilibration run. Only set when ``separation.window_min`` is ``"auto"``;
+    recorded for reference and not used after window placement."""
     separation_window_min_nm: float | None = None
-    """The separation ``window_min`` that ``auto`` resolved to (provenance)."""
+    """Smallest separation window centre (nm) chosen when ``separation.window_min``
+    is ``"auto"``: the average interface distance minus the offset, rounded down
+    to the window spacing. Kept as a record; not read back."""
 
     def dump(self, path: str | pathlib.Path) -> pathlib.Path:
         path = pathlib.Path(path)
