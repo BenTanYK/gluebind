@@ -1387,10 +1387,10 @@ class Calculation(SimulationRunner):
         complete. The production files are read from this run directory, so a run
         prepared on one machine can be analysed on another from a copy of it.
 
-        Results are kept per settings in ``mmgbsa/<key>/result.json``, where
-        ``<key>`` is a hash of the settings and salt concentration, so calling this
-        again with the same settings returns the stored result without resubmitting,
-        and different settings never overwrite each other.
+        All outputs go to ``mmgbsa/`` in the run directory, with the result in
+        ``mmgbsa/result.json``. Each call runs the analysis afresh (it takes
+        minutes), overwriting a previous result with a warning; the settings used
+        are recorded in the result.
 
         Parameters
         ----------
@@ -1441,8 +1441,6 @@ class Calculation(SimulationRunner):
             return self._mmgbsa(settings)
 
     def _mmgbsa(self, settings: MmgbsaSettings) -> dict:
-        import hashlib
-
         from gluebind.simulation.mmgbsa import (
             MMGBSA_RESULT_FILENAME,
             MMGBSA_SPEC_FILENAME,
@@ -1476,14 +1474,13 @@ class Calculation(SimulationRunner):
         if saltcon is None:  # use the system's ionic strength
             saltcon = self.config.prep.ion_concentration_M
         settings = settings.model_copy(update={"saltcon_M": saltcon})
-        # Keyed on the resolved settings, so an explicit salt equal to the system's
-        # reuses the default run.
-        key = hashlib.sha256(settings.model_dump_json().encode()).hexdigest()[:12]
-        work_dir = self.base_dir / "mmgbsa" / key
+        work_dir = self.base_dir / "mmgbsa"
         result_path = work_dir / MMGBSA_RESULT_FILENAME
         if result_path.exists():
-            self._log.info("mmgbsa %s: reusing %s", self.base_dir.name, result_path)
-            return json.loads(result_path.read_text())
+            # The job clears its earlier outputs before it starts.
+            message = f"overwriting the previous MM/GBSA result in {work_dir}"
+            warnings.warn(message, stacklevel=3)  # points at the caller's mmgbsa()
+            self._log.warning("mmgbsa %s: %s", self.base_dir.name, message)
 
         production = ProductionSpec.load(production_dir / PRODUCTION_SPEC_FILENAME)
         MmgbsaSpec(

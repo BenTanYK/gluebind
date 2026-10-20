@@ -78,8 +78,7 @@ def _calc(base_dir):
 
 
 def _spec(base_dir):
-    (spec,) = (base_dir / "mmgbsa").glob("*/mmgbsa.json")
-    return json.loads(spec.read_text())
+    return json.loads((base_dir / "mmgbsa" / "mmgbsa.json").read_text())
 
 
 def test_mmgbsa_submits_the_job_and_returns_its_result(tmp_path, fake_job):
@@ -105,23 +104,23 @@ def test_mmgbsa_submits_the_job_and_returns_its_result(tmp_path, fake_job):
     assert state.handles["_auxiliary"]["mmgbsa"]  # recorded for kill()
 
 
-def test_mmgbsa_reuses_a_stored_result(tmp_path, fake_job):
-    run = tmp_path / "run"
-    _prepare(run)
-    calc = _calc(run)
-    assert calc.mmgbsa() == calc.mmgbsa() == RESULT
-    assert fake_job.read_text() == "x"  # submitted once
-
-
-def test_mmgbsa_keeps_results_per_settings(tmp_path, fake_job):
+def test_mmgbsa_runs_again_and_warns_before_overwriting(tmp_path, fake_job):
     run = tmp_path / "run"
     _prepare(run)
     calc = _calc(run)
     calc.mmgbsa()
-    calc.mmgbsa(MmgbsaSettings(discard_ns=20.0))
-    calc.mmgbsa(MmgbsaSettings(saltcon_M=0.15))  # same as the default: reused
+    with pytest.warns(UserWarning, match="overwriting the previous MM/GBSA") as w:
+        calc.mmgbsa(MmgbsaSettings(discard_ns=20.0))
+    assert w[0].filename == __file__  # attributed to the caller, not to gluebind
     assert fake_job.read_text() == "xx"
-    assert len(list((run / "mmgbsa").iterdir())) == 2
+    assert _spec(run)["settings"]["discard_ns"] == 20.0  # the new settings
+
+
+def test_mmgbsa_first_run_does_not_warn(tmp_path, fake_job, recwarn):
+    run = tmp_path / "run"
+    _prepare(run)
+    _calc(run).mmgbsa()
+    assert not [w for w in recwarn if "overwriting" in str(w.message)]
 
 
 def test_mmgbsa_salt_can_be_set_explicitly(tmp_path, fake_job):
@@ -139,9 +138,7 @@ def test_mmgbsa_ion_concentration_overrides_the_system(tmp_path, fake_job):
     calc.config.prep.ion_concentration_M = 0.0
     calc.mmgbsa(ion_concentration_M=0.15)
     assert _spec(run)["saltcon_M"] == pytest.approx(0.15)
-    # the same request through settings reuses that result
-    calc.mmgbsa(MmgbsaSettings(saltcon_M=0.15))
-    assert fake_job.read_text() == "x"
+    assert _spec(run)["settings"]["saltcon_M"] == pytest.approx(0.15)
 
 
 @pytest.mark.parametrize(
