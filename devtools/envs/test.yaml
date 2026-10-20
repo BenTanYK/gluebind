@@ -20,6 +20,7 @@ dependencies:
   - parmed
   - openmm >=8
   - red-molsim
+  - matplotlib-base
 
   - biosimspace
   - ambertools
