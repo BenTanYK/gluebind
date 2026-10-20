@@ -224,12 +224,14 @@ def cpptraj_input(
 def mmgbsa_input(n_frames: int, igb: int, saltcon_M: float) -> str:
     """``MMPBSA.py`` input scoring every frame of the stripped trajectory.
 
-    All frame selection happens once, in the cpptraj step.
+    All frame selection happens once, in the cpptraj step. ``keep_files=0`` removes
+    MMPBSA.py's intermediate files (including per-system trajectory copies) once it
+    succeeds.
     """
     return (
         "MM/GBSA (gluebind)\n"
         "&general\n"
-        f"  startframe=1, endframe={n_frames}, interval=1,\n"
+        f"  startframe=1, endframe={n_frames}, interval=1, keep_files=0,\n"
         "/\n"
         "&gb\n"
         f"  igb={igb}, saltcon={saltcon_M:g},\n"

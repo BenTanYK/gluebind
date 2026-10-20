@@ -160,7 +160,7 @@ def test_cpptraj_input_selects_the_window_once():
 
 def test_mmgbsa_input_scores_every_frame_with_the_given_model():
     text = mm.mmgbsa_input(200, igb=5, saltcon_M=0.15)
-    assert "startframe=1, endframe=200, interval=1" in text
+    assert "startframe=1, endframe=200, interval=1, keep_files=0" in text
     assert "igb=5, saltcon=0.15" in text
     assert "strip_mask" not in text  # topologies and trajectory are pre-stripped
 
