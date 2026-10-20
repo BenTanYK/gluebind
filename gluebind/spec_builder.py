@@ -12,7 +12,7 @@ Given that context, :meth:`SpecBuilder.__call__` is pure assembly — it selects
 right topology/coordinates and builds the restraint dict for each CV type, exactly
 matching what :func:`gluebind.simulation.window.run_window` reads back.
 
-Restraint conventions (matching the template + the paper's thermodynamic cycle):
+Restraint conventions:
 
 * **Boresch** window: all RMSD regions held fixed (rigid), the already-determined
   Boresch DoFs fixed at their equilibrium values, the sampled DoF biased.
