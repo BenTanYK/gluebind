@@ -29,6 +29,18 @@ MMGBSA_RESULT_FILENAME = "result.json"
 EXECUTABLES = ("ante-MMPBSA.py", "cpptraj", "MMPBSA.py")
 CONTACT_CUTOFF_A = 5.0
 """A scored frame must have a receptor-target heavy-atom pair within this distance."""
+GENERATED_FILES = (
+    MMGBSA_RESULT_FILENAME,
+    "complex.prm7",
+    "receptor.prm7",
+    "target.prm7",
+    "traj.nc",
+    "frames.csv",
+    "FINAL_RESULTS_MMPBSA.dat",
+    "reference.frc",
+)
+"""Outputs of an earlier attempt, removed before a run: ante-MMPBSA.py refuses to
+overwrite its topologies, and a stale ``result.json`` must not outlive a failure."""
 
 
 class MmgbsaSpec(pydantic.BaseModel):
@@ -84,6 +96,7 @@ def run_mmgbsa(work_dir: str | pathlib.Path) -> None:
     work_dir = pathlib.Path(work_dir).resolve()
     spec = MmgbsaSpec.load(work_dir / MMGBSA_SPEC_FILENAME)
     settings = spec.settings
+    _clear_previous_attempt(work_dir)
     exe = _find_executables()
     env = {**os.environ, "AMBERHOME": str(_amberhome(exe["MMPBSA.py"]))}
 
@@ -140,6 +153,13 @@ def run_mmgbsa(work_dir: str | pathlib.Path) -> None:
     tmp = work_dir / f".{MMGBSA_RESULT_FILENAME}.tmp"
     tmp.write_text(json.dumps(result, indent=2))
     os.replace(tmp, work_dir / MMGBSA_RESULT_FILENAME)
+
+
+def _clear_previous_attempt(work_dir: pathlib.Path) -> None:
+    for name in GENERATED_FILES:
+        (work_dir / name).unlink(missing_ok=True)
+    for path in work_dir.glob("_MMPBSA_*"):  # MMPBSA.py's intermediates
+        path.unlink()
 
 
 def _find_executables() -> dict[str, str]:

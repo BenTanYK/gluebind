@@ -41,7 +41,10 @@ def amber(tmp_path, monkeypatch):
         bin_dir,
         "ante-MMPBSA.py",
         'echo "$@" > ante.args; echo "$AMBERHOME" > amberhome.txt\n'
-        "for f in complex.prm7 receptor.prm7 target.prm7; do echo x > $f; done",
+        # like the real program, refuse to overwrite existing topologies
+        "for f in complex.prm7 receptor.prm7 target.prm7; do\n"
+        '  [ -e $f ] && { echo "FileExists: $f"; exit 1; }; echo x > $f\n'
+        "done",
     )
     _stub(bin_dir, "cpptraj", "echo x > traj.nc")
     _stub(
@@ -135,6 +138,28 @@ def test_a_missing_output_stops_the_job(tmp_path, amber):
     _spec(tmp_path)
     with pytest.raises(RuntimeError, match="traj.nc"):
         job.run_mmgbsa(tmp_path)
+
+
+def test_a_retry_starts_from_a_clean_directory(tmp_path, amber):
+    # a failed attempt leaves topologies behind, which ante-MMPBSA.py won't
+    # overwrite, plus a stale result that must not survive the retry
+    _spec(tmp_path)
+    for name in ("complex.prm7", "receptor.prm7", "target.prm7", "_MMPBSA_info"):
+        (tmp_path / name).write_text("stale")
+    (tmp_path / job.MMGBSA_RESULT_FILENAME).write_text('{"dg_mmgbsa": 99.0}')
+    job.run_mmgbsa(tmp_path)
+    result = json.loads((tmp_path / job.MMGBSA_RESULT_FILENAME).read_text())
+    assert result["dg_mmgbsa"] == pytest.approx(-13.0)
+    assert not (tmp_path / "_MMPBSA_info").exists()
+
+
+def test_a_failed_run_leaves_no_result(tmp_path, amber):
+    _stub(amber, "cpptraj", "exit 1")
+    _spec(tmp_path)
+    (tmp_path / job.MMGBSA_RESULT_FILENAME).write_text('{"dg_mmgbsa": 99.0}')
+    with pytest.raises(RuntimeError, match="cpptraj failed"):
+        job.run_mmgbsa(tmp_path)
+    assert not (tmp_path / job.MMGBSA_RESULT_FILENAME).exists()
 
 
 def test_scoring_fewer_frames_than_requested_fails(tmp_path, amber):
