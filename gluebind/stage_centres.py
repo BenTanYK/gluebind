@@ -29,7 +29,7 @@ equilibration is flagged: the interface may be weakly bound."""
 BORESCH_PEAK_MIN_PROMINENCE = 0.1
 """A density peak counts only if its prominence is at least this fraction of the
 highest peak."""
-BORESCH_PEAK_MIN_SEPARATION_DEG = 20.0
+BORESCH_PEAK_MIN_SEPARATION_DEG = 10.0
 """Peaks closer than this (degrees) count as one mode (the taller is kept), so
 shoulders within a single basin are not read as separate states."""
 
