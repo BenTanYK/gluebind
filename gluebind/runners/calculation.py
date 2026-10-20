@@ -1384,7 +1384,8 @@ class Calculation(SimulationRunner):
         An optional end-point analysis, separate from :meth:`run` and
         :meth:`analyse`: frames of ``prep/equilibration/04_production`` are scored
         with AmberTools' ``MMPBSA.py`` in a backend job. Only preparation needs to be
-        complete.
+        complete. The production files are read from this run directory, so a run
+        prepared on one machine can be analysed on another from a copy of it.
 
         Results are kept per settings in ``mmgbsa/<key>/result.json``, where
         ``<key>`` is a hash of the settings and salt concentration, so calling this
@@ -1449,17 +1450,27 @@ class Calculation(SimulationRunner):
             mmgbsa_launch_command,
         )
         from gluebind.simulation.production import (
+            PRODUCTION_OUTPUT_PREFIX,
             PRODUCTION_SPEC_FILENAME,
             ProductionSpec,
         )
+        from gluebind.system.prep import COMPLEX_PRODUCTION_DIR
 
         self._stop.raise_if_requested()
         add_file_handler(self.base_dir, logger_name=self._log.name)
         prepared = self._load_prepared()
-        if prepared is None or prepared.complex_trajectory is None:
+        # The production files are found relative to this run directory, not via
+        # the absolute paths saved in prep/prepared.json, so a run prepared on one
+        # machine can be analysed on another; the manifest supplies only the
+        # molecule layout.
+        production_dir = (self.base_dir / "prep" / COMPLEX_PRODUCTION_DIR).resolve()
+        topology = production_dir / f"{PRODUCTION_OUTPUT_PREFIX}.prm7"
+        trajectory = production_dir / f"{PRODUCTION_OUTPUT_PREFIX}.dcd"
+        if prepared is None or not (topology.is_file() and trajectory.is_file()):
             raise RuntimeError(
-                "cannot run MM/GBSA: the system is not prepared (no production "
-                "trajectory in prep/prepared.json); run prepare() first"
+                "cannot run MM/GBSA: the system is not prepared (needs "
+                f"prep/prepared.json and the production run in {production_dir}); "
+                "run prepare() first"
             )
         saltcon = settings.saltcon_M
         if saltcon is None:  # use the system's ionic strength
@@ -1474,10 +1485,9 @@ class Calculation(SimulationRunner):
             self._log.info("mmgbsa %s: reusing %s", self.base_dir.name, result_path)
             return json.loads(result_path.read_text())
 
-        trajectory = pathlib.Path(prepared.complex_trajectory)
-        production = ProductionSpec.load(trajectory.parent / PRODUCTION_SPEC_FILENAME)
+        production = ProductionSpec.load(production_dir / PRODUCTION_SPEC_FILENAME)
         MmgbsaSpec(
-            topology=prepared.complex_prm7,
+            topology=str(topology),
             trajectory=str(trajectory),
             ps_per_frame=production.sample_interval_steps
             * production.timestep_fs

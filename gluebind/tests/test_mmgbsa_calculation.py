@@ -22,8 +22,14 @@ INPUTS = {
 RESULT = {"dg_mmgbsa": -21.5, "dg_mmgbsa_sem": 1.2, "n_frames": 200}
 
 
-def _prepare(base_dir, *, glue=False):
-    """A minimal prepared system: the manifest plus the production spec."""
+ELSEWHERE = "/cluster-a/runs/system/prep/equilibration/04_production"
+"""Where prepared.json says the production files are: the machine the run was
+prepared on, as for a run copied to another machine for analysis."""
+
+
+def _prepare(base_dir, *, glue=False, production_files=True):
+    """A minimal prepared system: the manifest, the production spec and (empty)
+    production topology and trajectory files."""
     production = base_dir / "prep" / "equilibration" / "04_production"
     production.mkdir(parents=True)
     ProductionSpec(
@@ -33,10 +39,13 @@ def _prepare(base_dir, *, glue=False):
         timestep_fs=4.0,
         sample_interval_steps=2500,
     ).dump(production / "production.json")
+    if production_files:
+        for name in ("output.prm7", "output.dcd"):
+            (production / name).write_text("")
     PreparedSystem(
-        complex_prm7=str(production / "output.prm7"),
-        complex_rst7=str(production / "output.rst7"),
-        complex_trajectory=str(production / "output.dcd"),
+        complex_prm7=f"{ELSEWHERE}/output.prm7",
+        complex_rst7=f"{ELSEWHERE}/output.rst7",
+        complex_trajectory=f"{ELSEWHERE}/output.dcd",
         target_bulk_prm7="t.prm7",
         target_bulk_rst7="t.rst7",
         receptor_bulk_prm7="r.prm7",
@@ -82,7 +91,10 @@ def test_mmgbsa_submits_the_job_and_returns_its_result(tmp_path, fake_job):
 
     spec = _spec(run)
     assert spec["ps_per_frame"] == pytest.approx(10.0)  # 2500 steps x 4 fs
-    assert spec["trajectory"].endswith("04_production/output.dcd")
+    # found in this run directory, not at prepared.json's paths on another machine
+    production = (run / "prep" / "equilibration" / "04_production").resolve()
+    assert spec["topology"] == str(production / "output.prm7")
+    assert spec["trajectory"] == str(production / "output.dcd")
     assert (spec["receptor_molecules"], spec["target_molecules"]) == ([1, 2], [3])
     assert (spec["glue_molecule"], spec["glue_assign_to"]) == (0, "target")
     assert spec["saltcon_M"] == pytest.approx(0.15)  # the system's ion concentration
@@ -152,6 +164,14 @@ def test_mmgbsa_rejects_a_bad_ion_concentration(
 def test_mmgbsa_needs_a_prepared_system(tmp_path, fake_job):
     with pytest.raises(RuntimeError, match="run prepare\\(\\) first"):
         _calc(tmp_path).mmgbsa()
+
+
+def test_mmgbsa_needs_the_production_files_in_the_run_directory(tmp_path, fake_job):
+    run = tmp_path / "run"
+    _prepare(run, production_files=False)  # manifest present, trajectory not copied
+    with pytest.raises(RuntimeError, match="04_production"):
+        _calc(run).mmgbsa()
+    assert not fake_job.exists()
 
 
 def test_mmgbsa_raises_when_the_job_writes_no_result(tmp_path, monkeypatch):

@@ -41,6 +41,8 @@ from gluebind.system.inputs import (
 
 PREPARED_FILENAME = "prepared.json"
 PREPARED_SCHEMA_VERSION = 1
+COMPLEX_PRODUCTION_DIR = pathlib.Path("equilibration") / "04_production"
+"""The complex production run, relative to the prep directory."""
 PRODUCTION_TEMPERATURE_K = 300.0
 
 
@@ -705,7 +707,7 @@ def prepare(
         npt_prm7,
         npt_rst7,
         plan[3],
-        work_dir / "equilibration" / "04_production",
+        work_dir / COMPLEX_PRODUCTION_DIR,
         backend,
         platform=platform,
         poll_interval=poll_interval,
