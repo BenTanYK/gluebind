@@ -41,6 +41,7 @@ from gluebind.analysis.free_energy import (
     separation_plateau_reached,
     standard_state_correction,
 )
+from gluebind.analysis.mmgbsa import MmgbsaSettings
 from gluebind.analysis.pmf import pmf_minimum
 from gluebind.backend.base import Backend, JobSpec, JobState
 from gluebind.backend.scheduler import Scheduler, SlotPool
@@ -1370,4 +1371,152 @@ class Calculation(SimulationRunner):
             "rmsd_included": self._group("rmsd") is not None,
         }
         _write_analysis_result(self.base_dir, result)
+        return result
+
+    def mmgbsa(
+        self,
+        settings: MmgbsaSettings | None = None,
+        *,
+        ion_concentration_M: float | None = None,
+    ) -> dict:
+        """MM/GBSA estimate from the production equilibration trajectory.
+
+        An optional end-point analysis, separate from :meth:`run` and
+        :meth:`analyse`: frames of ``prep/equilibration/04_production`` are scored
+        with AmberTools' ``MMPBSA.py`` in a backend job. Only preparation needs to be
+        complete.
+
+        Results are kept per settings in ``mmgbsa/<key>/result.json``, where
+        ``<key>`` is a hash of the settings and salt concentration, so calling this
+        again with the same settings returns the stored result without resubmitting,
+        and different settings never overwrite each other.
+
+        Parameters
+        ----------
+        settings
+            Frame window, GB model and salt; defaults to :class:`MmgbsaSettings`.
+        ion_concentration_M
+            GB salt concentration (mol L^-1) for scoring. Defaults to the system's
+            ``prep.ion_concentration_M``; set it to score at a different ionic
+            strength from the one the trajectory was sampled at (e.g. sampled with
+            no added salt, scored at 0.15 M). The frames themselves are unchanged.
+
+        Returns
+        -------
+        dict
+            The job's ``result.json``: ``dg_mmgbsa`` and its block-averaged
+            ``dg_mmgbsa_sem`` (kcal/mol), per-term means and SEMs, the per-frame
+            binding energy, the masks and the settings.
+
+        Raises
+        ------
+        ValueError
+            If ``ion_concentration_M`` is negative, or conflicts with a salt
+            concentration also given in ``settings``.
+        RuntimeError
+            If the system is not prepared, the job fails, another process is
+            driving this calculation, or jobs recorded by an earlier driver are
+            still queued or running.
+
+        References
+        ------
+        Miller, B. R. I.; McGee, T. D. J.; Swails, J. M.; Homeyer,N.;
+        Gohlke, H.; Roitberg, A. E. MMPBSA.py: An Efficient Program for
+        End-State Free Energy Calculations. Journal of Chemical Theory and
+        Computation 2012, 8, 3314-3321.
+        """
+        settings = settings or MmgbsaSettings()
+        if ion_concentration_M is not None:
+            if settings.saltcon_M not in (None, ion_concentration_M):
+                raise ValueError(
+                    f"ion_concentration_M={ion_concentration_M} conflicts with "
+                    f"settings.saltcon_M={settings.saltcon_M}; give one of them"
+                )
+            # Re-validate rather than model_copy, so a negative value is rejected.
+            settings = MmgbsaSettings.model_validate(
+                {**settings.model_dump(), "saltcon_M": ion_concentration_M}
+            )
+        with self._driver_session():
+            return self._mmgbsa(settings)
+
+    def _mmgbsa(self, settings: MmgbsaSettings) -> dict:
+        import hashlib
+
+        from gluebind.simulation.mmgbsa import (
+            MMGBSA_RESULT_FILENAME,
+            MMGBSA_SPEC_FILENAME,
+            MmgbsaSpec,
+            mmgbsa_launch_command,
+        )
+        from gluebind.simulation.production import (
+            PRODUCTION_SPEC_FILENAME,
+            ProductionSpec,
+        )
+
+        self._stop.raise_if_requested()
+        add_file_handler(self.base_dir, logger_name=self._log.name)
+        prepared = self._load_prepared()
+        if prepared is None or prepared.complex_trajectory is None:
+            raise RuntimeError(
+                "cannot run MM/GBSA: the system is not prepared (no production "
+                "trajectory in prep/prepared.json); run prepare() first"
+            )
+        saltcon = settings.saltcon_M
+        if saltcon is None:  # use the system's ionic strength
+            saltcon = self.config.prep.ion_concentration_M
+        settings = settings.model_copy(update={"saltcon_M": saltcon})
+        # Keyed on the resolved settings, so an explicit salt equal to the system's
+        # reuses the default run.
+        key = hashlib.sha256(settings.model_dump_json().encode()).hexdigest()[:12]
+        work_dir = self.base_dir / "mmgbsa" / key
+        result_path = work_dir / MMGBSA_RESULT_FILENAME
+        if result_path.exists():
+            self._log.info("mmgbsa %s: reusing %s", self.base_dir.name, result_path)
+            return json.loads(result_path.read_text())
+
+        trajectory = pathlib.Path(prepared.complex_trajectory)
+        production = ProductionSpec.load(trajectory.parent / PRODUCTION_SPEC_FILENAME)
+        MmgbsaSpec(
+            topology=prepared.complex_prm7,
+            trajectory=str(trajectory),
+            ps_per_frame=production.sample_interval_steps
+            * production.timestep_fs
+            / 1000.0,
+            receptor_molecules=prepared.receptor_molecules,
+            target_molecules=prepared.target_molecules,
+            glue_molecule=prepared.glue_molecule,
+            glue_assign_to=prepared.glue_assign_to,
+            saltcon_M=saltcon,
+            settings=settings,
+        ).dump(work_dir / MMGBSA_SPEC_FILENAME)
+        self._log.info("mmgbsa %s: submitting (%s)", self.base_dir.name, work_dir)
+        (job_state,) = Scheduler(
+            self.backend,
+            poll_interval=self._effective_poll_interval,
+            submission_guard=self._stop.submission_permit,
+        ).run(
+            [
+                JobSpec(
+                    command=mmgbsa_launch_command(),
+                    work_dir=str(work_dir),
+                    name="mmgbsa",
+                )
+            ],
+            on_submit=lambda _index, handle: self._record_auxiliary_handle(
+                "mmgbsa", handle
+            ),
+        )
+        if job_state is not JobState.FINISHED or not result_path.exists():
+            raise RuntimeError(
+                "MM/GBSA job did not produce its result; inspect the logs in "
+                f"{work_dir}"
+            )
+        result = json.loads(result_path.read_text())
+        self._log.info(
+            "mmgbsa %s: dG = %.2f +/- %.2f kcal/mol (%d frames)",
+            self.base_dir.name,
+            result["dg_mmgbsa"],
+            result["dg_mmgbsa_sem"],
+            result["n_frames"],
+        )
         return result
