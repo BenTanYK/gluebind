@@ -1075,6 +1075,40 @@ def test_add_windows_separation_with_snapshot(tmp_path):
     assert any(w.centre == 2.0 for w in stage.windows)
 
 
+# ---- Boresch distribution warnings -------------------------------------------
+
+
+def _write_boresch_metadata(base_dir, diagnostics):
+    path = base_dir / "prep" / "boresch_distributions" / "metadata.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"frame_count": 10, "diagnostics": diagnostics}))
+
+
+def test_boresch_distribution_warnings_reach_the_driver(tmp_path, caplog):
+    # Restraint resolution records them on a compute node; the driver repeats
+    # them, since the job's own output only reaches the scheduler log.
+    calc = _calc(tmp_path)
+    message = "Boresch thetaA has 2 peaks in its equilibration distribution"
+    _write_boresch_metadata(
+        tmp_path,
+        {
+            "thetaA": {"n_peaks": 2, "warnings": [message]},
+            "thetaB": {"n_peaks": 1, "warnings": []},
+        },
+    )
+    with pytest.warns(UserWarning, match="thetaA has 2 peaks"):
+        calc._warn_boresch_diagnostics()
+    assert message in caplog.text
+
+
+def test_no_boresch_warnings_without_recorded_diagnostics(tmp_path, recwarn):
+    calc = _calc(tmp_path)
+    calc._warn_boresch_diagnostics()  # no distributions written (explicit centres)
+    _write_boresch_metadata(tmp_path, {})
+    calc._warn_boresch_diagnostics()
+    assert not [w for w in recwarn if "Boresch" in str(w.message)]
+
+
 # ---- design invariant ------------------------------------------------------
 
 

@@ -22,6 +22,16 @@ from gluebind.config.sampling import DEFAULT_WINDOW_MIN_AUTO_OFFSET_NM
 BORESCH_DISTRIBUTION_DIRNAME = "boresch_distributions"
 BORESCH_DISTRIBUTION_METADATA = "metadata.json"
 
+BORESCH_MAX_RANGE_DEG = 100.0
+"""A Boresch DoF sampled over a wider range than this (degrees) during the
+equilibration is flagged: the interface may be weakly bound."""
+BORESCH_PEAK_MIN_PROMINENCE = 0.1
+"""A density peak counts only if its prominence is at least this fraction of the
+highest peak."""
+BORESCH_PEAK_MIN_SEPARATION_DEG = 20.0
+"""Peaks closer than this (degrees) count as one mode (the taller is kept), so
+shoulders within a single basin are not read as separate states."""
+
 
 def auto_window_min(
     equilibrium_nm: float, offset_nm: float, spacing_nm: float
@@ -129,6 +139,74 @@ def _load_boresch_series(prepared, context):
     return result
 
 
+def boresch_dof_diagnostics(values, *, dof: str) -> dict:
+    """Peak count and sampled range of one DoF's equilibration distribution.
+
+    ``values`` (rad) should be the analysis values: dihedrals already unwrapped
+    around their circular mean (:func:`periodic_image`), so a mode crossing ±π
+    stays one mode. Peaks are found in a Gaussian kernel density estimate and
+    count only if their prominence is at least
+    :data:`BORESCH_PEAK_MIN_PROMINENCE` of the highest peak and they are at least
+    :data:`BORESCH_PEAK_MIN_SEPARATION_DEG` apart.
+
+    Returns ``n_peaks``, ``peak_positions_rad`` (dihedrals wrapped to [-π, π]),
+    ``min_rad`` and ``max_rad`` (in the analysis frame, so a dihedral's may lie
+    outside ±π), ``range_deg`` and ``warnings`` (messages for a multimodal
+    distribution and for a range wider than :data:`BORESCH_MAX_RANGE_DEG`).
+    """
+    import numpy as np
+
+    values = np.asarray(values, dtype=float)
+    lo, hi = float(values.min()), float(values.max())
+    range_deg = math.degrees(hi - lo)
+    if values.size < 2 or float(values.std()) < 1e-9:
+        positions = [lo]  # a single value: one mode, nothing to estimate
+    else:
+        from scipy.signal import find_peaks
+        from scipy.stats import gaussian_kde
+
+        kde = gaussian_kde(values)
+        # Pad by 3 kernel widths (Scott's rule, gaussian_kde's default bandwidth).
+        pad = 3.0 * values.size ** (-1 / 5) * float(values.std())
+        grid = np.linspace(lo - pad, hi + pad, 1024)
+        density = kde(grid)
+        step = float(grid[1] - grid[0])
+        separation = math.radians(BORESCH_PEAK_MIN_SEPARATION_DEG)
+        peaks, _ = find_peaks(
+            density,
+            prominence=BORESCH_PEAK_MIN_PROMINENCE * float(density.max()),
+            distance=max(1, round(separation / step)),
+        )
+        positions = [float(grid[i]) for i in peaks] or [float(grid[density.argmax()])]
+
+    from gluebind.boresch_geometry import DIHEDRAL_DOFS
+
+    if dof in DIHEDRAL_DOFS:  # report dihedral peaks in [-pi, pi]
+        positions = [math.atan2(math.sin(p), math.cos(p)) for p in positions]
+
+    warnings: list[str] = []
+    if len(positions) > 1:
+        shown = ", ".join(f"{math.degrees(p):.0f}" for p in positions)
+        warnings.append(
+            f"Boresch {dof} has {len(positions)} peaks in its equilibration "
+            f"distribution (at {shown} deg): the interface may be weakly bound or "
+            "switching between poses"
+        )
+    if range_deg > BORESCH_MAX_RANGE_DEG:
+        warnings.append(
+            f"Boresch {dof} sampled {range_deg:.0f} deg during equilibration "
+            f"(> {BORESCH_MAX_RANGE_DEG:.0f} deg): the interface may be weakly bound"
+        )
+    return {
+        "n_peaks": len(positions),
+        "peak_positions_rad": [round(p, 4) for p in positions],
+        "min_rad": round(lo, 4),
+        "max_rad": round(hi, 4),
+        "range_deg": round(range_deg, 2),
+        "warnings": warnings,
+    }
+
+
 def write_boresch_distributions(
     series,
     output_dir: str | pathlib.Path,
@@ -140,7 +218,8 @@ def write_boresch_distributions(
     Each ``<dof>.dat`` contains ``frame``, ``raw_rad`` and ``analysis_rad``
     columns. Dihedrals retain their principal ``[-pi, pi]`` value in
     ``raw_rad`` and use the same circular-mean unwrapping as centre generation
-    in ``analysis_rad``.
+    in ``analysis_rad``. ``metadata.json`` also records each DoF's
+    :func:`boresch_dof_diagnostics` (peak count, sampled range, warnings).
     """
     import numpy as np
 
@@ -149,6 +228,7 @@ def write_boresch_distributions(
     output_dir = pathlib.Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     report: dict[str, str] = {}
+    diagnostics: dict[str, dict] = {}
     frame_count = None
     for dof in DOFS:
         raw = np.asarray(series[dof], dtype=float)
@@ -157,6 +237,9 @@ def write_boresch_distributions(
         elif raw.size != frame_count:
             raise ValueError("Boresch DoF distributions have different lengths")
         analysis = periodic_image(raw) if dof in DIHEDRAL_DOFS else raw
+        diagnostics[dof] = boresch_dof_diagnostics(analysis, dof=dof)
+        for message in diagnostics[dof]["warnings"]:
+            print(f"WARNING: {message}", flush=True)
         path = output_dir / f"{dof}.dat"
         np.savetxt(
             path,
@@ -172,6 +255,7 @@ def write_boresch_distributions(
         "periodic_dofs": list(DIHEDRAL_DOFS),
         "frame_count": frame_count or 0,
         "files": report,
+        "diagnostics": diagnostics,
     }
     if metadata:
         info.update(metadata)

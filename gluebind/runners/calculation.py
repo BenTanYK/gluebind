@@ -488,6 +488,7 @@ class Calculation(SimulationRunner):
             self._log.info(
                 "prepare %s: reusing resolved restraint context", self.base_dir.name
             )
+            self._warn_boresch_diagnostics()
             return
 
         from gluebind.backend.scheduler import Scheduler
@@ -537,6 +538,31 @@ class Calculation(SimulationRunner):
                 "restraint-resolution job did not produce a valid context; inspect "
                 f"{work_dir}"
             )
+        self._warn_boresch_diagnostics()
+
+    def _warn_boresch_diagnostics(self) -> None:
+        """Warn about Boresch DoFs whose equilibration distribution is multimodal or
+        unusually wide (recorded by restraint resolution in the distributions'
+        metadata): both can mean a weakly bound interface."""
+        from gluebind.stage_centres import (
+            BORESCH_DISTRIBUTION_DIRNAME,
+            BORESCH_DISTRIBUTION_METADATA,
+        )
+
+        path = (
+            self.base_dir
+            / "prep"
+            / BORESCH_DISTRIBUTION_DIRNAME
+            / BORESCH_DISTRIBUTION_METADATA
+        )
+        try:
+            diagnostics = json.loads(path.read_text()).get("diagnostics", {})
+        except (OSError, ValueError):
+            return  # e.g. explicit Boresch centres: no distributions were written
+        for dof_diagnostics in diagnostics.values():
+            for message in dof_diagnostics.get("warnings", []):
+                self._log.warning("prepare %s: %s", self.base_dir.name, message)
+                warnings.warn(message, stacklevel=2)
 
     def _wire(self, prepared) -> None:
         """Build the restraint context, window centres, spec builder and steered-MD

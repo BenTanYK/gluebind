@@ -2,14 +2,19 @@
 reads a trajectory and is integration-verified)."""
 
 import json
+import math
 
 import numpy as np
 import pytest
 
 from gluebind import CalculationConfig
 from gluebind.stage_centres import (
+    BORESCH_MAX_RANGE_DEG,
+    BORESCH_PEAK_MIN_SEPARATION_DEG,
     boresch_centres_from_series,
+    boresch_dof_diagnostics,
     compute_stage_centres,
+    periodic_image,
     write_boresch_distributions,
 )
 
@@ -95,6 +100,64 @@ def test_write_boresch_distributions_preserves_raw_and_analysis_values(tmp_path)
     )
     assert metadata["config_hash"] == "abc"
     assert metadata["frame_count"] == 2
+    assert set(metadata["diagnostics"]) == set(series)
+    assert metadata["diagnostics"]["phiA"]["n_peaks"] == 1  # one mode across ±π
+
+
+# ---- Boresch distribution diagnostics ------------------------------------------
+
+
+def _normal(centre_deg, sd_deg, n=5000, seed=0):
+    rng = np.random.default_rng(seed)
+    return np.radians(rng.normal(centre_deg, sd_deg, n))
+
+
+def test_a_single_basin_gives_one_peak_and_no_warning():
+    result = boresch_dof_diagnostics(_normal(120, 5), dof="thetaA")
+    assert result["n_peaks"] == 1
+    assert math.degrees(result["peak_positions_rad"][0]) == pytest.approx(120, abs=2)
+    assert result["range_deg"] < 100
+    assert result["warnings"] == []
+
+
+def test_two_separate_basins_are_flagged():
+    values = np.concatenate([_normal(110, 4, seed=1), _normal(150, 4, seed=2)])
+    result = boresch_dof_diagnostics(values, dof="thetaA")
+    assert result["n_peaks"] == 2
+    peaks = sorted(math.degrees(p) for p in result["peak_positions_rad"])
+    assert peaks == pytest.approx([110, 150], abs=3)
+    (warning,) = result["warnings"]
+    assert "thetaA has 2 peaks" in warning
+
+
+def test_a_shoulder_within_one_basin_is_not_a_second_peak():
+    # two modes closer than the minimum separation count as one
+    close = BORESCH_PEAK_MIN_SEPARATION_DEG / 2
+    values = np.concatenate([_normal(120, 3, seed=3), _normal(120 + close, 3, seed=4)])
+    result = boresch_dof_diagnostics(values, dof="thetaB")
+    assert result["n_peaks"] == 1
+    assert result["warnings"] == []
+
+
+def test_a_wide_distribution_is_flagged():
+    result = boresch_dof_diagnostics(_normal(0, 25, seed=5), dof="phiB")
+    assert result["range_deg"] > BORESCH_MAX_RANGE_DEG
+    (warning,) = result["warnings"]
+    assert "phiB sampled" in warning and "deg" in warning
+
+
+def test_a_dihedral_mode_across_the_branch_cut_is_one_peak_reported_within_pi():
+    raw = np.arctan2(np.sin(_normal(180, 6, seed=6)), np.cos(_normal(180, 6, seed=6)))
+    result = boresch_dof_diagnostics(periodic_image(raw), dof="phiC")
+    assert result["n_peaks"] == 1
+    assert result["range_deg"] < 100
+    assert abs(result["peak_positions_rad"][0]) <= math.pi
+    assert abs(abs(math.degrees(result["peak_positions_rad"][0])) - 180) < 3
+
+
+def test_a_constant_series_is_one_peak_with_no_range():
+    result = boresch_dof_diagnostics(np.full(10, 1.2), dof="thetaA")
+    assert (result["n_peaks"], result["range_deg"], result["warnings"]) == (1, 0.0, [])
 
 
 def test_compute_stage_centres_uses_explicit_boresch_centres_without_trajectory():
