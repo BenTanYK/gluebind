@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from gluebind import CalculationConfig
+from gluebind.boresch_geometry import DOFS
 from gluebind.stage_centres import (
     BORESCH_MAX_RANGE_DEG,
     BORESCH_PEAK_MIN_SEPARATION_DEG,
@@ -15,6 +16,7 @@ from gluebind.stage_centres import (
     boresch_dof_diagnostics,
     compute_stage_centres,
     periodic_image,
+    plot_boresch_distributions,
     write_boresch_distributions,
 )
 
@@ -102,6 +104,38 @@ def test_write_boresch_distributions_preserves_raw_and_analysis_values(tmp_path)
     assert metadata["frame_count"] == 2
     assert set(metadata["diagnostics"]) == set(series)
     assert metadata["diagnostics"]["phiA"]["n_peaks"] == 1  # one mode across ±π
+    plot = tmp_path / "boresch_distributions" / "distributions.png"
+    assert metadata["plot"] == str(plot)
+    assert plot.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_distribution_plot_marks_flagged_dofs(tmp_path):
+    analysis = {
+        "thetaA": np.concatenate([_normal(110, 4, seed=1), _normal(150, 4, seed=2)]),
+        "thetaB": _normal(120, 5, seed=3),
+        "phiA": _normal(0, 25, seed=4),  # wide
+        "phiB": _normal(-60, 6, seed=5),
+        "phiC": np.full(10_000, 1.0),  # constant: no density estimate
+    }
+    diagnostics = {d: boresch_dof_diagnostics(v, dof=d) for d, v in analysis.items()}
+    path = plot_boresch_distributions(analysis, diagnostics, tmp_path / "dist.png")
+    assert path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_a_failed_distribution_plot_does_not_fail_the_report(
+    tmp_path, monkeypatch, capsys
+):
+    import gluebind.stage_centres as sc
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("no display")
+
+    monkeypatch.setattr(sc, "plot_boresch_distributions", broken)
+    series = {d: _normal(100, 5, n=200, seed=i) for i, d in enumerate(DOFS)}
+    report = write_boresch_distributions(series, tmp_path)
+    metadata = json.loads((tmp_path / "metadata.json").read_text())
+    assert set(report) == set(series) and "plot" not in metadata
+    assert "distribution plot not written" in capsys.readouterr().out
 
 
 # ---- Boresch distribution diagnostics ------------------------------------------

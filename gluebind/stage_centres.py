@@ -21,6 +21,7 @@ from gluebind.config.sampling import DEFAULT_WINDOW_MIN_AUTO_OFFSET_NM
 
 BORESCH_DISTRIBUTION_DIRNAME = "boresch_distributions"
 BORESCH_DISTRIBUTION_METADATA = "metadata.json"
+BORESCH_DISTRIBUTION_PLOT = "distributions.png"
 
 BORESCH_MAX_RANGE_DEG = 100.0
 """A Boresch DoF sampled over a wider range than this (degrees) during the
@@ -139,6 +140,22 @@ def _load_boresch_series(prepared, context):
     return result
 
 
+def _density(values):
+    """Gaussian kernel density of ``values`` on a padded grid, ``(grid, density)``;
+    ``None`` for fewer than two distinct values."""
+    import numpy as np
+
+    values = np.asarray(values, dtype=float)
+    if values.size < 2 or float(values.std()) < 1e-9:
+        return None
+    from scipy.stats import gaussian_kde
+
+    # Pad by 3 kernel widths (Scott's rule, gaussian_kde's default bandwidth).
+    pad = 3.0 * values.size ** (-1 / 5) * float(values.std())
+    grid = np.linspace(float(values.min()) - pad, float(values.max()) + pad, 1024)
+    return grid, gaussian_kde(values)(grid)
+
+
 def boresch_dof_diagnostics(values, *, dof: str) -> dict:
     """Peak count and sampled range of one DoF's equilibration distribution.
 
@@ -159,17 +176,13 @@ def boresch_dof_diagnostics(values, *, dof: str) -> dict:
     values = np.asarray(values, dtype=float)
     lo, hi = float(values.min()), float(values.max())
     range_deg = math.degrees(hi - lo)
-    if values.size < 2 or float(values.std()) < 1e-9:
+    estimate = _density(values)
+    if estimate is None:
         positions = [lo]  # a single value: one mode, nothing to estimate
     else:
         from scipy.signal import find_peaks
-        from scipy.stats import gaussian_kde
 
-        kde = gaussian_kde(values)
-        # Pad by 3 kernel widths (Scott's rule, gaussian_kde's default bandwidth).
-        pad = 3.0 * values.size ** (-1 / 5) * float(values.std())
-        grid = np.linspace(lo - pad, hi + pad, 1024)
-        density = kde(grid)
+        grid, density = estimate
         step = float(grid[1] - grid[0])
         separation = math.radians(BORESCH_PEAK_MIN_SEPARATION_DEG)
         peaks, _ = find_peaks(
@@ -207,6 +220,55 @@ def boresch_dof_diagnostics(values, *, dof: str) -> dict:
     }
 
 
+def plot_boresch_distributions(
+    analysis: dict, diagnostics: dict, path: str | pathlib.Path
+) -> pathlib.Path:
+    """Save one PNG with every Boresch DoF's equilibration distribution.
+
+    ``analysis`` maps each DoF to its analysis values (rad; dihedrals unwrapped
+    around their circular mean) and ``diagnostics`` to its
+    :func:`boresch_dof_diagnostics`. Each panel shows the histogram, the density
+    estimate the peaks were found on and the peaks; a DoF that was flagged has a
+    red title.
+    """
+    import numpy as np
+    from matplotlib.figure import Figure  # lazy: plotting is optional
+
+    from gluebind.boresch_geometry import DOFS
+
+    fig = Figure(figsize=(13, 7.5), layout="constrained")
+    axes = fig.subplots(2, 3).ravel()
+    for ax, dof in zip(axes, DOFS, strict=False):
+        values = np.asarray(analysis[dof], dtype=float)
+        result = diagnostics[dof]
+        degrees = np.degrees(values)
+        ax.hist(degrees, bins=50, density=True, color="tab:blue", alpha=0.35)
+        estimate = _density(values)
+        if estimate is not None:
+            grid, density = estimate
+            # per-radian density -> per-degree, to match the histogram
+            ax.plot(np.degrees(grid), density * math.pi / 180, color="tab:blue")
+        centre = float(values.mean())
+        for peak in result["peak_positions_rad"]:
+            # Dihedral peaks are reported in [-pi, pi]; show them in the panel's
+            # unwrapped frame.
+            peak += 2 * math.pi * round((centre - peak) / (2 * math.pi))
+            ax.axvline(math.degrees(peak), color="0.2", ls="--", lw=1.0)
+        # matplotlib mathtext (no LaTeX installation needed): thetaA -> θ_A
+        symbol = rf"$\{dof[:-1]}_{dof[-1]}$"
+        ax.set_title(
+            symbol, color="tab:red" if result["warnings"] else "black", fontsize=13
+        )
+        ax.set_xlabel("degrees", fontsize=10)
+        ax.set_yticks([])
+
+    axes[len(DOFS)].axis("off")  # five DoFs on a 2 x 3 grid
+    fig.suptitle("Boresch DoF distributions over the equilibration trajectory")
+    path = pathlib.Path(path)
+    fig.savefig(path, dpi=130)
+    return path
+
+
 def write_boresch_distributions(
     series,
     output_dir: str | pathlib.Path,
@@ -219,7 +281,9 @@ def write_boresch_distributions(
     columns. Dihedrals retain their principal ``[-pi, pi]`` value in
     ``raw_rad`` and use the same circular-mean unwrapping as centre generation
     in ``analysis_rad``. ``metadata.json`` also records each DoF's
-    :func:`boresch_dof_diagnostics` (peak count, sampled range, warnings).
+    :func:`boresch_dof_diagnostics` (peak count, sampled range, warnings), and
+    ``distributions.png`` plots them all (:func:`plot_boresch_distributions`); a
+    plot that cannot be drawn is reported, not raised.
     """
     import numpy as np
 
@@ -229,6 +293,7 @@ def write_boresch_distributions(
     output_dir.mkdir(parents=True, exist_ok=True)
     report: dict[str, str] = {}
     diagnostics: dict[str, dict] = {}
+    analysis_values: dict = {}
     frame_count = None
     for dof in DOFS:
         raw = np.asarray(series[dof], dtype=float)
@@ -237,6 +302,7 @@ def write_boresch_distributions(
         elif raw.size != frame_count:
             raise ValueError("Boresch DoF distributions have different lengths")
         analysis = periodic_image(raw) if dof in DIHEDRAL_DOFS else raw
+        analysis_values[dof] = analysis
         diagnostics[dof] = boresch_dof_diagnostics(analysis, dof=dof)
         for message in diagnostics[dof]["warnings"]:
             print(f"WARNING: {message}", flush=True)
@@ -257,6 +323,14 @@ def write_boresch_distributions(
         "files": report,
         "diagnostics": diagnostics,
     }
+    try:
+        info["plot"] = str(
+            plot_boresch_distributions(
+                analysis_values, diagnostics, output_dir / BORESCH_DISTRIBUTION_PLOT
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 - the plot must not fail resolution
+        print(f"Boresch distribution plot not written: {exc!r}", flush=True)
     if metadata:
         info.update(metadata)
     (output_dir / BORESCH_DISTRIBUTION_METADATA).write_text(
