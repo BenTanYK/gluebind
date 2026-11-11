@@ -109,6 +109,32 @@ class CalculationConfig(pydantic.BaseModel):
     sampling: SamplingConfig = pydantic.Field(default_factory=SamplingConfig)
     restraints: RestraintsConfig = pydantic.Field(default_factory=RestraintsConfig)
 
+    @pydantic.model_validator(mode="after")
+    def _include_glue_matches_inputs(self):
+        """If no glue is provided as an input, reject ``include_glue``
+        specified for a custom RMSD CV.
+        """
+        glue = self.inputs.glue
+        for cv in self.restraints.rmsd_cvs:
+            if not cv.include_glue:
+                continue
+            if glue is None:
+                raise ValueError(
+                    f"RMSD CV {cv.name!r} sets include_glue=True but no glue is "
+                    "defined (inputs.glue is null). Supply a glue, or drop "
+                    "include_glue from this CV."
+                )
+            if glue.assign_to != cv.protein and "bulk" in cv.states:
+                raise ValueError(
+                    f"RMSD CV {cv.name!r} is on the {cv.protein} and sets "
+                    f"include_glue=True, but the glue is assigned to the "
+                    f"{glue.assign_to} (inputs.glue.assign_to). Its bound state "
+                    f"would restrain the glue while the {cv.protein} bulk topology "
+                    "has none — an inconsistent CV. Assign the glue to this CV's "
+                    "protein, or drop include_glue."
+                )
+        return self
+
     @classmethod
     def load(cls, path: str | pathlib.Path) -> "CalculationConfig":
         """Load and validate a calculation config from a YAML file."""

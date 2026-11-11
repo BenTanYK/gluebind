@@ -27,7 +27,7 @@ Every RMSD restraint (sampled, held or always-on, in every window type) is
 measured against one reference structure: the equilibrated bound complex
 (``complex_coordinates``). A window's starting coordinates only set where it
 starts. Each RMSD entry therefore carries ``reference_atoms``, its atoms' indices
-in ``complex_coordinates`` — identical to ``atoms`` in complex-topology windows and
+in ``complex_coordinates`` - identical to ``atoms`` in complex-topology windows and
 mapped through :attr:`BulkTarget.to_complex` in bulk windows — so the restrained
 end state is the same conformation in every leg of the cycle.
 """
@@ -391,7 +391,7 @@ def build_restraint_context(
     (:class:`_ComplexMap`), so BioSimSpace's assembly re-indexing (``TER`` splits,
     residue renumbering) cannot silently move a restraint onto the wrong atoms.
 
-    Also detects the interface (CA–CA pairs within ``interface_cutoff_angstrom``)
+    Also detects the interface (CA-CA pairs within ``interface_cutoff_angstrom``)
     and selects the Boresch anchors. ``anchors_override`` reuses anchors persisted
     by a prior wiring pass after validating them against this topology. Reuses the
     unit-tested pure primitives; the

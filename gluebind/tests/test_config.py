@@ -303,6 +303,54 @@ def test_always_on_requires_explicit_rmsd_cvs():
     )
 
 
+def _cv(protein: str = "target", **extra) -> dict:
+    return {
+        "name": "BD2",
+        "protein": protein,
+        "selection": "resid 108-218",
+        "include_glue": True,
+        **extra,
+    }
+
+
+def test_include_glue_requires_a_glue_input():
+    # include_glue spans inputs and restraints, so it cannot be caught on the CV
+    # itself. Without this it surfaced only in the restraint-resolution job, i.e.
+    # after the system had been built and equilibrated.
+    no_glue = {k: v for k, v in MIN_INPUTS.items() if k != "glue"}
+    with pytest.raises(ValueError, match="no glue is defined"):
+        CalculationConfig.model_validate(
+            {"inputs": no_glue, "restraints": {"rmsd_cvs": [_cv()]}}
+        )
+    # the same CV is accepted once a glue exists and is assigned to that protein
+    CalculationConfig.model_validate(
+        {
+            "inputs": {**MIN_INPUTS, "glue": {"sdf": "g.sdf", "assign_to": "target"}},
+            "restraints": {"rmsd_cvs": [_cv()]},
+        }
+    )
+
+
+def test_include_glue_must_match_the_glue_assignment():
+    # MIN_INPUTS assigns the glue to the receptor; a target CV claiming it would
+    # restrain the glue in the bound state while the target bulk topology has none.
+    with pytest.raises(ValueError, match="assigned to the receptor"):
+        CalculationConfig.model_validate(
+            {"inputs": MIN_INPUTS, "restraints": {"rmsd_cvs": [_cv()]}}
+        )
+
+
+def test_include_glue_default_false_needs_no_glue():
+    no_glue = {k: v for k, v in MIN_INPUTS.items() if k != "glue"}
+    cfg = CalculationConfig.model_validate(
+        {
+            "inputs": no_glue,
+            "restraints": {"rmsd_cvs": [_cv(include_glue=False)]},
+        }
+    )
+    assert cfg.restraints.rmsd_cvs[0].include_glue is False
+
+
 def test_config_hash_ignores_sampling_scope_flags_but_catches_real_changes():
     # Sampling scope flags are not physics — flipping them must NOT change the
     # hash so a staged run can be upgraded on resume.
