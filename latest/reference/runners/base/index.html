@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -3108,15 +3108,15 @@ which provides a working directory and recursive <code>setup</code>.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>gluebind/runners/base.py</code></summary>
-                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-15">15</a></span>
-<span class="normal"><a href="#__codelineno-0-16">16</a></span>
-<span class="normal"><a href="#__codelineno-0-17">17</a></span>
-<span class="normal"><a href="#__codelineno-0-18">18</a></span>
-<span class="normal"><a href="#__codelineno-0-19">19</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16"></a>    <span class="c1"># Every backend worker runs from its own work directory, so persisted</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17"></a>    <span class="c1"># paths must be absolute rather than relative to the driver's cwd.</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">base_dir</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">base_dir</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">sub_runners</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SimulationRunner</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#gluebind.runners.base.SimulationRunner--source--__codelineno-0-15">15</a></span>
+<span class="normal"><a href="#gluebind.runners.base.SimulationRunner--source--__codelineno-0-16">16</a></span>
+<span class="normal"><a href="#gluebind.runners.base.SimulationRunner--source--__codelineno-0-17">17</a></span>
+<span class="normal"><a href="#gluebind.runners.base.SimulationRunner--source--__codelineno-0-18">18</a></span>
+<span class="normal"><a href="#gluebind.runners.base.SimulationRunner--source--__codelineno-0-19">19</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="gluebind.runners.base.SimulationRunner--source--__span-0-15"><a id="gluebind.runners.base.SimulationRunner--source--__codelineno-0-15" name="gluebind.runners.base.SimulationRunner--source--__codelineno-0-15"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="gluebind.runners.base.SimulationRunner--source--__span-0-16"><a id="gluebind.runners.base.SimulationRunner--source--__codelineno-0-16" name="gluebind.runners.base.SimulationRunner--source--__codelineno-0-16"></a>    <span class="c1"># Every backend worker runs from its own work directory, so persisted</span>
+</span><span id="gluebind.runners.base.SimulationRunner--source--__span-0-17"><a id="gluebind.runners.base.SimulationRunner--source--__codelineno-0-17" name="gluebind.runners.base.SimulationRunner--source--__codelineno-0-17"></a>    <span class="c1"># paths must be absolute rather than relative to the driver's cwd.</span>
+</span><span id="gluebind.runners.base.SimulationRunner--source--__span-0-18"><a id="gluebind.runners.base.SimulationRunner--source--__codelineno-0-18" name="gluebind.runners.base.SimulationRunner--source--__codelineno-0-18"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">base_dir</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">base_dir</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+</span><span id="gluebind.runners.base.SimulationRunner--source--__span-0-19"><a id="gluebind.runners.base.SimulationRunner--source--__codelineno-0-19" name="gluebind.runners.base.SimulationRunner--source--__codelineno-0-19"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">sub_runners</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SimulationRunner</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 </span></code></pre></div></td></tr></table></div>
                   </details>
 
@@ -3151,15 +3151,15 @@ which provides a working directory and recursive <code>setup</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>gluebind/runners/base.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-21">21</a></span>
-<span class="normal"><a href="#__codelineno-0-22">22</a></span>
-<span class="normal"><a href="#__codelineno-0-23">23</a></span>
-<span class="normal"><a href="#__codelineno-0-24">24</a></span>
-<span class="normal"><a href="#__codelineno-0-25">25</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="w">    </span><span class="sd">"""Create this node's directory, then recurse into children."""</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">base_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24"></a>    <span class="k">for</span> <span class="n">runner</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_runners</span><span class="p">:</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25"></a>        <span class="n">runner</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-21">21</a></span>
+<span class="normal"><a href="#gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-22">22</a></span>
+<span class="normal"><a href="#gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-23">23</a></span>
+<span class="normal"><a href="#gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-24">24</a></span>
+<span class="normal"><a href="#gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-25">25</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="gluebind.runners.base.SimulationRunner.setup--source--__span-0-21"><a id="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-21" name="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-21"></a><span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="gluebind.runners.base.SimulationRunner.setup--source--__span-0-22"><a id="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-22" name="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-22"></a><span class="w">    </span><span class="sd">"""Create this node's directory, then recurse into children."""</span>
+</span><span id="gluebind.runners.base.SimulationRunner.setup--source--__span-0-23"><a id="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-23" name="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-23"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">base_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="gluebind.runners.base.SimulationRunner.setup--source--__span-0-24"><a id="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-24" name="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-24"></a>    <span class="k">for</span> <span class="n">runner</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_runners</span><span class="p">:</span>
+</span><span id="gluebind.runners.base.SimulationRunner.setup--source--__span-0-25"><a id="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-25" name="gluebind.runners.base.SimulationRunner.setup--source--__codelineno-0-25"></a>        <span class="n">runner</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3281,10 +3281,10 @@ which provides a working directory and recursive <code>setup</code>.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.highlight", "search.suggest", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.highlight", "search.suggest", "toc.follow"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../../javascripts/mathjax.js"></script>
       
