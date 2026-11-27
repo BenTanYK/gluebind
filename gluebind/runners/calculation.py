@@ -49,6 +49,7 @@ from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.scheduler import SchedulerConfig
 from gluebind.logutil import add_file_handler, get_logger
+from gluebind.replicate import replicate_dirname
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.group import Group
 from gluebind.runners.stage import Stage
@@ -465,7 +466,7 @@ class Calculation(SimulationRunner):
             return None
         if (
             resolved.config_hash != self.config.config_hash
-            or resolved.prepared_hash != prepared_hash(prepared)
+            or resolved.prepared_hash != prepared_hash(prepared.for_replicate(1))
         ):
             return None
         return resolved
@@ -1471,6 +1472,7 @@ class Calculation(SimulationRunner):
             MMGBSA_RESULT_FILENAME,
             MMGBSA_SPEC_FILENAME,
             MmgbsaSpec,
+            aggregate_replicates,
             mmgbsa_launch_command,
         )
         from gluebind.simulation.production import (
@@ -1487,15 +1489,31 @@ class Calculation(SimulationRunner):
         # the absolute paths saved in prep/prepared.json, so a run prepared on one
         # machine can be analysed on another; the manifest supplies only the
         # molecule layout.
-        production_dir = (self.base_dir / "prep" / COMPLEX_PRODUCTION_DIR).resolve()
-        topology = production_dir / f"{PRODUCTION_OUTPUT_PREFIX}.prm7"
-        trajectory = production_dir / f"{PRODUCTION_OUTPUT_PREFIX}.dcd"
-        if prepared is None or not (topology.is_file() and trajectory.is_file()):
+        # Every production trajectory this run has is scored. With ensemble
+        # equilibration that is one per replicate
+        runs = []
+        if prepared is not None:
+            for replicate in sorted(prepared.replicates):
+                directory = (
+                    self.base_dir
+                    / "prep"
+                    / replicate_dirname(replicate)
+                    / COMPLEX_PRODUCTION_DIR
+                ).resolve()
+                topology = directory / f"{PRODUCTION_OUTPUT_PREFIX}.prm7"
+                trajectory = directory / f"{PRODUCTION_OUTPUT_PREFIX}.dcd"
+                if topology.is_file() and trajectory.is_file():
+                    runs.append((replicate, directory, topology, trajectory))
+        if not runs:
+            searched = (
+                self.base_dir / "prep" / replicate_dirname(1) / COMPLEX_PRODUCTION_DIR
+            )
             raise RuntimeError(
                 "cannot run MM/GBSA: the system is not prepared (needs "
-                f"prep/prepared.json and the production run in {production_dir}); "
+                f"prep/prepared.json and a production run, e.g. {searched}); "
                 "run prepare() first"
             )
+        layout = prepared.for_replicate(runs[0][0])
         saltcon = settings.saltcon_M
         if saltcon is None:  # use the system's ionic strength
             saltcon = self.config.prep.ion_concentration_M
@@ -1508,48 +1526,73 @@ class Calculation(SimulationRunner):
             warnings.warn(message, stacklevel=3)  # points at the caller's mmgbsa()
             self._log.warning("mmgbsa %s: %s", self.base_dir.name, message)
 
-        production = ProductionSpec.load(production_dir / PRODUCTION_SPEC_FILENAME)
-        MmgbsaSpec(
-            topology=str(topology),
-            trajectory=str(trajectory),
-            ps_per_frame=production.sample_interval_steps
-            * production.timestep_fs
-            / 1000.0,
-            receptor_molecules=prepared.receptor_molecules,
-            target_molecules=prepared.target_molecules,
-            glue_molecule=prepared.glue_molecule,
-            glue_assign_to=prepared.glue_assign_to,
-            saltcon_M=saltcon,
-            settings=settings,
-        ).dump(work_dir / MMGBSA_SPEC_FILENAME)
-        self._log.info("mmgbsa %s: submitting (%s)", self.base_dir.name, work_dir)
-        (job_state,) = Scheduler(
+        # One job per trajectory, submitted together: they are independent, so
+        # there is no reason to serialise them behind one another.
+        jobs, job_dirs = [], {}
+        for replicate, directory, topology, trajectory in runs:
+            job_dir = work_dir / replicate_dirname(replicate)
+            job_dirs[replicate] = job_dir
+            production = ProductionSpec.load(directory / PRODUCTION_SPEC_FILENAME)
+            MmgbsaSpec(
+                topology=str(topology),
+                trajectory=str(trajectory),
+                ps_per_frame=production.sample_interval_steps
+                * production.timestep_fs
+                / 1000.0,
+                receptor_molecules=layout.receptor_molecules,
+                target_molecules=layout.target_molecules,
+                glue_molecule=layout.glue_molecule,
+                glue_assign_to=layout.glue_assign_to,
+                saltcon_M=saltcon,
+                settings=settings,
+            ).dump(job_dir / MMGBSA_SPEC_FILENAME)
+            jobs.append(
+                JobSpec(
+                    command=mmgbsa_launch_command(),
+                    work_dir=str(job_dir),
+                    name=f"mmgbsa_{replicate_dirname(replicate)}",
+                )
+            )
+        self._log.info(
+            "mmgbsa %s: submitting %d trajector%s (%s)",
+            self.base_dir.name,
+            len(jobs),
+            "y" if len(jobs) == 1 else "ies",
+            work_dir,
+        )
+        states = Scheduler(
             self.backend,
             poll_interval=self._effective_poll_interval,
             submission_guard=self._stop.submission_permit,
         ).run(
-            [
-                JobSpec(
-                    command=mmgbsa_launch_command(),
-                    work_dir=str(work_dir),
-                    name="mmgbsa",
-                )
-            ],
-            on_submit=lambda _index, handle: self._record_auxiliary_handle(
-                "mmgbsa", handle
+            jobs,
+            on_submit=lambda index, handle: self._record_auxiliary_handle(
+                f"mmgbsa_{replicate_dirname(runs[index][0])}", handle
             ),
         )
-        if job_state is not JobState.FINISHED or not result_path.exists():
-            raise RuntimeError(
-                "MM/GBSA job did not produce its result; inspect the logs in "
-                f"{work_dir}"
-            )
-        result = json.loads(result_path.read_text())
+        per_replicate = {}
+        for (replicate, *_), job_state in zip(runs, states, strict=True):
+            path = job_dirs[replicate] / MMGBSA_RESULT_FILENAME
+            if job_state is not JobState.FINISHED or not path.exists():
+                raise RuntimeError(
+                    f"MM/GBSA job for {replicate_dirname(replicate)} did not produce "
+                    f"its result; inspect the logs in {job_dirs[replicate]}"
+                )
+            per_replicate[replicate] = json.loads(path.read_text())
+
+        result = aggregate_replicates(per_replicate)
+        tmp = result_path.with_name(f".{result_path.name}.tmp")
+        tmp.write_text(json.dumps(result, indent=2, allow_nan=False))
+        os.replace(tmp, result_path)
         self._log.info(
-            "mmgbsa %s: dG = %.2f +/- %.2f kcal/mol (%d frames)",
+            "mmgbsa %s: dG = %.2f +/- %.2f kcal/mol (%d frames over %d trajector%s, "
+            "SEM over %s)",
             self.base_dir.name,
             result["dg_mmgbsa"],
             result["dg_mmgbsa_sem"],
             result["n_frames"],
+            result["n_replicates"],
+            "y" if result["n_replicates"] == 1 else "ies",
+            result["sem_source"],
         )
         return result
