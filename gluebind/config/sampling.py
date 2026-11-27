@@ -219,6 +219,35 @@ class SamplingConfig(pydantic.BaseModel):
     """Write a DCD trajectory for each US window."""
     ensemble_size: int = 3
     """Number of independent replicate simulations per window."""
+    ensemble_from: Literal["windows", "smd", "equilibration"] = "windows"
+    """The pipeline stage at which the ``ensemble_size`` replicates become
+    independent. Everything from this stage onward runs once per replicate;
+    everything before it runs once and is shared.
+
+    * ``windows`` (default) — replicates diverge only at the umbrella-sampling
+      windows. One production equilibration, one bulk pair, one restraint
+      context (so one set of anchors and Boresch equilibrium values) and one set
+      of SMD frames seed every replicate; they differ only in their initial
+      velocities.
+    * ``smd`` — as above, but each replicate gets its own steered-MD pull, so its
+      separation windows start from its own snapshots.
+    * ``equilibration`` — each replicate gets its own production equilibration,
+      its own bulk extraction and equilibration, and its own restraint
+      resolution. Anchors, interface groups and Boresch equilibrium values are
+      resolved per replicate, and each replicate's steered MD starts from its own
+      equilibrated structure.
+
+    The values are ordered along the pipeline, so choosing a stage implies every
+    later one: ``equilibration`` necessarily means per-replicate SMD, because
+    each pull has to start from its own equilibrated structure. Expressing this
+    as one ordered choice rather than two booleans makes the invalid combination
+    — per-replicate equilibration with shared SMD — unrepresentable rather than
+    merely rejected.
+
+    Note the cost: ``equilibration`` multiplies ``prep.equilibration_ns``, both
+    bulk equilibrations and restraint resolution by ``ensemble_size``. The number
+    of umbrella windows is roughly unchanged — each replicate simply has its own.
+    """
     run_rmsd_us: bool = True
     """Whether to run the RMSD umbrella-sampling stages (ΔG_c^bound/ΔG_c^bulk). Set
     ``False`` for the restrained-separation-PMF-only mode: the RMSD restraints are
@@ -286,6 +315,32 @@ class SamplingConfig(pydantic.BaseModel):
         if v <= 0:
             raise ValueError("must be > 0")
         return v
+
+    @pydantic.model_validator(mode="after")
+    def _ensemble_stage_needs_replicates(self):
+        # Fanning a stage out over a single replicate is a silent no-op, which
+        # would quietly cost nothing and deliver nothing.
+        if self.ensemble_from != "windows" and self.ensemble_size < 2:
+            raise ValueError(
+                f"ensemble_from={self.ensemble_from!r} requires ensemble_size > 1; "
+                "with a single replicate there is nothing to fan out"
+            )
+        return self
+
+    @property
+    def ensemble_equilibration(self) -> bool:
+        """Whether production equilibration, bulk extraction and restraint
+        resolution run once per replicate."""
+        return self.ensemble_from == "equilibration"
+
+    @property
+    def ensemble_smd(self) -> bool:
+        """Whether steered MD runs once per replicate.
+
+        Implied by ``ensemble_from="equilibration"``: a replicate with its own
+        equilibrated structure must pull from that structure.
+        """
+        return self.ensemble_from in ("smd", "equilibration")
 
     def for_cv(self, cv_type: str, stage_name: str) -> WindowSampling:
         """Resolve the sampling schedule for a stage of a given CV type.
