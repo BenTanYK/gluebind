@@ -49,7 +49,7 @@ from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.scheduler import SchedulerConfig
 from gluebind.logutil import add_file_handler, get_logger
-from gluebind.replicate import replicate_dirname
+from gluebind.replicate import equilibration_replicates, replicate_dirname
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.group import Group
 from gluebind.runners.stage import Stage
@@ -364,18 +364,21 @@ class Calculation(SimulationRunner):
                 submission_guard=self._stop.submission_permit,
             )
         if not resolve_restraints:
-            report = self._submit_rmsf_report(prepared)
-            self._log.info(
-                "prepare %s: RMSF report for manual anchor selection -> %s",
-                self.base_dir.name,
-                ", ".join(report.values()),
-            )
+            # One report per equilibration replicate: each has its own trajectory,
+            # and hand-picked anchors have to be stable in all of them.
+            for replicate in equilibration_replicates(self.config.sampling):
+                report = self._submit_rmsf_report(prepared, replicate)
+                self._log.info(
+                    "prepare %s: RMSF report for manual anchor selection -> %s",
+                    self.base_dir.name,
+                    ", ".join(report.values()),
+                )
             return prepared
         self._resolve_restraint_context(prepared)
         self._wire(prepared)
         return prepared
 
-    def _submit_rmsf_report(self, prepared) -> dict[str, str]:
+    def _submit_rmsf_report(self, prepared, replicate: int = 1) -> dict[str, str]:
         """Generate manual-anchor RMSF reports through the normal backend."""
         import json
 
@@ -388,7 +391,8 @@ class Calculation(SimulationRunner):
         )
 
         prep_dir = self.base_dir / "prep"
-        work_dir = prep_dir / "rmsf_report"
+        replicate_dir = self._replicate_prep_dir(replicate)
+        work_dir = replicate_dir / "rmsf_report"
         result_path = work_dir / RMSF_REPORT_RESULT_FILENAME
         report_complete = False
         if result_path.exists():
@@ -405,7 +409,8 @@ class Calculation(SimulationRunner):
             RmsfReportSpec(
                 config=self.config,
                 prep_dir=str(prep_dir),
-                output_dir=str(prep_dir),
+                output_dir=str(replicate_dir),
+                replicate=replicate,
             ).dump(work_dir / RMSF_REPORT_SPEC_FILENAME)
             (job_state,) = Scheduler(
                 self.backend,
@@ -416,11 +421,11 @@ class Calculation(SimulationRunner):
                     JobSpec(
                         command=rmsf_report_launch_command(),
                         work_dir=str(work_dir),
-                        name="rmsf_report",
+                        name=f"rmsf_report_{replicate_dirname(replicate)}",
                     )
                 ],
                 on_submit=lambda _index, handle: self._record_auxiliary_handle(
-                    "rmsf_report", handle
+                    f"rmsf_report_{replicate_dirname(replicate)}", handle
                 ),
             )
             if job_state is not JobState.FINISHED or not result_path.exists():
@@ -429,17 +434,6 @@ class Calculation(SimulationRunner):
                     f"{work_dir}"
                 )
         return json.loads(result_path.read_text())
-
-    def _write_rmsf_report(self, prepared) -> dict[str, str]:
-        """Write per-protein CA RMSF (``resid  atom_index  rmsf``) + suggested stable
-        candidates to ``prep/rmsf_<protein>.dat`` for manual anchor inspection.
-
-        ``atom_index`` is each CA's 0-indexed complex atom index, retained for
-        diagnostics; ``BoreschSpec.anchors`` takes the corresponding 1-based residue
-        IDs from the input topology."""
-        from gluebind.simulation.restraint_resolution import write_rmsf_report
-
-        return write_rmsf_report(prepared, self.config, self.base_dir / "prep")
 
     def _load_prepared(self):
         """Return the on-disk :class:`PreparedSystem`, or ``None`` if not prepared."""
@@ -450,23 +444,32 @@ class Calculation(SimulationRunner):
         except FileNotFoundError:
             return None
 
-    def _restraint_context_path(self) -> pathlib.Path:
+    def _replicate_prep_dir(self, replicate: int) -> pathlib.Path:
+        """``prep/run_NN``: one replicate's equilibration and restraint artefacts."""
+        return self.base_dir / "prep" / replicate_dirname(replicate)
+
+    def _restraint_context_path(self, replicate: int = 1) -> pathlib.Path:
         from gluebind.restraint_context import RESTRAINT_CONTEXT_FILENAME
 
-        return self.base_dir / "prep" / RESTRAINT_CONTEXT_FILENAME
+        return self._replicate_prep_dir(replicate) / RESTRAINT_CONTEXT_FILENAME
 
-    def _load_resolved_restraint_context(self, prepared):
-        """Load a valid compute-node restraint-resolution result, if available."""
+    def _load_resolved_restraint_context(self, prepared, replicate: int = 1):
+        """Load a valid compute-node restraint-resolution result, if available.
+
+        Each replicate equilibrates independently, so each resolves its own
+        context against its own trajectory; the hashes tie one context to one
+        replicate's prepared system."""
         from gluebind.restraint_context import ResolvedRestraintContext, prepared_hash
 
-        path = self._restraint_context_path()
+        path = self._restraint_context_path(replicate)
         try:
             resolved = ResolvedRestraintContext.load(path)
         except FileNotFoundError:
             return None
+        expected = prepared_hash(prepared.for_replicate(replicate))
         if (
             resolved.config_hash != self.config.config_hash
-            or resolved.prepared_hash != prepared_hash(prepared.for_replicate(1))
+            or resolved.prepared_hash != expected
         ):
             return None
         return resolved
@@ -479,19 +482,6 @@ class Calculation(SimulationRunner):
         ``SlurmConfig`` (including ``gres=gpu:1``), avoiding assumptions about
         whether a site's GPU partition permits CPU-only jobs.
         """
-        if self._load_resolved_restraint_context(prepared) is not None:
-            report_paths = [
-                self.base_dir / "prep" / f"rmsf_{protein}.dat"
-                for protein in ("receptor", "target")
-            ]
-            if not all(path.exists() for path in report_paths):
-                self._submit_rmsf_report(prepared)
-            self._log.info(
-                "prepare %s: reusing resolved restraint context", self.base_dir.name
-            )
-            self._warn_boresch_diagnostics()
-            return
-
         from gluebind.backend.scheduler import Scheduler
         from gluebind.simulation.restraint_resolution import (
             RESTRAINT_RESOLUTION_RESULT_FILENAME,
@@ -501,20 +491,47 @@ class Calculation(SimulationRunner):
         )
 
         state = self._load_or_init_state()
-        work_dir = self.base_dir / "prep" / "restraint_resolution"
-        work_dir.mkdir(parents=True, exist_ok=True)
-        RestraintResolutionSpec(
-            config=self.config,
-            prep_dir=str(self.base_dir / "prep"),
-            output_path=str(self._restraint_context_path()),
-            config_hash=self.config.config_hash,
-            anchors_override=state.anchors,
-        ).dump(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
+        replicates = equilibration_replicates(self.config.sampling)
+        pending: list[tuple[int, pathlib.Path]] = []
+        for replicate in replicates:
+            replicate_dir = self._replicate_prep_dir(replicate)
+            if self._load_resolved_restraint_context(prepared, replicate) is not None:
+                if not all(
+                    (replicate_dir / f"rmsf_{protein}.dat").exists()
+                    for protein in ("receptor", "target")
+                ):
+                    self._submit_rmsf_report(prepared, replicate)
+                self._log.info(
+                    "prepare %s: reusing resolved restraint context for %s",
+                    self.base_dir.name,
+                    replicate_dirname(replicate),
+                )
+                self._warn_boresch_diagnostics(replicate)
+                continue
+            work_dir = replicate_dir / "restraint_resolution"
+            work_dir.mkdir(parents=True, exist_ok=True)
+            RestraintResolutionSpec(
+                config=self.config,
+                prep_dir=str(self.base_dir / "prep"),
+                replicate_dir=str(replicate_dir),
+                replicate=replicate,
+                config_hash=self.config.config_hash,
+                anchors_override=state.anchors,
+            ).dump(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
+            pending.append((replicate, work_dir))
+        if not pending:
+            return
+
         self._log.info(
-            "prepare %s: resolving restraint geometry on the backend",
+            "prepare %s: resolving restraint geometry on the backend for %s",
             self.base_dir.name,
+            ", ".join(replicate_dirname(replicate) for replicate, _ in pending),
         )
-        (job_state,) = Scheduler(
+        names = [
+            f"restraint_resolution_{replicate_dirname(replicate)}"
+            for replicate, _ in pending
+        ]
+        job_states = Scheduler(
             self.backend,
             poll_interval=self._effective_poll_interval,
             submission_guard=self._stop.submission_permit,
@@ -523,25 +540,27 @@ class Calculation(SimulationRunner):
                 JobSpec(
                     command=restraint_resolution_launch_command(),
                     work_dir=str(work_dir),
-                    name="restraint_resolution",
+                    name=name,
                 )
+                for name, (_replicate, work_dir) in zip(names, pending, strict=True)
             ],
-            on_submit=lambda _index, handle: self._record_auxiliary_handle(
-                "restraint_resolution", handle
+            on_submit=lambda index, handle: self._record_auxiliary_handle(
+                names[index], handle
             ),
         )
-        if (
-            job_state is not JobState.FINISHED
-            or not (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).exists()
-            or self._load_resolved_restraint_context(prepared) is None
-        ):
-            raise RuntimeError(
-                "restraint-resolution job did not produce a valid context; inspect "
-                f"{work_dir}"
-            )
-        self._warn_boresch_diagnostics()
+        for job_state, (replicate, work_dir) in zip(job_states, pending, strict=True):
+            if (
+                job_state is not JobState.FINISHED
+                or not (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).exists()
+                or self._load_resolved_restraint_context(prepared, replicate) is None
+            ):
+                raise RuntimeError(
+                    "restraint-resolution job did not produce a valid context; "
+                    f"inspect {work_dir}"
+                )
+            self._warn_boresch_diagnostics(replicate)
 
-    def _warn_boresch_diagnostics(self) -> None:
+    def _warn_boresch_diagnostics(self, replicate: int = 1) -> None:
         """Warn about Boresch DoFs whose equilibration distribution is multimodal or
         unusually wide (recorded by restraint resolution in the distributions'
         metadata): both can mean a weakly bound interface."""
@@ -551,8 +570,7 @@ class Calculation(SimulationRunner):
         )
 
         path = (
-            self.base_dir
-            / "prep"
+            self._replicate_prep_dir(replicate)
             / BORESCH_DISTRIBUTION_DIRNAME
             / BORESCH_DISTRIBUTION_METADATA
         )

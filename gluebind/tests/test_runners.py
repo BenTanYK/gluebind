@@ -803,26 +803,108 @@ def test_run_self_defaults_pmf_provider_for_boresch(tmp_path, monkeypatch):
     assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
 
 
-def _dump_prepared(base_dir):
+def _dump_prepared(base_dir, replicates=(1,)):
     from gluebind.system.prep import PreparedReplicate, PreparedSystem
 
     PreparedSystem(
         replicates={
-            1: PreparedReplicate(
-            complex_prm7="c.prm7",
-            complex_rst7="c.rst7",
-            complex_trajectory="c.dcd",
-            target_bulk_prm7="tb.prm7",
-            target_bulk_rst7="tb.rst7",
-            receptor_bulk_prm7="rb.prm7",
-            receptor_bulk_rst7="rb.rst7",
-            target_molecules=[0],
-            receptor_molecules=[1],
-            glue_molecule=2,
-
+            replicate: PreparedReplicate(
+                complex_prm7="c.prm7",
+                complex_rst7="c.rst7",
+                complex_trajectory="c.dcd",
+                target_bulk_prm7="tb.prm7",
+                target_bulk_rst7="tb.rst7",
+                receptor_bulk_prm7="rb.prm7",
+                receptor_bulk_rst7="rb.rst7",
+                target_molecules=[0],
+                receptor_molecules=[1],
+                glue_molecule=2,
             )
+            for replicate in replicates
         }
     ).dump(base_dir / "prep")
+
+
+def _restraint_context():
+    from gluebind.spec_builder import RestraintContext
+
+    return RestraintContext(
+        complex_topology="c.prm7",
+        complex_coordinates="c.rst7",
+        rec_group=[1, 2],
+        lig_group=[3, 4],
+        anchors={"b": 10, "c": 11, "B": 12, "C": 13},
+        rmsd_order=[],
+        rmsd_atoms_bound={},
+        rmsd_bulk={},
+        always_on=[],
+    )
+
+
+def test_each_equilibration_replicate_resolves_its_own_restraints(
+    tmp_path, monkeypatch
+):
+    # Replicates equilibrate independently, so anchors and equilibrium values are
+    # resolved per replicate, from that replicate's own trajectory.
+    from gluebind.backend import scheduler as scheduler_mod
+    from gluebind.restraint_context import RESTRAINT_CONTEXT_FILENAME
+    from gluebind.simulation.restraint_resolution import (
+        RESTRAINT_RESOLUTION_RESULT_FILENAME,
+        RESTRAINT_RESOLUTION_SPEC_FILENAME,
+        RestraintResolutionSpec,
+    )
+
+    config = _config()
+    config.sampling.ensemble_size = 3
+    config.sampling.ensemble_from = "equilibration"
+    _dump_prepared(tmp_path, replicates=(1, 2, 3))
+    calc = Calculation.from_config(config, LocalBackend(), base_dir=tmp_path)
+    prepared = calc._load_prepared()
+
+    submitted = []
+
+    class _FakeScheduler:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def run(self, specs, on_submit=None):
+            for spec in specs:
+                work_dir = pathlib.Path(spec.work_dir)
+                submitted.append(spec.name)
+                # stand in for the worker: a context the driver can validate
+                _write_context(calc, prepared, work_dir)
+                (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).write_text("{}")
+            return [JobState.FINISHED] * len(specs)
+
+    def _write_context(calc, prepared, work_dir):
+        from gluebind.restraint_context import (
+            ResolvedRestraintContext,
+            context_to_data,
+            prepared_hash,
+        )
+
+        spec = RestraintResolutionSpec.load(
+            work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME
+        )
+        ResolvedRestraintContext(
+            config_hash=spec.config_hash,
+            prepared_hash=prepared_hash(prepared.for_replicate(spec.replicate)),
+            context=context_to_data(_restraint_context()),
+            stage_centres={"thetaA": [1.0], "separation": [1.5]},
+        ).dump(pathlib.Path(spec.replicate_dir) / RESTRAINT_CONTEXT_FILENAME)
+
+    monkeypatch.setattr(scheduler_mod, "Scheduler", _FakeScheduler)
+
+    calc._resolve_restraint_context(prepared)
+
+    assert submitted == [f"restraint_resolution_run_{n:02d}" for n in (1, 2, 3)]
+    for replicate in (1, 2, 3):
+        assert calc._load_resolved_restraint_context(prepared, replicate) is not None
+    # resolved contexts are reused, so a second call submits nothing
+    submitted.clear()
+    calc._submit_rmsf_report = lambda prepared, replicate=1: {}
+    calc._resolve_restraint_context(prepared)
+    assert submitted == []
 
 
 def test_prepare_without_restraints_reuses_prep_and_does_not_wire(tmp_path):
@@ -833,7 +915,7 @@ def test_prepare_without_restraints_reuses_prep_and_does_not_wire(tmp_path):
     _dump_prepared(tmp_path)
     calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
     written = {}
-    calc._submit_rmsf_report = lambda prepared: written.setdefault(
+    calc._submit_rmsf_report = lambda prepared, replicate=1: written.setdefault(
         "paths", {"receptor": "rmsf_receptor.dat", "target": "rmsf_target.dat"}
     )
 
@@ -1085,7 +1167,7 @@ def test_add_windows_separation_with_snapshot(tmp_path):
 
 
 def _write_boresch_metadata(base_dir, diagnostics):
-    path = base_dir / "prep" / "boresch_distributions" / "metadata.json"
+    path = base_dir / "prep" / "run_01" / "boresch_distributions" / "metadata.json"
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps({"frame_count": 10, "diagnostics": diagnostics}))
 

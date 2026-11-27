@@ -31,16 +31,15 @@ def _prepared(tmp_path: Path) -> PreparedSystem:
     prepared = PreparedSystem(
         replicates={
             1: PreparedReplicate(
-            complex_prm7="complex.prm7",
-            complex_rst7="complex.rst7",
-            complex_trajectory="complex.dcd",
-            target_bulk_prm7="target.prm7",
-            target_bulk_rst7="target.rst7",
-            receptor_bulk_prm7="receptor.prm7",
-            receptor_bulk_rst7="receptor.rst7",
-            target_molecules=[0],
-            receptor_molecules=[1],
-
+                complex_prm7="complex.prm7",
+                complex_rst7="complex.rst7",
+                complex_trajectory="complex.dcd",
+                target_bulk_prm7="target.prm7",
+                target_bulk_rst7="target.rst7",
+                receptor_bulk_prm7="receptor.prm7",
+                receptor_bulk_rst7="receptor.rst7",
+                target_molecules=[0],
+                receptor_molecules=[1],
             )
         }
     )
@@ -106,12 +105,13 @@ def test_resolution_worker_persists_context_and_centres(tmp_path, monkeypatch):
         "write_rmsf_report",
         lambda *a, **k: report_calls.append((a, k)) or {},
     )
-    work_dir = tmp_path / "prep" / "restraint_resolution"
-    output = tmp_path / "prep" / RESTRAINT_CONTEXT_FILENAME
+    replicate_dir = tmp_path / "prep" / "run_01"
+    work_dir = replicate_dir / "restraint_resolution"
+    output = replicate_dir / RESTRAINT_CONTEXT_FILENAME
     RestraintResolutionSpec(
         config=config,
         prep_dir=str(tmp_path / "prep"),
-        output_path=str(output),
+        replicate_dir=str(replicate_dir),
         config_hash=config.config_hash,
     ).dump(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
 
@@ -144,7 +144,7 @@ def test_wire_reuses_context_artifact_without_mdanalysis(tmp_path, monkeypatch):
         prepared_hash=prepared_hash(prepared.for_replicate(1)),
         context=context_to_data(context),
         stage_centres={"thetaA": [1.0], "separation": [1.5]},
-    ).dump(tmp_path / "prep" / RESTRAINT_CONTEXT_FILENAME)
+    ).dump(tmp_path / "prep" / "run_01" / RESTRAINT_CONTEXT_FILENAME)
 
     import gluebind.spec_builder as spec_builder
     import gluebind.simulation.steered_md as steered_md
