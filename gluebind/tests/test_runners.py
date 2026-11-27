@@ -462,7 +462,7 @@ def test_resume_config_hash_mismatch_aborts(tmp_path):
         )
 
 
-def _ensemble_calc(tmp_path, centres):
+def _ensemble_calc(tmp_path, centres, **kwargs):
     """A calculation whose replicates have their own window centres."""
     config = _config()
     config.sampling.ensemble_size = len(centres)
@@ -474,6 +474,7 @@ def _ensemble_calc(tmp_path, centres):
         _spec_builder,
         command_factory=_trivial_command,
         stage_centres=centres,
+        **kwargs,
     )
 
 
@@ -583,14 +584,16 @@ def test_run_invokes_steered_md_before_separation(tmp_path):
         _spec_builder,
         command_factory=_trivial_command,
         stage_centres={1: {"thetaA": [1.0], "separation": [1.5]}},
-        steered_md_runner=lambda eq: calls.append(dict(eq)),
+        steered_md_runner=lambda eq, replicates: calls.append((dict(eq), replicates)),
     )
     state = calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
     )
     assert len(calls) == 1
-    assert "thetaA" in calls[0]  # invoked with the resolved Boresch eq values
-    assert state.stage_status.get("steered_md") == "done"
+    eq_values, replicates = calls[0]
+    assert "thetaA" in eq_values[1]  # invoked with the resolved Boresch eq values
+    assert replicates == [1]
+    assert state.stage_status.get("steered_md_run_01") == "done"
 
 
 def test_run_without_separation_skips_steered_md(tmp_path):
@@ -602,7 +605,7 @@ def test_run_without_separation_skips_steered_md(tmp_path):
         _spec_builder,
         command_factory=_trivial_command,
         stage_centres={1: {"thetaA": [1.0]}},  # no separation group
-        steered_md_runner=lambda eq: calls.append(eq),
+        steered_md_runner=lambda eq, replicates: calls.append(eq),
     )
     calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
@@ -611,14 +614,18 @@ def test_run_without_separation_skips_steered_md(tmp_path):
 
 
 def _counting_smd(tmp_path, counter):
-    """A steered-MD stand-in that writes the 1.5 nm separation frame and counts runs."""
+    """A steered-MD stand-in that writes each pull's 1.5 nm separation frame and
+    counts the pulls it ran."""
     from gluebind.simulation.steered_md import smd_frame_path
 
-    def run(eq):
-        counter["n"] += 1
-        frame = smd_frame_path(tmp_path / "smd_frames", 1.5)
-        frame.parent.mkdir(parents=True, exist_ok=True)
-        frame.write_text("frame")
+    def run(eq, replicates):
+        for replicate in replicates:
+            counter["n"] += 1
+            frame = smd_frame_path(
+                tmp_path / "smd_frames" / f"run_{replicate:02d}", 1.5
+            )
+            frame.parent.mkdir(parents=True, exist_ok=True)
+            frame.write_text("frame")
 
     return run
 
@@ -633,6 +640,41 @@ def _smd_calc(tmp_path, counter):
         stage_centres={1: {"thetaA": [1.0], "separation": [1.5]}},
         steered_md_runner=_counting_smd(tmp_path, counter),
     )
+
+
+def test_each_replicate_pulls_its_own_separation_frames(tmp_path):
+    # Ensemble SMD: one pull per replicate, each into its own frame directory,
+    # and a resume repeats only the pull whose frames went missing.
+    from gluebind import RunState
+    from gluebind.simulation.steered_md import smd_frame_path
+
+    counter = {"n": 0}
+    centres = {
+        1: {"thetaA": [1.0], "separation": [1.5]},
+        2: {"thetaA": [1.0], "separation": [1.5]},
+    }
+    _ensemble_calc(
+        tmp_path, centres, steered_md_runner=_counting_smd(tmp_path, counter)
+    ).run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+
+    assert counter["n"] == 2  # both replicates pulled
+    state = RunState.load(tmp_path)
+    assert state.stage_status["steered_md_run_01"] == "done"
+    assert state.stage_status["steered_md_run_02"] == "done"
+
+    smd_frame_path(tmp_path / "smd_frames" / "run_02", 1.5).unlink()
+    calc = _ensemble_calc(
+        tmp_path, centres, steered_md_runner=_counting_smd(tmp_path, counter)
+    )
+    for window in calc._iter_windows():
+        if window.stage_name == "separation" and window.replicate == 2:
+            (window.base_dir / "result.json").unlink()
+    calc.run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    assert counter["n"] == 3  # only replicate 2 was pulled again
 
 
 def test_steered_md_runs_once_across_resume(tmp_path):
@@ -656,7 +698,8 @@ def test_steered_md_reruns_when_a_window_frame_is_missing(tmp_path):
     _smd_calc(tmp_path, counter).run(
         scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
     )
-    smd_frame_path(tmp_path / "smd_frames", 1.5).unlink()
+    frame = smd_frame_path(tmp_path / "smd_frames" / "run_01", 1.5)
+    frame.unlink()
     for window in _smd_calc(tmp_path, counter)._iter_windows():
         if window.stage_name == "separation":
             (window.base_dir / "result.json").unlink()
@@ -665,8 +708,8 @@ def test_steered_md_reruns_when_a_window_frame_is_missing(tmp_path):
         scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
     )
     assert counter["n"] == 2  # steered MD ran again
-    assert smd_frame_path(tmp_path / "smd_frames", 1.5).exists()
-    assert RunState.load(tmp_path).stage_status["steered_md"] == "done"
+    assert frame.exists()
+    assert RunState.load(tmp_path).stage_status["steered_md_run_01"] == "done"
 
 
 # ---- analysis --------------------------------------------------------------
@@ -1235,7 +1278,7 @@ def test_add_windows_separation_requires_snapshot(tmp_path):
 
 def test_add_windows_separation_with_snapshot(tmp_path):
     calc = _wired_calc(tmp_path)
-    frames = tmp_path / "smd_frames"
+    frames = tmp_path / "smd_frames" / "run_01"
     frames.mkdir(parents=True)
     (frames / "2nm.rst7").write_text("frame")  # {2.0:.4g}nm.rst7
     stage = calc.add_windows("separation", "separation", [2.0])

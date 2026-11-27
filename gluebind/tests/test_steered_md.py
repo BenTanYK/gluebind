@@ -10,6 +10,7 @@ from gluebind.simulation import separation_window_targets
 from gluebind.simulation.steered_md import (
     SMD_RESULT_FILENAME,
     SMD_SPEC_FILENAME,
+    SmdPlan,
     SmdSpec,
     make_steered_md_runner,
     smd_launch_command,
@@ -182,31 +183,59 @@ class _Sampling:
 def test_make_steered_md_runner_submits_backend_job(tmp_path):
     backend = _FakeSmdBackend()
     runner = make_steered_md_runner(
-        backend=backend,
         scheduler_factory=lambda: Scheduler(backend, poll_interval=0.0),
-        work_dir=tmp_path / "smd",
-        out_dir=tmp_path / "frames",
-        topology="t.prm7",
-        coordinates="c.rst7",
-        rec_group=[1, 2],
-        lig_group=[3, 4],
-        anchors={"b": 1, "c": 2, "B": 3, "C": 4},
-        rmsd_atoms_bound={"receptor": [1, 2]},
-        snapshot_centres=[2.0, 1.5, 1.5],
+        plans={1: _plan(tmp_path, snapshots=(2.0, 1.5, 1.5))},
         sampling=_Sampling(),
     )
 
-    frames = runner({"thetaA": 1.0})
+    frames = runner({1: {"thetaA": 1.0}})
 
     assert len(backend.submitted) == 1
     spec = backend.submitted[0]
     assert spec.boresch_eq_values == {"thetaA": 1.0}
     assert spec.window_centres == [1.5, 2.0]  # deduped + sorted
     assert frames == {
-        1.5: str(tmp_path / "frames" / "1.5nm.rst7"),
-        2.0: str(tmp_path / "frames" / "2nm.rst7"),
+        1: {
+            1.5: str(tmp_path / "frames" / "run_01" / "1.5nm.rst7"),
+            2.0: str(tmp_path / "frames" / "run_01" / "2nm.rst7"),
+        }
     }
     assert spec.smd_compression_margin == 0.1
+
+
+def test_steered_md_runner_pulls_each_replicate_from_its_own_structure(tmp_path):
+    # Ensemble SMD: one pull per replicate, submitted as a single batch, each
+    # from its own equilibrated structure into its own frame directory.
+    backend = _FakeSmdBackend()
+    runner = make_steered_md_runner(
+        scheduler_factory=lambda: Scheduler(backend, poll_interval=0.0),
+        plans={r: _plan(tmp_path, replicate=r) for r in (1, 2)},
+        sampling=_Sampling(),
+    )
+
+    frames = runner({1: {"thetaA": 1.0}, 2: {"thetaA": 1.4}})
+
+    assert len(backend.submitted) == 2  # one batch, two jobs
+    assert [s.coordinates for s in backend.submitted] == ["c1.rst7", "c2.rst7"]
+    assert [s.boresch_eq_values["thetaA"] for s in backend.submitted] == [1.0, 1.4]
+    assert set(frames) == {1, 2}
+    assert frames[2][1.5] == str(tmp_path / "frames" / "run_02" / "1.5nm.rst7")
+
+
+def test_steered_md_runner_repeats_only_the_selected_replicates(tmp_path):
+    # A resume re-pulls the replicates whose frames are missing, not all of them.
+    backend = _FakeSmdBackend()
+    runner = make_steered_md_runner(
+        scheduler_factory=lambda: Scheduler(backend, poll_interval=0.0),
+        plans={r: _plan(tmp_path, replicate=r) for r in (1, 2, 3)},
+        sampling=_Sampling(),
+    )
+
+    frames = runner({}, [2])
+
+    assert len(backend.submitted) == 1
+    assert backend.submitted[0].coordinates == "c2.rst7"
+    assert set(frames) == {2}
 
 
 def test_steered_md_runner_keeps_a_zero_compression_margin(tmp_path):
@@ -218,19 +247,10 @@ def test_steered_md_runner_keeps_a_zero_compression_margin(tmp_path):
 
     backend = _FakeSmdBackend()
     make_steered_md_runner(
-        backend=backend,
         scheduler_factory=lambda: Scheduler(backend, poll_interval=0.0),
-        work_dir=tmp_path / "smd",
-        out_dir=tmp_path / "frames",
-        topology="t.prm7",
-        coordinates="c.rst7",
-        rec_group=[1, 2],
-        lig_group=[3, 4],
-        anchors={"b": 1, "c": 2, "B": 3, "C": 4},
-        rmsd_atoms_bound={"receptor": [1, 2]},
-        snapshot_centres=[1.5],
+        plans={1: _plan(tmp_path, snapshots=(1.5,), windows=(1.5,))},
         sampling=_ZeroMargin(),
-    )({"thetaA": 1.0})
+    )({1: {"thetaA": 1.0}})
     assert backend.submitted[0].smd_compression_margin == 0.0
 
 
@@ -297,35 +317,40 @@ class _FakeSmdBackendWithImages(_FakeSmdBackend):
         return handle
 
 
-def _runner(tmp_path, backend, warnings, snapshots=(1.5, 2.0), windows=(1.5, 2.0)):
-    return make_steered_md_runner(
-        backend=backend,
-        scheduler_factory=lambda: Scheduler(backend, poll_interval=0.0),
-        work_dir=tmp_path / "smd",
-        out_dir=tmp_path / "frames",
+def _plan(tmp_path, replicate=1, snapshots=(1.5, 2.0), windows=(1.5, 2.0)):
+    return SmdPlan(
+        work_dir=tmp_path / "smd" / f"run_{replicate:02d}",
+        out_dir=tmp_path / "frames" / f"run_{replicate:02d}",
         topology="t.prm7",
-        coordinates="c.rst7",
+        coordinates=f"c{replicate}.rst7",
         rec_group=[1, 2],
         lig_group=[3, 4],
         anchors={"b": 1, "c": 2, "B": 3, "C": 4},
         rmsd_atoms_bound={"receptor": [1, 2]},
-        snapshot_centres=list(snapshots),
+        snapshot_centres=tuple(snapshots),
+        window_centres=tuple(windows),
+    )
+
+
+def _runner(tmp_path, backend, warnings, snapshots=(1.5, 2.0), windows=(1.5, 2.0)):
+    return make_steered_md_runner(
+        scheduler_factory=lambda: Scheduler(backend, poll_interval=0.0),
+        plans={1: _plan(tmp_path, snapshots=snapshots, windows=windows)},
         sampling=_Sampling(),
-        window_centres=list(windows),
         warn=warnings.append,
     )
 
 
 def test_steered_md_runner_warns_once_for_periodic_image_contact(tmp_path):
     warnings: list[str] = []
-    _runner(tmp_path, _FakeSmdBackendWithImages(), warnings)({"thetaA": 1.0})
+    _runner(tmp_path, _FakeSmdBackendWithImages(), warnings)({1: {"thetaA": 1.0}})
     assert len(warnings) == 1
     assert "closest 12.0 A at 2 nm" in warnings[0]
 
 
 def test_steered_md_runner_is_silent_without_a_report(tmp_path):
     warnings: list[str] = []
-    _runner(tmp_path, _FakeSmdBackend(), warnings)({"thetaA": 1.0})
+    _runner(tmp_path, _FakeSmdBackend(), warnings)({1: {"thetaA": 1.0}})
     assert warnings == []
 
 
@@ -346,16 +371,16 @@ def test_steered_md_runner_raises_when_the_job_produced_no_result(tmp_path):
     import pytest
 
     with pytest.raises(RuntimeError, match="produced no result"):
-        _runner(tmp_path, _CrashedSmdBackend(), [])({"thetaA": 1.0})
+        _runner(tmp_path, _CrashedSmdBackend(), [])({1: {"thetaA": 1.0}})
 
 
 def test_steered_md_runner_ignores_a_stale_result_from_an_earlier_run(tmp_path):
     import pytest
 
-    (tmp_path / "smd").mkdir()
-    (tmp_path / "smd" / SMD_RESULT_FILENAME).write_text("{}")  # earlier run's
+    (tmp_path / "smd" / "run_01").mkdir(parents=True)
+    (tmp_path / "smd" / "run_01" / SMD_RESULT_FILENAME).write_text("{}")  # earlier run
     with pytest.raises(RuntimeError, match="produced no result"):
-        _runner(tmp_path, _CrashedSmdBackend(), [])({"thetaA": 1.0})
+        _runner(tmp_path, _CrashedSmdBackend(), [])({1: {"thetaA": 1.0}})
 
 
 def test_steered_md_runner_raises_when_a_window_frame_is_missing(tmp_path):
@@ -363,7 +388,7 @@ def test_steered_md_runner_raises_when_a_window_frame_is_missing(tmp_path):
 
     backend = _FakeSmdBackend(skip={2.0})  # the pull never reached 2.0 nm
     with pytest.raises(RuntimeError, match="separation window.* at 2 nm"):
-        _runner(tmp_path, backend, [])({"thetaA": 1.0})
+        _runner(tmp_path, backend, [])({1: {"thetaA": 1.0}})
 
 
 def test_steered_md_runner_only_warns_for_a_missing_spare_snapshot(tmp_path):
@@ -372,8 +397,8 @@ def test_steered_md_runner_only_warns_for_a_missing_spare_snapshot(tmp_path):
     runner = _runner(
         tmp_path, backend, warnings, snapshots=(1.5, 2.0, 2.5), windows=(1.5, 2.0)
     )
-    frames = runner({"thetaA": 1.0})
-    assert set(frames) == {1.5, 2.0}
+    frames = runner({1: {"thetaA": 1.0}})
+    assert set(frames[1]) == {1.5, 2.0}
     assert len(warnings) == 1 and "spare snapshot(s) at 2.5 nm" in warnings[0]
 
 

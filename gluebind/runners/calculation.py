@@ -52,6 +52,7 @@ from gluebind.logutil import add_file_handler, get_logger
 from gluebind.replicate import (
     equilibration_replicates,
     replicate_dirname,
+    smd_replicates,
     source_replicate,
     window_replicates,
 )
@@ -194,7 +195,8 @@ class Calculation(SimulationRunner):
         scheduler_config: SchedulerConfig | None = None,
         command_factory: Callable[[], list[str]] = window_launch_command,
         stage_centres: dict[int, dict[str, list[float]]] | None = None,
-        steered_md_runner: Callable[[dict], object] | None = None,
+        steered_md_runner: Callable[[Mapping[int, dict], Sequence[int]], object]
+        | None = None,
         platform: str = "CUDA",
         poll_interval: float = 30.0,
         stop_paths: Sequence[str | pathlib.Path] = (),
@@ -456,6 +458,10 @@ class Calculation(SimulationRunner):
         except FileNotFoundError:
             return None
 
+    def _smd_frames_dir(self, replicate: int) -> pathlib.Path:
+        """``smd_frames/run_NN``: the starting frames one pull produced."""
+        return self.base_dir / "smd_frames" / replicate_dirname(replicate)
+
     def _replicate_prep_dir(self, replicate: int) -> pathlib.Path:
         """``prep/run_NN``: one replicate's equilibration and restraint artefacts."""
         return self.base_dir / "prep" / replicate_dirname(replicate)
@@ -633,16 +639,21 @@ class Calculation(SimulationRunner):
             for replicate, (context, _resolved) in contexts.items()
         }
         state.save(self.base_dir)
-        smd_frames_dir = self.base_dir / "smd_frames"
+        # Each window replicate starts its separation windows from the frames of
+        # the pull it belongs to — its own under ensemble SMD, the shared one
+        # otherwise.
+        pulls = smd_replicates(self.config.sampling)
         self.spec_builders = {
-            replicate: SpecBuilder(context, self.config, smd_frames_dir=smd_frames_dir)
+            replicate: SpecBuilder(
+                context,
+                self.config,
+                smd_frames_dir=self._smd_frames_dir(source_replicate(replicate, pulls)),
+            )
             for replicate, (context, _resolved) in contexts.items()
         }
-        # Steered MD is still a single pull from replicate 1's structure; it is
-        # fanned out in its own change.
-        context = contexts[1][0]
         if self.config.sampling.run_separation_us:
             from gluebind.simulation.steered_md import (
+                SmdPlan,
                 make_steered_md_runner,
                 smd_snapshot_targets,
             )
@@ -652,33 +663,39 @@ class Calculation(SimulationRunner):
             # re-running SMD. With window_min "auto" the grid starts at the value
             # restraint resolution resolved it to (the smallest separation window).
             sep_schedule = self.config.sampling.for_cv("separation", "separation")
-            snapshot_centres = smd_snapshot_targets(
-                sep_schedule,
-                window_min=(
-                    min(self.stage_centres[1]["separation"])
-                    if sep_schedule.window_min == "auto"
-                    else None
-                ),
-            )
+            plans = {}
+            for replicate in pulls:
+                context, _resolved = contexts[replicate]
+                centres = self.stage_centres[replicate].get(
+                    "separation"
+                ) or enumerate_centres(sep_schedule)
+                plans[replicate] = SmdPlan(
+                    work_dir=self.base_dir / "smd" / replicate_dirname(replicate),
+                    out_dir=self._smd_frames_dir(replicate),
+                    topology=context.complex_topology,
+                    coordinates=context.complex_coordinates,
+                    rec_group=context.rec_group,
+                    lig_group=context.lig_group,
+                    anchors=context.anchors,
+                    rmsd_atoms_bound=context.rmsd_atoms_bound,
+                    snapshot_centres=tuple(
+                        smd_snapshot_targets(
+                            sep_schedule,
+                            window_min=(
+                                min(centres)
+                                if sep_schedule.window_min == "auto"
+                                else None
+                            ),
+                        )
+                    ),
+                    window_centres=tuple(centres),
+                )
             self.steered_md_runner = make_steered_md_runner(
-                backend=self.backend,
                 scheduler_factory=self._default_scheduler,
-                work_dir=self.base_dir / "smd",
-                out_dir=smd_frames_dir,
-                topology=context.complex_topology,
-                coordinates=context.complex_coordinates,
-                rec_group=context.rec_group,
-                lig_group=context.lig_group,
-                anchors=context.anchors,
-                rmsd_atoms_bound=context.rmsd_atoms_bound,
-                snapshot_centres=snapshot_centres,
+                plans=plans,
                 sampling=self.config.sampling,
                 platform=self.platform,
                 handle_recorder=self._record_auxiliary_handle,
-                window_centres=self._separation_window_centres()
-                or enumerate_centres(
-                    self.config.sampling.for_cv("separation", "separation")
-                ),
                 warn=self._log.warning,
             )
         else:
@@ -1008,18 +1025,20 @@ class Calculation(SimulationRunner):
             from gluebind.simulation.steered_md import smd_frame_path
 
             sep = self.config.sampling.for_cv("separation", "separation")
-            frames_dir = self.base_dir / "smd_frames"
-            for centre in centres:
-                frame = smd_frame_path(frames_dir, float(centre))
-                if not frame.exists():
-                    raise ValueError(
-                        f"no SMD snapshot for a separation window at {centre} nm "
-                        f"({frame.name}). Snapshots are saved on a "
-                        f"{sep.smd_snapshot_spacing} nm grid up to "
-                        f"{sep.smd_capture_max} nm; "
-                        "to sample a separation off that grid or beyond it, rerun SMD "
-                        "with bespoke spacing/range."
-                    )
+            # The window is added to every replicate, so every pull that seeds
+            # one must already have captured that centre.
+            for pull in smd_replicates(self.config.sampling):
+                for centre in centres:
+                    frame = smd_frame_path(self._smd_frames_dir(pull), float(centre))
+                    if not frame.exists():
+                        raise ValueError(
+                            f"no SMD snapshot for a separation window at {centre} nm "
+                            f"({replicate_dirname(pull)}/{frame.name}). Snapshots are "
+                            f"saved on a {sep.smd_snapshot_spacing} nm grid up to "
+                            f"{sep.smd_capture_max} nm; "
+                            "to sample a separation off that grid or beyond it, rerun "
+                            "SMD with bespoke spacing/range."
+                        )
 
         stage.add_windows(centres)
         return stage
@@ -1173,15 +1192,19 @@ class Calculation(SimulationRunner):
         separation_group = self._group("separation")
         if separation_group:
             self._stop.raise_if_requested()
-            if self.steered_md_runner is not None and not self._smd_frames_ready(
-                state, separation_group
-            ):
+            pending_pulls = [
+                replicate
+                for replicate in smd_replicates(self.config.sampling)
+                if not self._smd_frames_ready(state, separation_group, replicate)
+            ]
+            if self.steered_md_runner is not None and pending_pulls:
                 # Generate the separation-window starting frames with the resolved
-                # Boresch restraints in place. Recorded in state so a resumed run
-                # doesn't repeat the (expensive) steering. One shared pull, from
-                # replicate 1's values, until steered MD is fanned out.
-                self.steered_md_runner(dict(state.boresch_eq_values.get(1, {})))
-                state.stage_status["steered_md"] = "done"
+                # Boresch restraints in place, one pull per replicate in a single
+                # batch. Recorded in state so a resumed run doesn't repeat the
+                # (expensive) steering.
+                self.steered_md_runner(state.boresch_eq_values, pending_pulls)
+                for replicate in pending_pulls:
+                    state.stage_status[self._smd_status_key(replicate)] = "done"
                 state.save(self.base_dir)
             for stage in separation_group.stages:
                 self._stop.raise_if_requested()
@@ -1199,33 +1222,51 @@ class Calculation(SimulationRunner):
             for replicate in stage.replicates
         )
 
-    def _smd_frames_ready(self, state: RunState, separation_group: Group) -> bool:
-        """Whether steered MD is done and every separation window has its frame.
+    @staticmethod
+    def _smd_status_key(replicate: int) -> str:
+        return f"steered_md_{replicate_dirname(replicate)}"
 
-        A step recorded as done is not trusted on its own: if any window's
-        starting frame is missing (a crashed or truncated pull), steered MD is
-        run again rather than leaving every separation window to fail.
+    def _smd_frames_ready(
+        self, state: RunState, separation_group: Group, replicate: int
+    ) -> bool:
+        """Whether this replicate's pull is done and every separation window it
+        seeds has its frame.
+
+        A pull recorded as done is not trusted on its own: if any window's
+        starting frame is missing (a crashed or truncated pull), it is run again
+        rather than leaving every separation window to fail.
         """
-        if state.stage_status.get("steered_md") != "done":
+        if state.stage_status.get(self._smd_status_key(replicate)) != "done":
             return False
         from gluebind.simulation.steered_md import missing_frames
 
         missing = missing_frames(
-            self.base_dir / "smd_frames",
+            self._smd_frames_dir(replicate),
             [
                 window.centre
                 for stage in separation_group.stages
-                for window in stage.all_windows()
+                for seeded in self._replicates_seeded_by(replicate)
+                for window in stage.windows_for(seeded)
             ],
         )
         if missing:
             self._log.warning(
-                "steered MD is recorded as done but the frames for separation "
-                "window(s) at %s nm are missing; running it again",
+                "steered MD for %s is recorded as done but the frames for "
+                "separation window(s) at %s nm are missing; running it again",
+                replicate_dirname(replicate),
                 ", ".join(f"{c:g}" for c in missing),
             )
             return False
         return True
+
+    def _replicates_seeded_by(self, pull: int) -> list[int]:
+        """The window replicates whose separation windows start from this pull."""
+        pulls = smd_replicates(self.config.sampling)
+        return [
+            replicate
+            for replicate in window_replicates(self.config.sampling)
+            if source_replicate(replicate, pulls) == pull
+        ]
 
     def _run_stage(
         self,
