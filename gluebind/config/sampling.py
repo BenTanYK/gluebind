@@ -224,29 +224,10 @@ class SamplingConfig(pydantic.BaseModel):
     independent. Everything from this stage onward runs once per replicate;
     everything before it runs once and is shared.
 
-    * ``windows`` (default) — replicates diverge only at the umbrella-sampling
-      windows. One production equilibration, one bulk pair, one restraint
-      context (so one set of anchors and Boresch equilibrium values) and one set
-      of SMD frames seed every replicate; they differ only in their initial
-      velocities.
-    * ``smd`` — as above, but each replicate gets its own steered-MD pull, so its
-      separation windows start from its own snapshots.
-    * ``equilibration`` — each replicate gets its own production equilibration,
-      its own bulk extraction and equilibration, and its own restraint
-      resolution. Anchors, interface groups and Boresch equilibrium values are
-      resolved per replicate, and each replicate's steered MD starts from its own
-      equilibrated structure.
-
-    The values are ordered along the pipeline, so choosing a stage implies every
-    later one: ``equilibration`` necessarily means per-replicate SMD, because
-    each pull has to start from its own equilibrated structure. Expressing this
-    as one ordered choice rather than two booleans makes the invalid combination
-    — per-replicate equilibration with shared SMD — unrepresentable rather than
-    merely rejected.
-
-    Note the cost: ``equilibration`` multiplies ``prep.equilibration_ns``, both
-    bulk equilibrations and restraint resolution by ``ensemble_size``. The number
-    of umbrella windows is roughly unchanged — each replicate simply has its own.
+    * ``windows`` (default) - one production MD, one SMD, replicates diverge
+    only at the umbrella-sampling windows.
+    * ``smd`` — as above, but each replicate gets its own SMD.
+    * ``equilibration`` - individual production MD replicates.
     """
     run_rmsd_us: bool = True
     """Whether to run the RMSD umbrella-sampling stages (ΔG_c^bound/ΔG_c^bulk). Set
@@ -318,8 +299,7 @@ class SamplingConfig(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     def _ensemble_stage_needs_replicates(self):
-        # Fanning a stage out over a single replicate is a silent no-op, which
-        # would quietly cost nothing and deliver nothing.
+        # Cannot have ensemble equilibration with only one repeat
         if self.ensemble_from != "windows" and self.ensemble_size < 2:
             raise ValueError(
                 f"ensemble_from={self.ensemble_from!r} requires ensemble_size > 1; "
