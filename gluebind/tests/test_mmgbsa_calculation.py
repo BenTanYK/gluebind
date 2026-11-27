@@ -13,7 +13,7 @@ from gluebind.backend import LocalBackend
 from gluebind.runners import Calculation
 from gluebind.simulation.production import ProductionSpec
 from gluebind.state import RunState
-from gluebind.system.prep import PreparedSystem
+from gluebind.system.prep import PreparedReplicate, PreparedSystem
 
 INPUTS = {
     "target": {"prm7": "target.prm7", "rst7": "target.rst7"},
@@ -30,7 +30,7 @@ prepared on, as for a run copied to another machine for analysis."""
 def _prepare(base_dir, *, glue=False, production_files=True):
     """A minimal prepared system: the manifest, the production spec and (empty)
     production topology and trajectory files."""
-    production = base_dir / "prep" / "equilibration" / "04_production"
+    production = base_dir / "prep" / "run_01" / "equilibration" / "04_production"
     production.mkdir(parents=True)
     ProductionSpec(
         topology="output.prm7",
@@ -43,17 +43,22 @@ def _prepare(base_dir, *, glue=False, production_files=True):
         for name in ("output.prm7", "output.dcd"):
             (production / name).write_text("")
     PreparedSystem(
-        complex_prm7=f"{ELSEWHERE}/output.prm7",
-        complex_rst7=f"{ELSEWHERE}/output.rst7",
-        complex_trajectory=f"{ELSEWHERE}/output.dcd",
-        target_bulk_prm7="t.prm7",
-        target_bulk_rst7="t.rst7",
-        receptor_bulk_prm7="r.prm7",
-        receptor_bulk_rst7="r.rst7",
-        glue_assign_to="target" if glue else None,
-        receptor_molecules=[1, 2] if glue else [0, 1],
-        target_molecules=[3] if glue else [2],
-        glue_molecule=0 if glue else None,
+        replicates={
+            1: PreparedReplicate(
+            complex_prm7=f"{ELSEWHERE}/output.prm7",
+            complex_rst7=f"{ELSEWHERE}/output.rst7",
+            complex_trajectory=f"{ELSEWHERE}/output.dcd",
+            target_bulk_prm7="t.prm7",
+            target_bulk_rst7="t.rst7",
+            receptor_bulk_prm7="r.prm7",
+            receptor_bulk_rst7="r.rst7",
+            glue_assign_to="target" if glue else None,
+            receptor_molecules=[1, 2] if glue else [0, 1],
+            target_molecules=[3] if glue else [2],
+            glue_molecule=0 if glue else None,
+
+            )
+        }
     ).dump(base_dir / "prep")
 
 
@@ -78,20 +83,22 @@ def _calc(base_dir):
 
 
 def _spec(base_dir):
-    return json.loads((base_dir / "mmgbsa" / "mmgbsa.json").read_text())
+    return json.loads((base_dir / "mmgbsa" / "run_01" / "mmgbsa.json").read_text())
 
 
 def test_mmgbsa_submits_the_job_and_returns_its_result(tmp_path, fake_job):
     run = tmp_path / "run"
     _prepare(run, glue=True)
     result = _calc(run).mmgbsa()
-    assert result == RESULT
+    # one trajectory: the worker's own result, plus how the SEM was obtained
+    assert {k: result[k] for k in RESULT} == RESULT
+    assert (result["n_replicates"], result["sem_source"]) == (1, "blocks")
     assert fake_job.read_text() == "x"
 
     spec = _spec(run)
     assert spec["ps_per_frame"] == pytest.approx(10.0)  # 2500 steps x 4 fs
     # found in this run directory, not at prepared.json's paths on another machine
-    production = (run / "prep" / "equilibration" / "04_production").resolve()
+    production = (run / "prep" / "run_01" / "equilibration" / "04_production").resolve()
     assert spec["topology"] == str(production / "output.prm7")
     assert spec["trajectory"] == str(production / "output.dcd")
     assert (spec["receptor_molecules"], spec["target_molecules"]) == ([1, 2], [3])
@@ -101,7 +108,8 @@ def test_mmgbsa_submits_the_job_and_returns_its_result(tmp_path, fake_job):
     assert spec["settings"] == resolved.model_dump(mode="json")
 
     state = RunState.load(run)
-    assert state.handles["_auxiliary"]["mmgbsa"]  # recorded for kill()
+    # one handle per scored trajectory, recorded for kill()
+    assert state.handles["_auxiliary"]["mmgbsa_run_01"]
 
 
 def test_mmgbsa_runs_again_and_warns_before_overwriting(tmp_path, fake_job):
@@ -177,5 +185,5 @@ def test_mmgbsa_raises_when_the_job_writes_no_result(tmp_path, monkeypatch):
     monkeypatch.setattr(
         mmgbsa_job, "mmgbsa_launch_command", lambda: [sys.executable, "-c", "pass"]
     )
-    with pytest.raises(RuntimeError, match="MM/GBSA job did not produce its result"):
+    with pytest.raises(RuntimeError, match="did not produce"):
         _calc(run).mmgbsa()

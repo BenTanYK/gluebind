@@ -199,3 +199,65 @@ def test_summarise_reports_mean_and_sem_per_term():
     out = mm.summarise(frames, n_blocks=5)
     assert out["DELTA TOTAL"]["mean"] == pytest.approx(2.0)
     assert out["DELTA TOTAL"]["sem"] > 0
+
+
+# ---- combining one result per production trajectory --------------------------
+
+
+def _result(dg, sem=1.0, frames=100):
+    return {
+        "dg_mmgbsa": dg,
+        "dg_mmgbsa_sem": sem,
+        "n_frames": frames,
+        "terms": {
+            "DELTA TOTAL": {"mean": dg, "sem": sem},
+            "VDWAALS": {"mean": -5.0, "sem": 0.1},
+        },
+        "receptor_mask": ":1-10",
+        "target_mask": ":11-20",
+        "saltcon_M": 0.15,
+        "settings": {"discard_ns": 10.0},
+        "dg_per_frame": [dg] * 3,
+    }
+
+
+def test_single_trajectory_keeps_the_block_averaged_sem():
+    from gluebind.simulation.mmgbsa import aggregate_replicates
+
+    out = aggregate_replicates({1: _result(-21.5, sem=1.2)})
+    assert (out["dg_mmgbsa"], out["dg_mmgbsa_sem"]) == (-21.5, 1.2)
+    assert (out["n_replicates"], out["sem_source"]) == (1, "blocks")
+    assert out["dg_per_frame"] == [-21.5] * 3  # the worker's own result is kept whole
+
+
+def test_several_trajectories_report_the_sem_over_replicates():
+    from gluebind.simulation.mmgbsa import aggregate_replicates
+
+    # block-averaged SEMs of 0.1 would badly understate a 3 kcal/mol spread
+    out = aggregate_replicates(
+        {
+            1: _result(-20.0, sem=0.1),
+            2: _result(-23.0, sem=0.1),
+            3: _result(-26.0, sem=0.1),
+        }
+    )
+    assert out["dg_mmgbsa"] == pytest.approx(-23.0)
+    expected = np.std([-20.0, -23.0, -26.0], ddof=1) / 3**0.5
+    assert out["dg_mmgbsa_sem"] == pytest.approx(expected)
+    assert (out["n_replicates"], out["sem_source"]) == (3, "replicates")
+    assert out["n_frames"] == 300
+    # per-term means are averaged the same way, and each replicate stays visible
+    assert out["terms"]["DELTA TOTAL"]["mean"] == pytest.approx(-23.0)
+    assert out["terms"]["VDWAALS"]["sem"] == pytest.approx(0.0)
+    per_replicate = [v["dg_mmgbsa"] for v in out["per_replicate"].values()]
+    assert per_replicate == [-20.0, -23.0, -26.0]
+    # concatenating frames across separate trajectories would imply a continuity
+    # they do not have
+    assert "dg_per_frame" not in out
+
+
+def test_aggregating_nothing_is_an_error():
+    from gluebind.simulation.mmgbsa import aggregate_replicates
+
+    with pytest.raises(ValueError, match="no MM/GBSA replicate results"):
+        aggregate_replicates({})
