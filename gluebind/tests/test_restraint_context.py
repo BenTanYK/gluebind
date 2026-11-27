@@ -23,21 +23,26 @@ from gluebind.simulation.restraint_resolution import (
     run_restraint_resolution,
 )
 from gluebind.spec_builder import AlwaysOn, BulkTarget, RestraintContext
-from gluebind.system.prep import PreparedSystem
+from gluebind.system.prep import PreparedReplicate, PreparedSystem
 from gluebind.runners import Calculation
 
 
 def _prepared(tmp_path: Path) -> PreparedSystem:
     prepared = PreparedSystem(
-        complex_prm7="complex.prm7",
-        complex_rst7="complex.rst7",
-        complex_trajectory="complex.dcd",
-        target_bulk_prm7="target.prm7",
-        target_bulk_rst7="target.rst7",
-        receptor_bulk_prm7="receptor.prm7",
-        receptor_bulk_rst7="receptor.rst7",
-        target_molecules=[0],
-        receptor_molecules=[1],
+        replicates={
+            1: PreparedReplicate(
+            complex_prm7="complex.prm7",
+            complex_rst7="complex.rst7",
+            complex_trajectory="complex.dcd",
+            target_bulk_prm7="target.prm7",
+            target_bulk_rst7="target.rst7",
+            receptor_bulk_prm7="receptor.prm7",
+            receptor_bulk_rst7="receptor.rst7",
+            target_molecules=[0],
+            receptor_molecules=[1],
+
+            )
+        }
     )
     prepared.dump(tmp_path / "prep")
     return prepared
@@ -114,7 +119,7 @@ def test_resolution_worker_persists_context_and_centres(tmp_path, monkeypatch):
 
     result = ResolvedRestraintContext.load(output)
     assert result.config_hash == config.config_hash
-    assert result.prepared_hash == prepared_hash(prepared)
+    assert result.prepared_hash == prepared_hash(prepared.for_replicate(1))
     assert context_from_data(result.context) == context
     assert result.stage_centres == {"thetaA": [1.0], "separation": [1.5]}
     assert len(report_calls) == 1
@@ -136,7 +141,7 @@ def test_wire_reuses_context_artifact_without_mdanalysis(tmp_path, monkeypatch):
     )
     ResolvedRestraintContext(
         config_hash=config.config_hash,
-        prepared_hash=prepared_hash(prepared),
+        prepared_hash=prepared_hash(prepared.for_replicate(1)),
         context=context_to_data(context),
         stage_centres={"thetaA": [1.0], "separation": [1.5]},
     ).dump(tmp_path / "prep" / RESTRAINT_CONTEXT_FILENAME)

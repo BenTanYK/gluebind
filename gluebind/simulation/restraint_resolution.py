@@ -12,7 +12,7 @@ from gluebind.restraint_context import (
     context_to_data,
     prepared_hash,
 )
-from gluebind.system.prep import PreparedSystem
+from gluebind.system.prep import PreparedReplicate, PreparedSystem
 
 RESTRAINT_RESOLUTION_SPEC_FILENAME = "restraint_resolution.json"
 RESTRAINT_RESOLUTION_RESULT_FILENAME = "result.json"
@@ -62,7 +62,7 @@ def run_restraint_resolution(work_dir: str | pathlib.Path) -> None:
 
     work_dir = pathlib.Path(work_dir)
     spec = RestraintResolutionSpec.load(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
-    prepared = PreparedSystem.load(spec.prep_dir)
+    prepared = PreparedSystem.load(spec.prep_dir).for_replicate(1)
     context = build_restraint_context(
         prepared, spec.config, anchors_override=spec.anchors_override
     )
@@ -134,7 +134,7 @@ def rmsf_report_launch_command(python: str = "python") -> list[str]:
 
 
 def write_rmsf_report(
-    prepared: PreparedSystem,
+    prepared: PreparedReplicate,
     config: CalculationConfig,
     output_dir: str | pathlib.Path,
     *,
@@ -292,6 +292,8 @@ def run_rmsf_report(work_dir: str | pathlib.Path) -> None:
     work_dir = pathlib.Path(work_dir)
     spec = RmsfReportSpec.load(work_dir / RMSF_REPORT_SPEC_FILENAME)
     report = write_rmsf_report(
-        PreparedSystem.load(spec.prep_dir), spec.config, spec.output_dir
+        PreparedSystem.load(spec.prep_dir).for_replicate(1),
+        spec.config,
+        spec.output_dir,
     )
     (work_dir / RMSF_REPORT_RESULT_FILENAME).write_text(json.dumps(report, indent=2))

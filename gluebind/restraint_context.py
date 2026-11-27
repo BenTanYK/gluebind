@@ -16,7 +16,7 @@ import pathlib
 import pydantic
 
 from gluebind.spec_builder import AlwaysOn, BulkTarget, RestraintContext
-from gluebind.system.prep import PreparedSystem
+from gluebind.system.prep import PreparedReplicate
 
 RESTRAINT_CONTEXT_FILENAME = "restraint_context.json"
 SCHEMA_VERSION = 1
@@ -60,8 +60,12 @@ class ResolvedRestraintContext(pydantic.BaseModel):
         return cls.model_validate(raw)
 
 
-def prepared_hash(prepared: PreparedSystem) -> str:
-    """Stable identity for the prepared-manifest inputs to resolution."""
+def prepared_hash(prepared: PreparedReplicate) -> str:
+    """Stable identity for one replicate's prepared structures.
+
+    Hashes a single replicate rather than the whole manifest, so adding a
+    replicate later cannot invalidate an existing replicate's context.
+    """
     payload = json.dumps(prepared.model_dump(mode="json"), sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()
 

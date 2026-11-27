@@ -10,7 +10,7 @@ import gluebind.spec_builder as spec_builder
 import gluebind.system.mdanalysis as mdanalysis
 from gluebind import CalculationConfig
 from gluebind.selection.rmsf import AnchorLabel, RmsfZone, contiguous_runs, plot_rmsf
-from gluebind.system.prep import PreparedSystem
+from gluebind.system.prep import PreparedReplicate
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -138,7 +138,7 @@ def _config(**restraints):
     )
 
 
-PREPARED = PreparedSystem(
+PREPARED = PreparedReplicate(
     complex_prm7="complex.prm7",
     complex_rst7="complex.rst7",
     complex_trajectory="complex.dcd",

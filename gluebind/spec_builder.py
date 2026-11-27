@@ -383,7 +383,7 @@ def build_restraint_context(
     interface_cutoff_angstrom: float = 12.0,
     anchors_override: Mapping[str, int] | None = None,
 ) -> RestraintContext:
-    """Resolve a :class:`RestraintContext` from a :class:`PreparedSystem` (MDAnalysis).
+    """Resolve a :class:`RestraintContext` from one :class:`PreparedReplicate`.
 
     Restraint selections are resolved against the **input** topologies
     (``target``/``receptor`` ``.prm7``, the numbering the user authored against)

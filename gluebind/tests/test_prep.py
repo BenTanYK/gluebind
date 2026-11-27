@@ -28,6 +28,7 @@ from gluebind.simulation.prep_stage import (
 )
 from gluebind.system import compute_layout
 from gluebind.system.prep import (
+    PreparedReplicate,
     PreparedSystem,
     box_length,
     equilibration_stage_plan,
@@ -173,33 +174,46 @@ def test_compute_layout_requires_molecules():
 
 def test_prepared_system_roundtrip(tmp_path):
     prepared = PreparedSystem(
-        complex_prm7="complex_equil.prm7",
-        complex_rst7="complex_equil.rst7",
-        complex_trajectory="complex_equil.dcd",
-        target_bulk_prm7="target_bulk.prm7",
-        target_bulk_rst7="target_bulk.rst7",
-        receptor_bulk_prm7="receptor_bulk.prm7",
-        receptor_bulk_rst7="receptor_bulk.rst7",
-        glue_assign_to="receptor",
-        target_molecules=[0],
-        receptor_molecules=[1],
-        glue_molecule=2,
+        replicates={
+            n: PreparedReplicate(
+                complex_prm7=f"run_{n}/complex_equil.prm7",
+                complex_rst7=f"run_{n}/complex_equil.rst7",
+                complex_trajectory=f"run_{n}/complex_equil.dcd",
+                target_bulk_prm7=f"run_{n}/target_bulk.prm7",
+                target_bulk_rst7=f"run_{n}/target_bulk.rst7",
+                receptor_bulk_prm7=f"run_{n}/receptor_bulk.prm7",
+                receptor_bulk_rst7=f"run_{n}/receptor_bulk.rst7",
+                glue_assign_to="receptor",
+                target_molecules=[0],
+                receptor_molecules=[1],
+                glue_molecule=2,
+            )
+            for n in (1, 2)
+        }
     )
     prepared.dump(tmp_path)
-    assert PreparedSystem.load(tmp_path) == prepared
+    loaded = PreparedSystem.load(tmp_path)
+    assert loaded == prepared
+    # JSON object keys are strings; they must come back as the int replicate index
+    assert sorted(loaded.replicates) == [1, 2]
+    assert loaded.for_replicate(2).complex_rst7 == "run_2/complex_equil.rst7"
 
 
 @pytest.mark.parametrize("schema_version", [None, 0, 2])
 def test_prepared_system_requires_explicit_current_schema(tmp_path, schema_version):
     prepared = PreparedSystem(
-        complex_prm7="complex.prm7",
-        complex_rst7="complex.rst7",
-        target_bulk_prm7="target_bulk.prm7",
-        target_bulk_rst7="target_bulk.rst7",
-        receptor_bulk_prm7="receptor_bulk.prm7",
-        receptor_bulk_rst7="receptor_bulk.rst7",
-        target_molecules=[0],
-        receptor_molecules=[1],
+        replicates={
+            1: PreparedReplicate(
+                complex_prm7="complex.prm7",
+                complex_rst7="complex.rst7",
+                target_bulk_prm7="target_bulk.prm7",
+                target_bulk_rst7="target_bulk.rst7",
+                receptor_bulk_prm7="receptor_bulk.prm7",
+                receptor_bulk_rst7="receptor_bulk.rst7",
+                target_molecules=[0],
+                receptor_molecules=[1],
+            )
+        }
     )
     path = prepared.dump(tmp_path)
     data = json.loads(path.read_text())

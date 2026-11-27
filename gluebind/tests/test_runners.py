@@ -804,19 +804,24 @@ def test_run_self_defaults_pmf_provider_for_boresch(tmp_path, monkeypatch):
 
 
 def _dump_prepared(base_dir):
-    from gluebind.system.prep import PreparedSystem
+    from gluebind.system.prep import PreparedReplicate, PreparedSystem
 
     PreparedSystem(
-        complex_prm7="c.prm7",
-        complex_rst7="c.rst7",
-        complex_trajectory="c.dcd",
-        target_bulk_prm7="tb.prm7",
-        target_bulk_rst7="tb.rst7",
-        receptor_bulk_prm7="rb.prm7",
-        receptor_bulk_rst7="rb.rst7",
-        target_molecules=[0],
-        receptor_molecules=[1],
-        glue_molecule=2,
+        replicates={
+            1: PreparedReplicate(
+            complex_prm7="c.prm7",
+            complex_rst7="c.rst7",
+            complex_trajectory="c.dcd",
+            target_bulk_prm7="tb.prm7",
+            target_bulk_rst7="tb.rst7",
+            receptor_bulk_prm7="rb.prm7",
+            receptor_bulk_rst7="rb.rst7",
+            target_molecules=[0],
+            receptor_molecules=[1],
+            glue_molecule=2,
+
+            )
+        }
     ).dump(base_dir / "prep")
 
 
@@ -834,7 +839,8 @@ def test_prepare_without_restraints_reuses_prep_and_does_not_wire(tmp_path):
 
     prepared = calc.prepare(resolve_restraints=False)
 
-    assert prepared.complex_prm7 == "c.prm7"  # loaded the existing prep (no re-run)
+    # loaded the existing prep (no re-run)
+    assert prepared.for_replicate(1).complex_prm7 == "c.prm7"
     assert calc.spec_builder is None  # NOT wired — anchors not resolved
     assert calc.groups == []
     assert written["paths"]  # RMSF report requested for inspection
