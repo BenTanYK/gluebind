@@ -161,11 +161,19 @@ def test_wire_reuses_context_artifact_without_mdanalysis(tmp_path, monkeypatch):
     calc = Calculation.from_config(config, LocalBackend(), base_dir=tmp_path)
     calc._wire(prepared)
 
-    assert calc.spec_builder.ctx == context
-    assert calc.stage_centres == {"thetaA": [1.0], "separation": [1.5]}
+    # Equilibration is shared here, so every window replicate wires to the one
+    # resolved context rather than to a copy of its own.
+    replicates = tuple(range(1, config.sampling.ensemble_size + 1))
+    assert tuple(calc.spec_builders) == replicates
+    assert all(builder.ctx == context for builder in calc.spec_builders.values())
+    assert calc.stage_centres == {
+        r: {"thetaA": [1.0], "separation": [1.5]} for r in replicates
+    }
     from gluebind.state import RunState
 
-    assert RunState.load(tmp_path).anchors == context.anchors
+    assert RunState.load(tmp_path).anchors == dict.fromkeys(
+        replicates, context.anchors
+    )
 
 
 def test_wire_requires_valid_context_artifact(tmp_path):

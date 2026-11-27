@@ -30,7 +30,7 @@ import os
 import pathlib
 import tempfile
 import warnings
-from collections.abc import Callable, Generator, Iterator, Sequence
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 
 from gluebind.analysis.free_energy import (
     binding_free_energy,
@@ -49,7 +49,12 @@ from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.scheduler import SchedulerConfig
 from gluebind.logutil import add_file_handler, get_logger
-from gluebind.replicate import equilibration_replicates, replicate_dirname
+from gluebind.replicate import (
+    equilibration_replicates,
+    replicate_dirname,
+    source_replicate,
+    window_replicates,
+)
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.group import Group
 from gluebind.runners.stage import Stage
@@ -188,7 +193,7 @@ class Calculation(SimulationRunner):
         *,
         scheduler_config: SchedulerConfig | None = None,
         command_factory: Callable[[], list[str]] = window_launch_command,
-        stage_centres: dict[str, list[float]] | None = None,
+        stage_centres: dict[int, dict[str, list[float]]] | None = None,
         steered_md_runner: Callable[[dict], object] | None = None,
         platform: str = "CUDA",
         poll_interval: float = 30.0,
@@ -197,10 +202,17 @@ class Calculation(SimulationRunner):
         super().__init__(base_dir)
         self.config = config
         self.backend = backend
-        self.spec_builder = spec_builder
+        # One spec builder per window replicate. A single injected builder (tests
+        # and advanced use) serves every replicate; prepare() replaces these with
+        # one per replicate, built from that replicate's restraint context.
+        self.spec_builders: dict[int, SpecBuilder] = (
+            dict.fromkeys(window_replicates(config.sampling), spec_builder)
+            if spec_builder is not None
+            else {}
+        )
         self.scheduler_config = scheduler_config
         self.command_factory = command_factory
-        self.stage_centres = stage_centres or {}
+        self.stage_centres = dict(stage_centres or {})
         # Generates the separation-window SMD frames from the Boresch equilibrium
         # values; invoked automatically between the Boresch and separation stages.
         self.steered_md_runner = steered_md_runner
@@ -516,7 +528,7 @@ class Calculation(SimulationRunner):
                 replicate_dir=str(replicate_dir),
                 replicate=replicate,
                 config_hash=self.config.config_hash,
-                anchors_override=state.anchors,
+                anchors_override=state.anchors.get(replicate),
             ).dump(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
             pending.append((replicate, work_dir))
         if not pending:
@@ -584,32 +596,51 @@ class Calculation(SimulationRunner):
                 warnings.warn(message, stacklevel=2)
 
     def _wire(self, prepared) -> None:
-        """Build the restraint context, window centres, spec builder and steered-MD
-        hook from a prepared system, and construct the group tree. Resolution is
-        always loaded from the compute-node artifact, so trajectory analysis never
-        runs in the driver. Shared by :meth:`prepare` and the re-wiring
-        :meth:`analyse` does in a fresh process."""
+        """Build the restraint contexts, window centres, spec builders and
+        steered-MD hook from a prepared system, and construct the group tree.
+
+        One context per window replicate: with ensemble equilibration each comes
+        from that replicate's own trajectory, and otherwise every replicate reads
+        the single shared one — so the rest of the driver never branches on
+        ``ensemble_from``. Resolution is always loaded from the compute-node
+        artifact, so trajectory analysis never runs in the driver. Shared by
+        :meth:`prepare` and the re-wiring :meth:`analyse` does in a fresh
+        process."""
+        from gluebind.restraint_context import context_from_data
         from gluebind.spec_builder import SpecBuilder
 
-        resolved = self._load_resolved_restraint_context(prepared)
         state = self._load_or_init_state()
-        if resolved is None:
-            raise RuntimeError(
-                "cannot wire calculation: no valid resolved restraint context at "
-                f"{self._restraint_context_path()}; run prepare() or run() first"
-            )
-        from gluebind.restraint_context import context_from_data
-
-        context = context_from_data(resolved.context)
-        self.stage_centres = resolved.stage_centres
+        upstream = equilibration_replicates(self.config.sampling)
+        contexts = {}
+        for replicate in window_replicates(self.config.sampling):
+            source = source_replicate(replicate, upstream)
+            resolved = self._load_resolved_restraint_context(prepared, source)
+            if resolved is None:
+                raise RuntimeError(
+                    "cannot wire calculation: no valid resolved restraint context "
+                    f"at {self._restraint_context_path(source)}; run prepare() or "
+                    "run() first"
+                )
+            contexts[replicate] = (context_from_data(resolved.context), resolved)
+        self.stage_centres = {
+            replicate: resolved.stage_centres
+            for replicate, (_context, resolved) in contexts.items()
+        }
         # Record both configured and automatically selected anchors immediately,
         # before any downstream SMD or umbrella jobs are submitted.
-        state.anchors = dict(context.anchors)
+        state.anchors = {
+            replicate: dict(context.anchors)
+            for replicate, (context, _resolved) in contexts.items()
+        }
         state.save(self.base_dir)
         smd_frames_dir = self.base_dir / "smd_frames"
-        self.spec_builder = SpecBuilder(
-            context, self.config, smd_frames_dir=smd_frames_dir
-        )
+        self.spec_builders = {
+            replicate: SpecBuilder(context, self.config, smd_frames_dir=smd_frames_dir)
+            for replicate, (context, _resolved) in contexts.items()
+        }
+        # Steered MD is still a single pull from replicate 1's structure; it is
+        # fanned out in its own change.
+        context = contexts[1][0]
         if self.config.sampling.run_separation_us:
             from gluebind.simulation.steered_md import (
                 make_steered_md_runner,
@@ -624,7 +655,7 @@ class Calculation(SimulationRunner):
             snapshot_centres = smd_snapshot_targets(
                 sep_schedule,
                 window_min=(
-                    min(self.stage_centres["separation"])
+                    min(self.stage_centres[1]["separation"])
                     if sep_schedule.window_min == "auto"
                     else None
                 ),
@@ -644,7 +675,7 @@ class Calculation(SimulationRunner):
                 sampling=self.config.sampling,
                 platform=self.platform,
                 handle_recorder=self._record_auxiliary_handle,
-                window_centres=self.stage_centres.get("separation")
+                window_centres=self._separation_window_centres()
                 or enumerate_centres(
                     self.config.sampling.for_cv("separation", "separation")
                 ),
@@ -659,8 +690,7 @@ class Calculation(SimulationRunner):
     # ---- tree construction -------------------------------------------------
 
     def _build_groups(self) -> list[Group]:
-        spec_builder = self.spec_builder
-        if spec_builder is None:
+        if not self.spec_builders:
             raise RuntimeError("cannot build groups before wiring the calculation")
         groups: list[Group] = []
         for cv_type, stage_specs in self._stage_layout().items():
@@ -671,8 +701,7 @@ class Calculation(SimulationRunner):
                     name=name,
                     dof=dof,
                     centres=centres,
-                    ensemble_size=self.config.sampling.ensemble_size,
-                    spec_builder=spec_builder,
+                    spec_builders=self.spec_builders,
                     command_factory=self.command_factory,
                 )
                 for name, dof, centres in stage_specs
@@ -682,29 +711,63 @@ class Calculation(SimulationRunner):
             )
         return groups
 
-    def _stage_layout(self) -> dict[str, list[tuple[str, str | None, list[float]]]]:
-        """Return ``cv_type -> [(stage_name, dof, centres)]`` for every stage."""
-        layout: dict[str, list] = {"boresch": [], "rmsd": [], "separation": []}
-
-        # Boresch: five sequential DoFs; centres must be supplied (MD distribution).
-        for dof in BORESCH_DOFS:
-            if dof in self.stage_centres:
-                layout["boresch"].append((dof, dof, list(self.stage_centres[dof])))
-
-        # RMSD: one stage per (region, state); centres from the sampling schedule.
-        for name in self._rmsd_stage_names():
-            centres = self.stage_centres.get(name) or enumerate_centres(
-                self.config.sampling.for_cv("rmsd", name)
+    def _replicate_centres(self, name: str) -> dict[int, list[float]]:
+        """``replicate -> centres`` for a stage whose centres were resolved from a
+        trajectory, requiring every replicate to have them."""
+        missing = [
+            replicate
+            for replicate, centres in self.stage_centres.items()
+            if name not in centres
+        ]
+        if missing:
+            raise RuntimeError(
+                f"no resolved window centres for stage {name!r} in replicate(s) "
+                f"{', '.join(map(str, missing))}; re-run prepare() so every "
+                "replicate resolves its restraint context"
             )
+        return {
+            replicate: list(centres[name])
+            for replicate, centres in self.stage_centres.items()
+        }
+
+    def _separation_window_centres(self) -> list[float]:
+        """Every separation window centre across replicates, sorted — what steered
+        MD has to cover, since each replicate's windows start from a frame."""
+        return sorted(
+            {
+                centre
+                for centres in self.stage_centres.values()
+                for centre in centres.get("separation", [])
+            }
+        )
+
+    def _stage_layout(self) -> dict[str, list[tuple[str, str | None, dict]]]:
+        """Return ``cv_type -> [(stage_name, dof, {replicate: centres})]``."""
+        layout: dict[str, list] = {"boresch": [], "rmsd": [], "separation": []}
+        replicates = window_replicates(self.config.sampling)
+
+        # Boresch: five sequential DoFs; centres must be supplied (each
+        # replicate's own MD distribution).
+        for dof in BORESCH_DOFS:
+            if any(dof in centres for centres in self.stage_centres.values()):
+                layout["boresch"].append((dof, dof, self._replicate_centres(dof)))
+
+        # RMSD: one stage per (region, state); centres from the sampling schedule,
+        # so they are the same for every replicate.
+        for name in self._rmsd_stage_names():
+            if any(name in centres for centres in self.stage_centres.values()):
+                centres = self._replicate_centres(name)
+            else:
+                schedule = enumerate_centres(self.config.sampling.for_cv("rmsd", name))
+                centres = {r: list(schedule) for r in replicates}
             layout["rmsd"].append((name, None, centres))
 
         # Separation: single stage; centres from the SMD frames.
-        if (
-            self.config.sampling.run_separation_us
-            and "separation" in self.stage_centres
+        if self.config.sampling.run_separation_us and any(
+            "separation" in centres for centres in self.stage_centres.values()
         ):
             layout["separation"].append(
-                ("separation", None, list(self.stage_centres["separation"]))
+                ("separation", None, self._replicate_centres("separation"))
             )
 
         return {cv: stages for cv, stages in layout.items() if stages}
@@ -735,7 +798,7 @@ class Calculation(SimulationRunner):
 
     def _iter_windows(self) -> Iterator[Window]:
         for _group, stage in self._iter_stages():
-            yield from stage.windows
+            yield from stage.all_windows()
 
     # ---- run ---------------------------------------------------------------
 
@@ -772,7 +835,7 @@ class Calculation(SimulationRunner):
         separate driver process must be able to call :meth:`kill` meanwhile.
         """
         state = self._load_or_init_state()
-        handles = state.handles.setdefault("_auxiliary", {}).setdefault(label, [])
+        handles = state.auxiliary_handles.setdefault(label, [])
         if handle not in handles:
             handles.append(handle)
         state.save(self.base_dir)
@@ -780,12 +843,19 @@ class Calculation(SimulationRunner):
     @staticmethod
     def _recorded_handles(state: RunState) -> list[str]:
         """Every backend handle recorded in ``state``, de-duplicated, in order."""
+        window_handles = (
+            handle
+            for per_stage in state.handles.values()
+            for per_replicate in per_stage.values()
+            for handle in per_replicate.values()
+        )
+        auxiliary = (
+            handle for handles in state.auxiliary_handles.values() for handle in handles
+        )
         return list(
             dict.fromkeys(
                 handle
-                for per_stage in state.handles.values()
-                for per_window in per_stage.values()
-                for handle in per_window
+                for handle in (*window_handles, *auxiliary, *state.superseded_handles)
                 if handle
             )
         )
@@ -923,7 +993,7 @@ class Calculation(SimulationRunner):
         off that grid raises, since it has no starting structure — rerun SMD with
         bespoke spacing/range for that.
         """
-        if self.spec_builder is None:
+        if not self.spec_builders:
             raise RuntimeError("wire the calculation first (call prepare()/run())")
         group = self._group(cv_type)
         stage = (
@@ -1042,7 +1112,7 @@ class Calculation(SimulationRunner):
             self.base_dir.name,
             type(self.backend).__name__,
         )
-        if self.spec_builder is None:
+        if not self.spec_builders:
             # Auto-prepare: a from_config calculation runs end to end
             # from run() alone; prep is skipped if already complete on disk. The
             # private _prepare: run() already holds the driver session.
@@ -1059,11 +1129,14 @@ class Calculation(SimulationRunner):
                 self._stop.raise_if_requested()
                 self._run_stage(stage, {}, state, scheduler)
 
-        # 2. Boresch stages — sequential, feeding each PMF minimum forward.
+        # 2. Boresch stages — sequential, feeding each PMF minimum forward. The
+        # DoF loop stays outermost and the replicates fan out within it: every
+        # replicate's windows for one DoF go in as a single batch, then each
+        # replicate's own PMF minimum is fed forward independently.
         boresch_group = self._group("boresch")
         if boresch_group:
             unanalysed = [
-                s for s in boresch_group.stages if s.dof not in state.boresch_eq_values
+                s for s in boresch_group.stages if not self._dof_resolved(s, state)
             ]
             if unanalysed and pmf_provider is None:
                 # Self-default so a from_config calculation runs end to end from a
@@ -1075,17 +1148,25 @@ class Calculation(SimulationRunner):
                 pmf_provider = WhamPmfProvider(self.config)
             for stage in boresch_group.stages:
                 self._stop.raise_if_requested()
-                if stage.dof in state.boresch_eq_values:
+                if self._dof_resolved(stage, state):
                     continue  # already determined on a previous run (resume)
-                self._run_stage(stage, dict(state.boresch_eq_values), state, scheduler)
+                self._run_stage(stage, state.boresch_eq_values, state, scheduler)
                 if pmf_provider is None:
                     raise RuntimeError("a PMF provider is required for Boresch stages")
                 if stage.dof is None:
                     raise RuntimeError(
                         f"Boresch stage {stage.name!r} has no degree of freedom"
                     )
-                cv, pmf, *_ = pmf_provider(stage)  # ignore per-replicate PMFs here
-                state.boresch_eq_values[stage.dof] = pmf_minimum(cv, pmf)
+                cv, mean, *rest = pmf_provider(stage)
+                # A provider that returns per-replicate PMFs gives each replicate
+                # its own minimum; one that returns only the mean (a test hook)
+                # feeds the same value to all of them.
+                per_replicate = rest[0] if rest else None
+                for index, replicate in enumerate(stage.replicates):
+                    pmf = mean if per_replicate is None else per_replicate[index]
+                    state.boresch_eq_values.setdefault(replicate, {})[stage.dof] = (
+                        pmf_minimum(cv, pmf)
+                    )
                 state.save(self.base_dir)
 
         # 3. Steered MD then separation — both need every Boresch equilibrium value.
@@ -1097,17 +1178,26 @@ class Calculation(SimulationRunner):
             ):
                 # Generate the separation-window starting frames with the resolved
                 # Boresch restraints in place. Recorded in state so a resumed run
-                # doesn't repeat the (expensive) steering.
-                self.steered_md_runner(dict(state.boresch_eq_values))
+                # doesn't repeat the (expensive) steering. One shared pull, from
+                # replicate 1's values, until steered MD is fanned out.
+                self.steered_md_runner(dict(state.boresch_eq_values.get(1, {})))
                 state.stage_status["steered_md"] = "done"
                 state.save(self.base_dir)
             for stage in separation_group.stages:
                 self._stop.raise_if_requested()
-                self._run_stage(stage, dict(state.boresch_eq_values), state, scheduler)
+                self._run_stage(stage, state.boresch_eq_values, state, scheduler)
 
         state.save(self.base_dir)
         self._log.info("run %s: all stages complete", self.base_dir.name)
         return state
+
+    @staticmethod
+    def _dof_resolved(stage: Stage, state: RunState) -> bool:
+        """Whether every replicate of a Boresch stage has its equilibrium value."""
+        return all(
+            stage.dof in state.boresch_eq_values.get(replicate, {})
+            for replicate in stage.replicates
+        )
 
     def _smd_frames_ready(self, state: RunState, separation_group: Group) -> bool:
         """Whether steered MD is done and every separation window has its frame.
@@ -1122,7 +1212,11 @@ class Calculation(SimulationRunner):
 
         missing = missing_frames(
             self.base_dir / "smd_frames",
-            [w.centre for stage in separation_group.stages for w in stage.windows],
+            [
+                window.centre
+                for stage in separation_group.stages
+                for window in stage.all_windows()
+            ],
         )
         if missing:
             self._log.warning(
@@ -1136,42 +1230,37 @@ class Calculation(SimulationRunner):
     def _run_stage(
         self,
         stage: Stage,
-        boresch_eq_values: dict,
+        boresch_eq_values: Mapping[int, dict],
         state: RunState,
         scheduler: Scheduler,
     ) -> None:
-        """Write a stage's specs (with the given Boresch eq values), submit the
-        not-yet-complete replicates, and record handles/status in the state."""
+        """Write a stage's specs (each replicate with its own Boresch eq values),
+        submit the not-yet-complete windows, and record handles/status in the
+        state."""
         stage.write_specs(boresch_eq_values)
-        pending: list[tuple[Window, int]] = [
-            (window, replicate)
-            for window in stage.windows
-            for replicate in window.replicates()
-            if not window.is_replicate_complete(replicate)
-        ]
-        specs = [window.job_spec(replicate) for window, replicate in pending]
+        windows = list(stage.all_windows())
+        pending: list[Window] = [w for w in windows if not w.is_complete()]
+        specs = [window.job_spec() for window in pending]
         if pending:
             self._log.info(
-                "stage %s: submitting %d replicate(s) across %d window(s)",
+                "stage %s: submitting %d window(s) across %d replicate(s)",
                 stage.name,
                 len(pending),
-                len(stage.windows),
+                len(stage.replicates),
             )
         else:
             self._log.info("stage %s: already complete, skipping", stage.name)
 
         def on_submit(index: int, handle: str) -> None:
-            window, replicate = pending[index]
-            per_window = state.handles.setdefault(stage.name, {}).setdefault(
-                window.label, [""] * window.ensemble_size
+            window = pending[index]
+            per_replicate = state.handles.setdefault(stage.name, {}).setdefault(
+                window.replicate, {}
             )
-            previous = per_window[replicate - 1]
+            previous = per_replicate.get(window.label)
             if previous and previous != handle:
                 # Keep the earlier job's handle so kill() can still reach it.
-                state.handles.setdefault("_superseded", {}).setdefault(
-                    f"{stage.name}/{window.label}", []
-                ).append(previous)
-            per_window[replicate - 1] = handle
+                state.superseded_handles.append(previous)
+            per_replicate[window.label] = handle
             state.stage_status[stage.name] = "running"
             # A detached backend may outlive this driver; persist every handle
             # immediately so another process can inspect or cancel it.
@@ -1189,16 +1278,13 @@ class Calculation(SimulationRunner):
         # a failure whatever the scheduler reported (a crash, or a job that exited 0
         # without writing its result) — the scheduler state is carried for context.
         failures = [
-            f"{window.label}/run_{replicate:02d} (job {states[i].value})"
-            for i, (window, replicate) in enumerate(pending)
-            if not window.is_replicate_complete(replicate)
+            f"{replicate_dirname(window.replicate)}/{window.label} "
+            f"(job {states[i].value})"
+            for i, window in enumerate(pending)
+            if not window.is_complete()
         ]
 
-        if all(
-            window.is_replicate_complete(r)
-            for window in stage.windows
-            for r in window.replicates()
-        ):
+        if all(window.is_complete() for window in windows):
             state.stage_status[stage.name] = "done"
             self._log.info("stage %s: complete", stage.name)
         elif failures:
@@ -1212,7 +1298,7 @@ class Calculation(SimulationRunner):
             raise RuntimeError(
                 f"stage {stage.name!r}: {len(failures)} window replicate(s) "
                 f"produced no result: {', '.join(failures)}. Inspect the job logs "
-                "(<window>/run_NN/*.out, or the SLURM job output) under the stage "
+                "(run_NN/<window>/*.out, or the SLURM job output) under the stage "
                 "directory, then re-run to resume the remaining work."
             )
 
@@ -1259,7 +1345,7 @@ class Calculation(SimulationRunner):
                 "the calculation first"
             )
 
-        if self.spec_builder is None:
+        if not self.spec_builders:
             prepared = self._load_prepared()
             if prepared is None:
                 raise RuntimeError(
@@ -1274,17 +1360,20 @@ class Calculation(SimulationRunner):
             pmf_provider = WhamPmfProvider(self.config)
         if theta_a_min is None or theta_b_min is None or r_star_nm is None:
             state = self._load_or_init_state()
+            # One theta pair and one r* for the whole calculation, taken from
+            # replicate 1; per-replicate values arrive with the per-replicate ΔG°.
+            eq_values = state.boresch_eq_values.get(1, {})
             if theta_a_min is None:
-                theta_a_min = state.boresch_eq_values.get("thetaA")
+                theta_a_min = eq_values.get("thetaA")
             if theta_b_min is None:
-                theta_b_min = state.boresch_eq_values.get("thetaB")
+                theta_b_min = eq_values.get("thetaB")
             if theta_a_min is None or theta_b_min is None:
                 raise ValueError(
                     "cannot derive theta minima: run the Boresch stages first, "
                     "or pass theta_a_min/theta_b_min explicitly"
                 )
             if r_star_nm is None:
-                sep = self.stage_centres.get("separation")
+                sep = self._separation_window_centres()
                 if not sep:  # e.g. constructed directly with empty stage_centres
                     sep = enumerate_centres(
                         self.config.sampling.for_cv("separation", "separation")

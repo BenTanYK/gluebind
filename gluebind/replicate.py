@@ -35,6 +35,25 @@ def equilibration_replicates(sampling) -> tuple[int, ...]:
     return SHARED
 
 
+def window_replicates(sampling) -> tuple[int, ...]:
+    """Replicates with their own umbrella windows — always every replicate.
+
+    The windows are the one stage that is fanned out in every mode; this is the
+    bottom of the pipeline, where the replicate axis has always lived.
+    """
+    return tuple(range(1, sampling.ensemble_size + 1))
+
+
+def source_replicate(replicate: int, upstream: tuple[int, ...]) -> int:
+    """Which ``upstream`` replicate a downstream ``replicate`` draws from.
+
+    A fanned-out upstream stage gives each replicate its own copy; a shared one
+    gives every replicate ``run_01``. Keeping this in one place means the
+    downstream code never branches on ``ensemble_from``.
+    """
+    return replicate if replicate in upstream else SHARED[0]
+
+
 def smd_replicates(sampling) -> tuple[int, ...]:
     """Replicates with their own steered-MD pull and snapshot set.
 

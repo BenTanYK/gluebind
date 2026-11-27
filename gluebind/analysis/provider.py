@@ -98,9 +98,13 @@ class WhamPmfProvider:
     def __call__(self, stage):
         schedule = self.config.sampling.for_cv(stage.cv_type, stage.name)
         k = schedule.force_constant
-        ensemble_size = self.config.sampling.ensemble_size
 
-        centres = [wham_units(stage.cv_type, w.centre, k)[0] for w in stage.windows]
+        # One histogram range for all replicates, so their PMFs share a grid and
+        # can be averaged; replicates may have different window centres.
+        centres = [
+            wham_units(stage.cv_type, window.centre, k)[0]
+            for window in stage.all_windows()
+        ]
         params = [
             min(centres) - self.hist_margin,
             max(centres) + self.hist_margin,
@@ -111,10 +115,10 @@ class WhamPmfProvider:
         ]
 
         replicate_pmfs = []
-        for replicate in range(1, ensemble_size + 1):
+        for replicate in stage.replicates:
             entries = []
-            for window in stage.windows:
-                timeseries = self._resolve_timeseries(stage, window, replicate)
+            for window in stage.windows_for(replicate):
+                timeseries = self._resolve_timeseries(stage, window)
                 centre, k_wham = wham_units(stage.cv_type, window.centre, k)
                 entries.append((timeseries, centre, k_wham))
             metafile = write_metafile(
@@ -138,7 +142,7 @@ class WhamPmfProvider:
             return self.num_bins.get(cv_type, self._DEFAULT_NUM_BINS[cv_type])
         return self.num_bins
 
-    def _resolve_timeseries(self, stage, window, replicate) -> str:
+    def _resolve_timeseries(self, stage, window) -> str:
         """Path to the CV timeseries WHAM should read for this window.
 
         RMSD and separation timeseries are RED-truncated (equilibration removed)
@@ -151,7 +155,7 @@ class WhamPmfProvider:
         """
         import numpy as np
 
-        raw = window.replicate_dir(replicate) / CV_TIMESERIES_FILENAME
+        raw = window.base_dir / CV_TIMESERIES_FILENAME
         if stage.cv_type == "boresch" or not self.apply_red:
             return str(raw)
 

@@ -109,7 +109,7 @@ def test_mmgbsa_submits_the_job_and_returns_its_result(tmp_path, fake_job):
 
     state = RunState.load(run)
     # one handle per scored trajectory, recorded for kill()
-    assert state.handles["_auxiliary"]["mmgbsa_run_01"]
+    assert state.auxiliary_handles["mmgbsa_run_01"]
 
 
 def test_mmgbsa_runs_again_and_warns_before_overwriting(tmp_path, fake_job):

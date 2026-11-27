@@ -144,7 +144,7 @@ def test_scan_discovers_system_subdirs(tmp_path):
     assert set(cset.calcs) == {"CK1a-WT", "BD1-DCAF16"}
     # each calc runs *in place* in its own subdir (the standard basedir)
     assert cset.calcs["CK1a-WT"].base_dir == tmp_path / "CK1a-WT"
-    assert all(c.spec_builder is None for c in cset.calcs.values())  # deferred
+    assert all(not c.spec_builders for c in cset.calcs.values())  # deferred
     # structurally different configs coexist: one has glue, the other doesn't
     assert cset.calcs["CK1a-WT"].config.inputs.glue is not None
     assert cset.calcs["BD1-DCAF16"].config.inputs.glue is None
@@ -284,9 +284,9 @@ def test_calc_set_run_completes_boresch_without_explicit_provider(
     calc = cset.calcs["A"]
 
     def fake_prepare(**_):  # avoid real BSS prep; wire trivially
-        calc.spec_builder = _run_spec_builder
+        calc.spec_builders = {1: _run_spec_builder}
         calc.command_factory = _run_trivial_cmd
-        calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+        calc.stage_centres = {1: {"thetaA": [1.0], "separation": [1.5]}}
         calc.groups = calc._build_groups()
         calc.sub_runners = list(calc.groups)
 
@@ -295,7 +295,7 @@ def test_calc_set_run_completes_boresch_without_explicit_provider(
     cset.run()  # must NOT raise "pmf_provider is required"
 
     state = RunState.load(calc.base_dir)
-    assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
+    assert state.boresch_eq_values[1]["thetaA"] == pytest.approx(1.0)
 
 
 def test_calc_set_run_continues_past_failed_system(tmp_path, monkeypatch):
@@ -311,9 +311,9 @@ def test_calc_set_run_continues_past_failed_system(tmp_path, monkeypatch):
 
     def wire(calc, cmd):
         def fake_prepare(**_):
-            calc.spec_builder = _run_spec_builder
+            calc.spec_builders = {1: _run_spec_builder}
             calc.command_factory = cmd
-            calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+            calc.stage_centres = {1: {"thetaA": [1.0], "separation": [1.5]}}
             calc.groups = calc._build_groups()
             calc.sub_runners = list(calc.groups)
 
@@ -331,9 +331,9 @@ def test_calc_set_run_continues_past_failed_system(tmp_path, monkeypatch):
 
 def _wire_trivial(calc):
     def fake_prepare(**_):
-        calc.spec_builder = _run_spec_builder
+        calc.spec_builders = {1: _run_spec_builder}
         calc.command_factory = _run_trivial_cmd
-        calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+        calc.stage_centres = {1: {"thetaA": [1.0], "separation": [1.5]}}
         calc.groups = calc._build_groups()
         calc.sub_runners = list(calc.groups)
 
@@ -375,9 +375,9 @@ def test_calc_set_run_parallel_surfaces_failures(tmp_path, monkeypatch):
 
     def fake_prepare_b(**_):
         calc = cset.calcs["B"]
-        calc.spec_builder = _run_spec_builder
+        calc.spec_builders = {1: _run_spec_builder}
         calc.command_factory = lambda: [sys.executable, "-c", "raise SystemExit(1)"]
-        calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+        calc.stage_centres = {1: {"thetaA": [1.0], "separation": [1.5]}}
         calc.groups = calc._build_groups()
         calc.sub_runners = list(calc.groups)
 

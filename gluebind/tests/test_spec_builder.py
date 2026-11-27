@@ -592,7 +592,7 @@ def test_spec_builder_drives_runner(tmp_path):
             "-c",
             "open('result.json','w').write('{}')",
         ],
-        stage_centres={"thetaA": [1.0], "separation": [1.5]},
+        stage_centres={1: {"thetaA": [1.0], "separation": [1.5]}},
     )
     calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01),
@@ -603,7 +603,7 @@ def test_spec_builder_drives_runner(tmp_path):
     )
 
     spec = WindowSpec.load(
-        tmp_path / "calc" / "boresch" / "thetaA" / "1rad" / "run_01" / "window.json"
+        tmp_path / "calc" / "boresch" / "thetaA" / "run_01" / "1rad" / "window.json"
     )
     assert spec.topology == "complex.prm7"
     assert spec.restraints["boresch"]["anchors"] == {"b": 10, "c": 11, "B": 12, "C": 13}
