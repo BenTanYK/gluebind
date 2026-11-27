@@ -88,33 +88,6 @@ def _sem(values) -> float:
     return float(a.std(ddof=1) / np.sqrt(n)) if n > 1 else 0.0
 
 
-def _repeat_dg_sem(per_repeat: dict, dg_corr: float) -> float | None:
-    """SEM of ΔG over independent repeats.
-
-    ``per_repeat`` maps stage name → ``(cv_type, [contribution per repeat])``. Each
-    repeat's contributions are combined into a full ΔG° (same sign convention as
-    the point estimate; the analytical ``dg_corr`` is constant across repeats), and
-    the SEM is taken over those totals. Returns ``None`` when there are fewer than
-    two repeats or the stages disagree on repeat count.
-    """
-    if not per_repeat:
-        return None
-    n = len(next(iter(per_repeat.values()))[1])
-    if n < 2 or not all(len(vals) == n for _cv, vals in per_repeat.values()):
-        return None
-    totals = []
-    for r in range(n):
-        comp = {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
-        for _name, (cv_type, vals) in per_repeat.items():
-            comp[cv_type] += vals[r]
-        totals.append(
-            binding_free_energy(
-                comp["rmsd"], comp["boresch"], comp["separation"], dg_corr
-            )
-        )
-    return _sem(totals)
-
-
 def _write_analysis_result(run_dir: pathlib.Path, result: dict) -> pathlib.Path:
     """Atomically persist the calculation-level analysis result."""
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -1355,19 +1328,25 @@ class Calculation(SimulationRunner):
     ) -> dict:
         """Aggregate per-stage PMFs into the standard-state binding free energy.
 
+        Each replicate is analysed as a complete calculation of its own — its own
+        legs, its own ``r*`` and its own analytical correction — because
+        replicates that equilibrated independently have different anchors and a
+        different ``window_min``. ``dg_bind`` is the mean over those, and
+        ``dg_bind_sem`` their SEM; ``dg_per_replicate`` carries each one.
+
         With no arguments, everything is resolved from the run: ``pmf_provider``
-        defaults to a local WHAM provider, the ``theta_*`` minima come from the
-        Boresch equilibrium values in the run state, and ``r_star_nm`` is the
-        outermost separation window centre minus :data:`R_STAR_BUFFER_NM`
-        (0.01 nm). Any of them may be passed explicitly to override.
+        defaults to a local WHAM provider, each replicate's ``theta_*`` minima
+        come from its Boresch equilibrium values in the run state, and its
+        ``r_star_nm`` is its outermost separation window centre minus
+        :data:`R_STAR_BUFFER_NM` (0.01 nm). Any of them may be passed explicitly,
+        which overrides it for every replicate.
 
         ``pmf_provider(stage)`` returns ``(cv, mean_pmf)`` or, to enable the
-        uncertainty estimate, ``(cv, mean_pmf, [pmf_per_repeat, ...])``. The
-        returned dict carries the point-estimate ΔG° (``dg_bind`` and its
-        components) plus, when per-repeat PMFs are available, ``dg_bind_sem`` (the
-        SEM over the independent repeats' total ΔG°) and ``stage_sems`` (per-CV
-        SEMs that flag the least-converged stage). ``dg_bind_sem`` is ``None`` and
-        ``stage_sems`` empty for a single repeat.
+        uncertainty estimate, ``(cv, mean_pmf, [pmf_per_replicate, ...])`` ordered
+        as ``stage.replicates``. Returning only the mean PMF describes a single
+        calculation, which is then treated as the one replicate: ``dg_bind_sem``
+        is ``None`` and ``stage_sems`` (per-CV SEMs that flag the least-converged
+        stage) are zero.
 
         In separation-PMF-only mode (``sampling.run_rmsd_us=False``) there are no
         RMSD stages, so ``dg_bind`` is ``ΔG_sep + ΔG_boresch + ΔG_corr`` — a ranking
@@ -1399,27 +1378,29 @@ class Calculation(SimulationRunner):
             from gluebind.analysis.provider import WhamPmfProvider
 
             pmf_provider = WhamPmfProvider(self.config)
-        if theta_a_min is None or theta_b_min is None or r_star_nm is None:
-            state = self._load_or_init_state()
-            # One theta pair and one r* for the whole calculation, taken from
-            # replicate 1; per-replicate values arrive with the per-replicate ΔG°.
-            eq_values = state.boresch_eq_values.get(1, {})
-            if theta_a_min is None:
-                theta_a_min = eq_values.get("thetaA")
-            if theta_b_min is None:
-                theta_b_min = eq_values.get("thetaB")
-            if theta_a_min is None or theta_b_min is None:
+        state = self._load_or_init_state()
+
+        def theta_min(replicate: int, dof: str, override: float | None) -> float:
+            if override is not None:
+                return override
+            value = state.boresch_eq_values.get(replicate, {}).get(dof)
+            if value is None:
                 raise ValueError(
-                    "cannot derive theta minima: run the Boresch stages first, "
+                    f"cannot derive the {dof} minimum for "
+                    f"{replicate_dirname(replicate)}: run the Boresch stages first, "
                     "or pass theta_a_min/theta_b_min explicitly"
                 )
-            if r_star_nm is None:
-                sep = self._separation_window_centres()
-                if not sep:  # e.g. constructed directly with empty stage_centres
-                    sep = enumerate_centres(
-                        self.config.sampling.for_cv("separation", "separation")
-                    )
-                r_star_nm = max(sep) - R_STAR_BUFFER_NM
+            return value
+
+        def r_star(replicate: int) -> float:
+            if r_star_nm is not None:
+                return r_star_nm
+            centres = self.stage_centres.get(replicate, {}).get("separation")
+            if not centres:  # e.g. constructed directly with empty stage_centres
+                centres = enumerate_centres(
+                    self.config.sampling.for_cv("separation", "separation")
+                )
+            return max(centres) - R_STAR_BUFFER_NM
 
         k_boresch = self.config.sampling.boresch.force_constant  # kcal/mol/rad^2
         k_rmsd = (
@@ -1428,7 +1409,6 @@ class Calculation(SimulationRunner):
         # The WHAM PMFs are produced at the sampling temperature, so the β in every
         # free-energy integral must use the same temperature (not the 300 K default).
         temp = self.config.sampling.temperature_K
-        totals = {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
 
         def _warn_unconverged(stage: Stage, converged: bool) -> None:
             if not converged:
@@ -1440,8 +1420,8 @@ class Calculation(SimulationRunner):
                     stacklevel=2,
                 )
 
-        def _stage_contribution(cv_type, stage, cv, fe, theta_0):
-            """One stage's contribution for a given PMF (mean or a single repeat)."""
+        def _stage_contribution(cv_type, stage, cv, fe, theta_0, replicate):
+            """One stage's contribution to one replicate's ΔG°."""
             if cv_type == "boresch":
                 return boresch_contribution(
                     cv, fe, theta_0, k_boresch, temperature=temp
@@ -1450,19 +1430,37 @@ class Calculation(SimulationRunner):
                 return rmsd_contribution(
                     cv, fe, k_rmsd, unbound=stage.is_bulk, temperature=temp
                 )
-            return separation_contribution(cv, fe, r_star_nm, temperature=temp)
+            return separation_contribution(
+                cv, fe, r_star(replicate), temperature=temp
+            )
 
-        # stage name -> (cv_type, [contribution for each independent repeat])
+        # Every leg is computed per replicate, because a replicate that
+        # equilibrated independently has its own anchors (so its own thetaA/thetaB
+        # minima) and its own window_min, hence its own r* and its own analytical
+        # correction. The point estimate is then the mean over the replicates'
+        # complete ΔG°, and the SEM is exactly the spread of those.
+        legs: dict[int, dict[str, float]] = {}
+        # stage name -> (cv_type, [contribution per replicate]) — convergence only
         per_repeat: dict[str, tuple[str, list[float]]] = {}
 
         for group, stage in self._iter_stages():
             cv, pmf, *rest = pmf_provider(stage)
             replicate_pmfs = rest[0] if rest else None
-            # theta_0 is a fixed protocol value (the mean-PMF minimum), reused for
-            # every repeat so the repeat spread reflects sampling noise alone.
-            theta_0 = pmf_minimum(cv, pmf) if group.cv_type == "boresch" else 0.0
+            # A provider that returns only a mean PMF describes one calculation,
+            # which is then the single replicate.
+            if not replicate_pmfs:
+                pairs = [(1, pmf)]
+            elif len(replicate_pmfs) != len(stage.replicates):
+                raise RuntimeError(
+                    f"the PMF provider returned {len(replicate_pmfs)} PMFs for "
+                    f"stage {stage.name!r}, which has {len(stage.replicates)} "
+                    "replicate(s); they must correspond one to one"
+                )
+            else:
+                pairs = list(zip(stage.replicates, replicate_pmfs, strict=True))
 
             if group.cv_type == "boresch":
+                # Convergence is judged once per stage, on the mean PMF.
                 _warn_unconverged(
                     stage,
                     contribution_converged(
@@ -1470,7 +1468,7 @@ class Calculation(SimulationRunner):
                         pmf,
                         cv_type="boresch",
                         force_constant=k_boresch,
-                        theta_0=theta_0,
+                        theta_0=pmf_minimum(cv, pmf),
                         temperature=temp,
                     ),
                 )
@@ -1498,33 +1496,68 @@ class Calculation(SimulationRunner):
                         pmf,
                         cv_type="separation",
                         force_constant=0.0,
-                        r_star=r_star_nm,
+                        r_star=r_star(pairs[0][0]),
                         temperature=temp,
                     ),
                 )
 
-            totals[group.cv_type] += _stage_contribution(
-                group.cv_type, stage, cv, pmf, theta_0
-            )
-            if replicate_pmfs:
-                per_repeat[stage.name] = (
-                    group.cv_type,
-                    [
-                        _stage_contribution(group.cv_type, stage, cv, fe, theta_0)
-                        for fe in replicate_pmfs
-                    ],
+            contributions = []
+            for replicate, fe in pairs:
+                # Each replicate's restraint was applied at its own PMF minimum,
+                # so that is the theta_0 its contribution is released against.
+                theta_0 = pmf_minimum(cv, fe) if group.cv_type == "boresch" else 0.0
+                value = _stage_contribution(
+                    group.cv_type, stage, cv, fe, theta_0, replicate
                 )
+                totals = legs.setdefault(
+                    replicate, {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
+                )
+                totals[group.cv_type] += value
+                contributions.append(value)
+            per_repeat[stage.name] = (group.cv_type, contributions)
 
-        dg_corr = standard_state_correction(
-            r_star_nm, theta_a_min, theta_b_min, k_boresch, temperature=temp
-        )
-        dg_bind = binding_free_energy(
-            totals["rmsd"], totals["boresch"], totals["separation"], dg_corr
-        )
-        # Per-stage SEM flags the least-converged CV; the overall SEM is taken over
-        # the independent repeats' full ΔG° (not a quadrature of per-stage SEMs).
+        if not legs:
+            raise RuntimeError(
+                "cannot analyse: no stages produced a PMF; run() the calculation "
+                "first"
+            )
+        # Keyed by the on-disk run name, so analysis.json round-trips through JSON
+        # and reads the way the directories do.
+        per_replicate = {
+            replicate_dirname(replicate): {
+                **contributions,
+                "dg_corr": standard_state_correction(
+                    r_star(replicate),
+                    theta_min(replicate, "thetaA", theta_a_min),
+                    theta_min(replicate, "thetaB", theta_b_min),
+                    k_boresch,
+                    temperature=temp,
+                ),
+                "r_star_nm": r_star(replicate),
+            }
+            for replicate, contributions in sorted(legs.items())
+        }
+        for values in per_replicate.values():
+            values["dg_bind"] = binding_free_energy(
+                values["rmsd"],
+                values["boresch"],
+                values["separation"],
+                values["dg_corr"],
+            )
+
+        def _mean(key: str) -> float:
+            values = [v[key] for v in per_replicate.values()]
+            return sum(values) / len(values)
+
+        dg_bind = _mean("dg_bind")
+        # Per-stage SEM flags the least-converged CV; the overall SEM is the spread
+        # of the replicates' complete ΔG° (not a quadrature of per-stage SEMs).
         stage_sems = {name: _sem(vals) for name, (_cv, vals) in per_repeat.items()}
-        dg_bind_sem = _repeat_dg_sem(per_repeat, dg_corr)
+        dg_bind_sem = (
+            _sem([v["dg_bind"] for v in per_replicate.values()])
+            if len(per_replicate) > 1
+            else None
+        )
 
         self._log.info(
             "analyse %s: dG_bind%s = %.2f%s kcal/mol",
@@ -1536,10 +1569,15 @@ class Calculation(SimulationRunner):
         result = {
             "dg_bind": dg_bind,
             "dg_bind_sem": dg_bind_sem,  # over independent repeats; None if < 2
-            "dg_rmsd": totals["rmsd"],
-            "dg_boresch": totals["boresch"],
-            "dg_sep": totals["separation"],
-            "dg_corr": dg_corr,
+            "dg_rmsd": _mean("rmsd"),
+            "dg_boresch": _mean("boresch"),
+            "dg_sep": _mean("separation"),
+            "dg_corr": _mean("dg_corr"),
+            "r_star_nm": _mean("r_star_nm"),
+            # Each replicate's complete, self-consistent ΔG° and its legs: with
+            # ensemble equilibration they differ in r* and dg_corr too, not only
+            # in sampling noise.
+            "dg_per_replicate": per_replicate,
             "stage_sems": stage_sems,  # {stage: SEM} — flags the least-converged CV
             # False in separation-PMF-only mode: dg_bind then omits ΔG_c^bound/bulk
             # and is a ranking estimate, not a rigorous standard-state ΔG_bind°.

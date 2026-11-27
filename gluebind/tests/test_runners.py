@@ -730,6 +730,8 @@ def test_analyse_aggregates(tmp_path):
         "dg_boresch",
         "dg_sep",
         "dg_corr",
+        "r_star_nm",
+        "dg_per_replicate",
         "stage_sems",
         "rmsd_included",
     }
@@ -772,8 +774,11 @@ def test_analyse_does_not_write_analysis_json_on_provider_failure(tmp_path):
 
 def test_analyse_reports_sem_over_repeats(tmp_path):
     # A provider that exposes per-replicate PMFs yields an overall SEM (over the
-    # repeats' total ΔG) plus per-stage SEM diagnostics.
-    calc = _calc(tmp_path)
+    # repeats' complete ΔG°) plus per-stage SEM diagnostics.
+    calc = _ensemble_calc(
+        tmp_path,
+        {r: {"thetaA": [1.0], "separation": [1.5]} for r in (1, 2)},
+    )
 
     def provider_with_repeats(stage):
         x = np.linspace(0.0, 2.0, 21)
@@ -788,14 +793,74 @@ def test_analyse_reports_sem_over_repeats(tmp_path):
     assert result["dg_bind_sem"] is not None and result["dg_bind_sem"] > 0
     assert result["stage_sems"]  # per-CV diagnostics present
     assert all(v >= 0 for v in result["stage_sems"].values())
+    # the point estimate is the mean of the replicates' complete ΔG°
+    per_replicate = result["dg_per_replicate"]
+    assert set(per_replicate) == {"run_01", "run_02"}
+    assert result["dg_bind"] == pytest.approx(
+        sum(v["dg_bind"] for v in per_replicate.values()) / 2
+    )
+
+
+def test_analyse_gives_each_replicate_its_own_r_star_and_correction(tmp_path):
+    # Replicates that equilibrated independently resolve their own window_min and
+    # their own anchors, so r* and the analytical correction differ between them;
+    # each replicate's ΔG° must be built from its own.
+    calc = _ensemble_calc(
+        tmp_path,
+        {
+            1: {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]},
+            2: {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.9]},
+        },
+    )
+    minima = {1: 0.8, 2: 1.4}
+
+    def per_replicate_pmf(stage):
+        cv = np.linspace(0.0, 2.0, 21)
+        pmfs = [(cv - minima[r]) ** 2 for r in stage.replicates]
+        return cv, (pmfs[0] + pmfs[1]) / 2, pmfs
+
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01),
+        pmf_provider=per_replicate_pmf,
+    )
+    result = calc.analyse(per_replicate_pmf)  # no overrides: resolved per replicate
+
+    from gluebind.runners import calculation as calc_mod
+
+    first, second = result["dg_per_replicate"].values()
+    assert first["r_star_nm"] == pytest.approx(1.5 - calc_mod.R_STAR_BUFFER_NM)
+    assert second["r_star_nm"] == pytest.approx(1.9 - calc_mod.R_STAR_BUFFER_NM)
+    assert first["dg_corr"] != pytest.approx(second["dg_corr"])
+    assert result["dg_corr"] == pytest.approx(
+        (first["dg_corr"] + second["dg_corr"]) / 2
+    )
+    for values in (first, second):
+        assert values["dg_bind"] == pytest.approx(
+            values["rmsd"] + values["boresch"] + values["separation"]
+            + values["dg_corr"]
+        )
 
 
 def test_analyse_sem_none_without_repeats(tmp_path):
-    # A 2-tuple provider (no per-replicate PMFs) cannot report an uncertainty.
+    # A 2-tuple provider describes one calculation: no spread to report.
     calc = _calc(tmp_path)
     result = calc.analyse(_fake_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0)
     assert result["dg_bind_sem"] is None
-    assert result["stage_sems"] == {}
+    assert set(result["dg_per_replicate"]) == {"run_01"}
+    assert set(result["stage_sems"].values()) == {0.0}
+
+
+def test_analyse_rejects_a_provider_that_disagrees_on_replicates(tmp_path):
+    # Fail loudly rather than quietly scoring a subset of the replicates.
+    calc = _calc(tmp_path)  # one replicate
+
+    def two_pmfs(stage):
+        x = np.linspace(0.0, 2.0, 21)
+        mean = (x - 1.0) ** 2
+        return x, mean, [0.8 * mean, 1.2 * mean]
+
+    with pytest.raises(RuntimeError, match="correspond one to one"):
+        calc.analyse(two_pmfs, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0)
 
 
 def test_analyse_threads_sampling_temperature(tmp_path):
@@ -886,6 +951,8 @@ def test_analyse_derives_theta_and_r_star_from_state(tmp_path):
         "dg_boresch",
         "dg_sep",
         "dg_corr",
+        "r_star_nm",
+        "dg_per_replicate",
         "stage_sems",
         "rmsd_included",
     }
@@ -1075,6 +1142,8 @@ def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
         "dg_boresch",
         "dg_sep",
         "dg_corr",
+        "r_star_nm",
+        "dg_per_replicate",
         "stage_sems",
         "rmsd_included",
     }
