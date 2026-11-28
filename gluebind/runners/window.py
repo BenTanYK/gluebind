@@ -1,10 +1,12 @@
-"""Window runner: one bias-potential centre, sampled in ``ensemble_size`` replicates.
+"""Window runner: one bias-potential centre, sampled once, for one replicate.
 
-A :class:`Window` owns one directory per replicate (``run_01`` …). At setup it
-writes each replicate's ``window.json`` via the injected ``spec_builder`` (which
-Phase 3/4 supplies with resolved structures + restraint context), and it emits
-one :class:`~gluebind.backend.base.JobSpec` per replicate whose command runs
-:func:`gluebind.simulation.window.run_window` in that directory.
+A :class:`Window` owns one directory, ``<stage>/run_NN/<centre>``. The replicate
+level sits above it, on the :class:`~gluebind.runners.stage.Stage`, because a
+replicate may have its own equilibrated structure, anchors and therefore its own
+window centres — so each replicate owns a complete window set rather than a
+column of a shared grid. The window writes its ``window.json`` via the injected
+``spec_builder`` and emits the :class:`~gluebind.backend.base.JobSpec` whose
+command runs :func:`gluebind.simulation.window.run_window` in that directory.
 """
 
 from __future__ import annotations
@@ -81,7 +83,7 @@ def enumerate_centres(schedule) -> list[float]:
 
 
 class Window(SimulationRunner):
-    """One umbrella-sampling window (a single bias centre) and its replicates."""
+    """One umbrella-sampling window: a single bias centre, for one replicate."""
 
     def __init__(
         self,
@@ -91,7 +93,7 @@ class Window(SimulationRunner):
         stage_name: str,
         dof: str | None,
         centre: float,
-        ensemble_size: int,
+        replicate: int,
         spec_builder: SpecBuilder,
         command_factory: CommandFactory = window_launch_command,
     ) -> None:
@@ -100,7 +102,7 @@ class Window(SimulationRunner):
         self.stage_name = stage_name
         self.dof = dof
         self.centre = centre
-        self.ensemble_size = ensemble_size
+        self.replicate = replicate
         self.spec_builder = spec_builder
         self.command_factory = command_factory
 
@@ -108,42 +110,32 @@ class Window(SimulationRunner):
     def label(self) -> str:
         return format_label(self.cv_type, self.centre)
 
-    def replicates(self) -> range:
-        return range(1, self.ensemble_size + 1)
+    def write_spec(self, boresch_eq_values: dict | None = None) -> None:
+        """Write this window's ``window.json`` via the ``spec_builder``.
 
-    def replicate_dir(self, replicate: int) -> pathlib.Path:
-        return self.base_dir / f"run_{replicate:02d}"
-
-    def write_specs(self, boresch_eq_values: dict | None = None) -> None:
-        """Write each replicate's ``window.json`` via the ``spec_builder``.
-
-        ``boresch_eq_values`` carries the equilibrium values of the Boresch DoFs
-        already determined; it is threaded to the ``spec_builder`` (which resolves
+        ``boresch_eq_values`` carries this replicate's already-determined Boresch
+        equilibrium values; it is threaded to the ``spec_builder`` (which resolves
         it into the window's fixed restraints), enabling the sequential Boresch
         feedback. Called at run time, not in ``setup``, because a DoF's value is
         only known after the previous DoF's PMF has been analysed.
         """
-        boresch_eq_values = dict(boresch_eq_values or {})
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        for replicate in self.replicates():
-            run_dir = self.replicate_dir(replicate)
-            run_dir.mkdir(parents=True, exist_ok=True)
-            spec = self.spec_builder(
-                cv_type=self.cv_type,
-                stage_name=self.stage_name,
-                dof=self.dof,
-                cv_centre=self.centre,
-                replicate=replicate,
-                boresch_eq_values=boresch_eq_values,
-            )
-            spec.dump(run_dir / WINDOW_SPEC_FILENAME)
+        spec = self.spec_builder(
+            cv_type=self.cv_type,
+            stage_name=self.stage_name,
+            dof=self.dof,
+            cv_centre=self.centre,
+            replicate=self.replicate,
+            boresch_eq_values=dict(boresch_eq_values or {}),
+        )
+        spec.dump(self.base_dir / WINDOW_SPEC_FILENAME)
 
-    def is_replicate_complete(self, replicate: int) -> bool:
-        return (self.replicate_dir(replicate) / RESULT_FILENAME).exists()
+    def is_complete(self) -> bool:
+        return (self.base_dir / RESULT_FILENAME).exists()
 
-    def job_spec(self, replicate: int) -> JobSpec:
+    def job_spec(self) -> JobSpec:
         return JobSpec(
             command=self.command_factory(),
-            work_dir=str(self.replicate_dir(replicate)),
-            name=f"{self.stage_name}_{self.label}_r{replicate}",
+            work_dir=str(self.base_dir),
+            name=f"{self.stage_name}_{self.label}_r{self.replicate}",
         )

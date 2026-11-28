@@ -8,11 +8,12 @@ import pydantic
 
 from gluebind.config.calculation import CalculationConfig
 from gluebind.restraint_context import (
+    RESTRAINT_CONTEXT_FILENAME,
     ResolvedRestraintContext,
     context_to_data,
     prepared_hash,
 )
-from gluebind.system.prep import PreparedSystem
+from gluebind.system.prep import PreparedReplicate, PreparedSystem
 
 RESTRAINT_RESOLUTION_SPEC_FILENAME = "restraint_resolution.json"
 RESTRAINT_RESOLUTION_RESULT_FILENAME = "result.json"
@@ -27,7 +28,11 @@ class RestraintResolutionSpec(pydantic.BaseModel):
 
     config: CalculationConfig
     prep_dir: str
-    output_path: str
+    """Where ``prepared.json`` lives; shared by every replicate."""
+    replicate_dir: str
+    """``prep/run_NN``: this replicate's equilibration artefacts, and where its
+    restraint context, RMSF report and Boresch distributions are written."""
+    replicate: int = 1
     config_hash: str
     anchors_override: dict[str, int] | None = None
 
@@ -62,7 +67,8 @@ def run_restraint_resolution(work_dir: str | pathlib.Path) -> None:
 
     work_dir = pathlib.Path(work_dir)
     spec = RestraintResolutionSpec.load(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
-    prepared = PreparedSystem.load(spec.prep_dir)
+    prepared = PreparedSystem.load(spec.prep_dir).for_replicate(spec.replicate)
+    replicate_dir = pathlib.Path(spec.replicate_dir)
     context = build_restraint_context(
         prepared, spec.config, anchors_override=spec.anchors_override
     )
@@ -70,14 +76,14 @@ def run_restraint_resolution(work_dir: str | pathlib.Path) -> None:
     # anchor-selection inspection, including when anchors were configured
     # manually. This runs in the same backend job as trajectory-dependent
     # restraint resolution, so the driver never needs MDAnalysis.
-    write_rmsf_report(prepared, spec.config, spec.prep_dir, anchors=context.anchors)
+    write_rmsf_report(prepared, spec.config, replicate_dir, anchors=context.anchors)
     prepared_identity = prepared_hash(prepared)
     report: dict = {}
     stage_centres = compute_stage_centres(
         prepared,
         context,
         spec.config,
-        distributions_dir=pathlib.Path(spec.prep_dir) / BORESCH_DISTRIBUTION_DIRNAME,
+        distributions_dir=replicate_dir / BORESCH_DISTRIBUTION_DIRNAME,
         distribution_metadata={
             "config_hash": spec.config_hash,
             "prepared_hash": prepared_identity,
@@ -99,9 +105,10 @@ def run_restraint_resolution(work_dir: str | pathlib.Path) -> None:
         stage_centres=stage_centres,
         **report,
     )
-    resolved.dump(spec.output_path)
+    output_path = replicate_dir / RESTRAINT_CONTEXT_FILENAME
+    resolved.dump(output_path)
     (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).write_text(
-        json.dumps({"output_path": spec.output_path}, indent=2)
+        json.dumps({"output_path": str(output_path)}, indent=2)
     )
 
 
@@ -113,6 +120,7 @@ class RmsfReportSpec(pydantic.BaseModel):
     config: CalculationConfig
     prep_dir: str
     output_dir: str
+    replicate: int = 1
 
     def dump(self, path: str | pathlib.Path) -> pathlib.Path:
         path = pathlib.Path(path)
@@ -134,7 +142,7 @@ def rmsf_report_launch_command(python: str = "python") -> list[str]:
 
 
 def write_rmsf_report(
-    prepared: PreparedSystem,
+    prepared: PreparedReplicate,
     config: CalculationConfig,
     output_dir: str | pathlib.Path,
     *,
@@ -292,6 +300,8 @@ def run_rmsf_report(work_dir: str | pathlib.Path) -> None:
     work_dir = pathlib.Path(work_dir)
     spec = RmsfReportSpec.load(work_dir / RMSF_REPORT_SPEC_FILENAME)
     report = write_rmsf_report(
-        PreparedSystem.load(spec.prep_dir), spec.config, spec.output_dir
+        PreparedSystem.load(spec.prep_dir).for_replicate(spec.replicate),
+        spec.config,
+        spec.output_dir,
     )
     (work_dir / RMSF_REPORT_RESULT_FILENAME).write_text(json.dumps(report, indent=2))

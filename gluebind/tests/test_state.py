@@ -18,8 +18,10 @@ def _state(tmp_path) -> RunState:
 
 def test_save_load_roundtrip(tmp_path):
     rs = _state(tmp_path)
-    rs.boresch_eq_values["thetaA"] = 0.85
-    rs.handles = {"thetaA": {"0.85rad": ["1", "2", "3"]}}
+    rs.boresch_eq_values[1] = {"thetaA": 0.85}
+    rs.handles = {"thetaA": {1: {"0.85rad": "1"}, 2: {"0.9rad": "2"}}}
+    rs.auxiliary_handles = {"restraint_resolution_run_01": ["3"]}
+    rs.superseded_handles = ["4"]
     rs.backend_extra = {"batch_id": "b1", "s3_prefix": "gluebind-batch/x"}
     rs.save(tmp_path)
     assert (tmp_path / STATE_FILENAME).exists()
@@ -55,14 +57,31 @@ def test_backend_extra_defaults_empty(tmp_path):
 
 
 def test_anchor_state_roundtrip_and_rejects_malformed_values(tmp_path):
+    # One anchor set per replicate: with ensemble equilibration each resolves its
+    # own from its own trajectory.
     rs = _state(tmp_path)
-    rs.anchors = {"b": 10, "c": 11, "B": 12, "C": 13}
+    rs.anchors = {
+        1: {"b": 10, "c": 11, "B": 12, "C": 13},
+        2: {"b": 20, "c": 21, "B": 22, "C": 23},
+    }
     rs.save(tmp_path)
     assert RunState.load(tmp_path).anchors == rs.anchors
 
     path = tmp_path / STATE_FILENAME
     data = json.loads(path.read_text())
-    data["anchors"] = {"b": 10, "c": 11, "B": 12, "C": "13"}
+    data["anchors"] = {"1": {"b": 10, "c": 11, "B": 12, "C": "13"}}
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="anchor"):
+        RunState.load(tmp_path)
+
+
+def test_anchor_state_rejects_a_partial_anchor_set(tmp_path):
+    # Three of four anchors would silently change the restraint geometry.
+    rs = _state(tmp_path)
+    rs.save(tmp_path)
+    path = tmp_path / STATE_FILENAME
+    data = json.loads(path.read_text())
+    data["anchors"] = {"1": {"b": 10, "c": 11, "B": 12}}
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError, match="anchor"):
         RunState.load(tmp_path)

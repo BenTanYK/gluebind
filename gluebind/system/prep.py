@@ -30,6 +30,7 @@ import pydantic
 
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.prep import PrepConfig
+from gluebind.replicate import equilibration_replicates, replicate_dirname
 from gluebind.system.inputs import (
     ComponentLayout,
     compute_layout,
@@ -74,10 +75,20 @@ def box_length(box_min, box_max, padding):
     return max(dims) + 2 * padding
 
 
-class PreparedSystem(pydantic.BaseModel):
-    """Manifest of the prepared structures — the Phase 3 → Phase 4 hand-off."""
+class PreparedReplicate(pydantic.BaseModel):
+    """The equilibrated structures one replicate is built from.
 
-    schema_version: int = PREPARED_SCHEMA_VERSION
+    This is the unit every downstream consumer works with: restraint resolution,
+    ``build_restraint_context`` and ``stage_centres`` all take one of these, never
+    the whole manifest. With ``sampling.ensemble_from="equilibration"`` each
+    replicate has its own; otherwise all replicates share one.
+
+    The component layout is carried here rather than on the manifest so that a
+    replicate is self-contained — it is what gets hashed into
+    ``restraint_context.json``, so replicate 1's context must not be invalidated
+    by replicate 3 being added later.
+    """
+
     complex_prm7: str
     complex_rst7: str
     complex_trajectory: str | None = None
@@ -89,6 +100,38 @@ class PreparedSystem(pydantic.BaseModel):
     target_molecules: list[int]
     receptor_molecules: list[int]
     glue_molecule: int | None = None
+
+
+class PreparedSystem(pydantic.BaseModel):
+    """Manifest of the prepared structures — the Phase 3 → Phase 4 hand-off.
+
+    Holds one :class:`PreparedReplicate` per independently equilibrated
+    replicate, keyed by 1-based replicate number. Outside
+    ``ensemble_from="equilibration"`` there is exactly one entry, shared by every
+    replicate.
+    """
+
+    schema_version: int = PREPARED_SCHEMA_VERSION
+    replicates: dict[int, PreparedReplicate]
+
+    @property
+    def is_ensemble(self) -> bool:
+        return len(self.replicates) > 1
+
+    def for_replicate(self, replicate: int) -> PreparedReplicate:
+        """The structures seeding ``replicate``.
+
+        Falls back to the single shared entry when equilibration was not fanned
+        out, so callers never branch on the mode.
+        """
+        if replicate in self.replicates:
+            return self.replicates[replicate]
+        if self.is_ensemble:
+            raise KeyError(
+                f"no prepared structures for replicate {replicate}; this run has "
+                f"{sorted(self.replicates)}"
+            )
+        return self.replicates[next(iter(self.replicates))]
 
     def dump(self, run_dir: str | pathlib.Path) -> pathlib.Path:
         run_dir = pathlib.Path(run_dir)
@@ -523,9 +566,13 @@ def _build_and_equilibrate_bulk(
     platform: str,
     poll_interval: float,
     handle_recorder: Callable[[str, str], None] | None = None,
+    label_prefix: str = "",
     submission_guard=None,
 ) -> tuple[str, str]:
     """Build one bulk reference through the backend, then equilibrate it.
+
+    ``label_prefix`` distinguishes the recorded job handles when equilibration is
+    fanned out, so each replicate's bulk jobs are separately cancellable.
 
     The BioSimSpace/Sire extraction and solvation live entirely in the
     ``bulk_build`` worker.  The driver only writes a small serialisable spec,
@@ -574,7 +621,7 @@ def _build_and_equilibrate_bulk(
             on_submit=(
                 (
                     lambda _index, handle: handle_recorder(
-                        f"{component}_bulk_build", handle
+                        f"{label_prefix}{component}_bulk_build", handle
                     )
                 )
                 if handle_recorder is not None
@@ -606,7 +653,7 @@ def _build_and_equilibrate_bulk(
         poll_interval=poll_interval,
         save_trajectory=False,
         handle_recorder=handle_recorder,
-        handle_label_prefix=f"{component}_bulk_",
+        handle_label_prefix=f"{label_prefix}{component}_bulk_",
         submission_guard=submission_guard,
     )
     return final_prm7, final_rst7
@@ -702,61 +749,69 @@ def prepare(
         handle_label_prefix="complex_",
         submission_guard=submission_guard,
     )
-    complex_prm7, complex_rst7, trajectory = _run_production_stage(
-        config,
-        npt_prm7,
-        npt_rst7,
-        plan[3],
-        work_dir / COMPLEX_PRODUCTION_DIR,
-        backend,
-        platform=platform,
-        poll_interval=poll_interval,
-        handle_recorder=handle_recorder,
-        handle_label="complex_production",
-        submission_guard=submission_guard,
-    )
+    replicates: dict[int, PreparedReplicate] = {}
+    for replicate in equilibration_replicates(config.sampling):
+        run_dir = work_dir / replicate_dirname(replicate)
+        label = f"{replicate_dirname(replicate)}_"
+        complex_prm7, complex_rst7, trajectory = _run_production_stage(
+            config,
+            npt_prm7,
+            npt_rst7,
+            plan[3],
+            run_dir / COMPLEX_PRODUCTION_DIR,
+            backend,
+            platform=platform,
+            poll_interval=poll_interval,
+            handle_recorder=handle_recorder,
+            handle_label=f"{label}complex_production",
+            submission_guard=submission_guard,
+        )
 
-    # Each bulk extraction/solvation is an isolated backend worker. This keeps
-    # BioSimSpace/Sire entirely out of concurrent CalcSet driver threads.
-    target_bulk = _build_and_equilibrate_bulk(
-        component="target",
-        complex_prm7=complex_prm7,
-        complex_rst7=complex_rst7,
-        indices=_bulk_indices(layout, "target", assign_to),
-        prep_config=config.prep,
-        out_dir=work_dir / "target_bulk",
-        backend=backend,
-        platform=platform,
-        poll_interval=poll_interval,
-        handle_recorder=handle_recorder,
-        submission_guard=submission_guard,
-    )
-    receptor_bulk = _build_and_equilibrate_bulk(
-        component="receptor",
-        complex_prm7=complex_prm7,
-        complex_rst7=complex_rst7,
-        indices=_bulk_indices(layout, "receptor", assign_to),
-        prep_config=config.prep,
-        out_dir=work_dir / "receptor_bulk",
-        backend=backend,
-        platform=platform,
-        poll_interval=poll_interval,
-        handle_recorder=handle_recorder,
-        submission_guard=submission_guard,
-    )
+        # Each bulk extraction/solvation is an isolated backend worker. This keeps
+        # BioSimSpace/Sire entirely out of concurrent CalcSet driver threads.
+        target_bulk = _build_and_equilibrate_bulk(
+            component="target",
+            complex_prm7=complex_prm7,
+            complex_rst7=complex_rst7,
+            indices=_bulk_indices(layout, "target", assign_to),
+            prep_config=config.prep,
+            out_dir=run_dir / "target_bulk",
+            backend=backend,
+            platform=platform,
+            poll_interval=poll_interval,
+            handle_recorder=handle_recorder,
+            label_prefix=label,
+            submission_guard=submission_guard,
+        )
+        receptor_bulk = _build_and_equilibrate_bulk(
+            component="receptor",
+            complex_prm7=complex_prm7,
+            complex_rst7=complex_rst7,
+            indices=_bulk_indices(layout, "receptor", assign_to),
+            prep_config=config.prep,
+            out_dir=run_dir / "receptor_bulk",
+            backend=backend,
+            platform=platform,
+            poll_interval=poll_interval,
+            handle_recorder=handle_recorder,
+            label_prefix=label,
+            submission_guard=submission_guard,
+        )
 
-    prepared = PreparedSystem(
-        complex_prm7=complex_prm7,
-        complex_rst7=complex_rst7,
-        complex_trajectory=trajectory,
-        target_bulk_prm7=target_bulk[0],
-        target_bulk_rst7=target_bulk[1],
-        receptor_bulk_prm7=receptor_bulk[0],
-        receptor_bulk_rst7=receptor_bulk[1],
-        glue_assign_to=assign_to,
-        target_molecules=layout.target,
-        receptor_molecules=layout.receptor,
-        glue_molecule=layout.glue,
-    )
+        replicates[replicate] = PreparedReplicate(
+            complex_prm7=complex_prm7,
+            complex_rst7=complex_rst7,
+            complex_trajectory=trajectory,
+            target_bulk_prm7=target_bulk[0],
+            target_bulk_rst7=target_bulk[1],
+            receptor_bulk_prm7=receptor_bulk[0],
+            receptor_bulk_rst7=receptor_bulk[1],
+            glue_assign_to=assign_to,
+            target_molecules=layout.target,
+            receptor_molecules=layout.receptor,
+            glue_molecule=layout.glue,
+        )
+
+    prepared = PreparedSystem(replicates=replicates)
     prepared.dump(work_dir)
     return prepared

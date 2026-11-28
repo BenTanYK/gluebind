@@ -30,7 +30,7 @@ import os
 import pathlib
 import tempfile
 import warnings
-from collections.abc import Callable, Generator, Iterator, Sequence
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 
 from gluebind.analysis.free_energy import (
     binding_free_energy,
@@ -49,6 +49,13 @@ from gluebind.boresch_geometry import DOFS as BORESCH_DOFS
 from gluebind.config.calculation import CalculationConfig
 from gluebind.config.scheduler import SchedulerConfig
 from gluebind.logutil import add_file_handler, get_logger
+from gluebind.replicate import (
+    equilibration_replicates,
+    replicate_dirname,
+    smd_replicates,
+    source_replicate,
+    window_replicates,
+)
 from gluebind.runners.base import SimulationRunner
 from gluebind.runners.group import Group
 from gluebind.runners.stage import Stage
@@ -79,33 +86,6 @@ def _sem(values) -> float:
     a = np.asarray(values, dtype=float)
     n = a.size
     return float(a.std(ddof=1) / np.sqrt(n)) if n > 1 else 0.0
-
-
-def _repeat_dg_sem(per_repeat: dict, dg_corr: float) -> float | None:
-    """SEM of ΔG over independent repeats.
-
-    ``per_repeat`` maps stage name → ``(cv_type, [contribution per repeat])``. Each
-    repeat's contributions are combined into a full ΔG° (same sign convention as
-    the point estimate; the analytical ``dg_corr`` is constant across repeats), and
-    the SEM is taken over those totals. Returns ``None`` when there are fewer than
-    two repeats or the stages disagree on repeat count.
-    """
-    if not per_repeat:
-        return None
-    n = len(next(iter(per_repeat.values()))[1])
-    if n < 2 or not all(len(vals) == n for _cv, vals in per_repeat.values()):
-        return None
-    totals = []
-    for r in range(n):
-        comp = {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
-        for _name, (cv_type, vals) in per_repeat.items():
-            comp[cv_type] += vals[r]
-        totals.append(
-            binding_free_energy(
-                comp["rmsd"], comp["boresch"], comp["separation"], dg_corr
-            )
-        )
-    return _sem(totals)
 
 
 def _write_analysis_result(run_dir: pathlib.Path, result: dict) -> pathlib.Path:
@@ -187,8 +167,9 @@ class Calculation(SimulationRunner):
         *,
         scheduler_config: SchedulerConfig | None = None,
         command_factory: Callable[[], list[str]] = window_launch_command,
-        stage_centres: dict[str, list[float]] | None = None,
-        steered_md_runner: Callable[[dict], object] | None = None,
+        stage_centres: dict[int, dict[str, list[float]]] | None = None,
+        steered_md_runner: Callable[[Mapping[int, dict], Sequence[int]], object]
+        | None = None,
         platform: str = "CUDA",
         poll_interval: float = 30.0,
         stop_paths: Sequence[str | pathlib.Path] = (),
@@ -196,10 +177,17 @@ class Calculation(SimulationRunner):
         super().__init__(base_dir)
         self.config = config
         self.backend = backend
-        self.spec_builder = spec_builder
+        # One spec builder per window replicate. A single injected builder (tests
+        # and advanced use) serves every replicate; prepare() replaces these with
+        # one per replicate, built from that replicate's restraint context.
+        self.spec_builders: dict[int, SpecBuilder] = (
+            dict.fromkeys(window_replicates(config.sampling), spec_builder)
+            if spec_builder is not None
+            else {}
+        )
         self.scheduler_config = scheduler_config
         self.command_factory = command_factory
-        self.stage_centres = stage_centres or {}
+        self.stage_centres = dict(stage_centres or {})
         # Generates the separation-window SMD frames from the Boresch equilibrium
         # values; invoked automatically between the Boresch and separation stages.
         self.steered_md_runner = steered_md_runner
@@ -308,8 +296,10 @@ class Calculation(SimulationRunner):
         distributions, and wires the calculation tree.
 
         With ``resolve_restraints=False`` it stops after equilibration and only
-        writes the per-protein CA RMSF reports (``prep/rmsf_receptor.dat`` and
-        ``prep/rmsf_target.dat``). This is the manual-anchor workflow: inspect the
+        writes the per-protein CA RMSF reports (``prep/run_NN/rmsf_receptor.dat``
+        and ``rmsf_target.dat``, one pair per equilibration replicate, since
+        hand-picked anchors have to be stable in all of them). This is the
+        manual-anchor workflow: inspect the
         reports, set the anchors in the configuration, then call :meth:`run`. No
         anchors are selected or persisted, so configuring them afterwards is safe.
 
@@ -363,18 +353,21 @@ class Calculation(SimulationRunner):
                 submission_guard=self._stop.submission_permit,
             )
         if not resolve_restraints:
-            report = self._submit_rmsf_report(prepared)
-            self._log.info(
-                "prepare %s: RMSF report for manual anchor selection -> %s",
-                self.base_dir.name,
-                ", ".join(report.values()),
-            )
+            # One report per equilibration replicate: each has its own trajectory,
+            # and hand-picked anchors have to be stable in all of them.
+            for replicate in equilibration_replicates(self.config.sampling):
+                report = self._submit_rmsf_report(prepared, replicate)
+                self._log.info(
+                    "prepare %s: RMSF report for manual anchor selection -> %s",
+                    self.base_dir.name,
+                    ", ".join(report.values()),
+                )
             return prepared
         self._resolve_restraint_context(prepared)
         self._wire(prepared)
         return prepared
 
-    def _submit_rmsf_report(self, prepared) -> dict[str, str]:
+    def _submit_rmsf_report(self, prepared, replicate: int = 1) -> dict[str, str]:
         """Generate manual-anchor RMSF reports through the normal backend."""
         import json
 
@@ -387,7 +380,8 @@ class Calculation(SimulationRunner):
         )
 
         prep_dir = self.base_dir / "prep"
-        work_dir = prep_dir / "rmsf_report"
+        replicate_dir = self._replicate_prep_dir(replicate)
+        work_dir = replicate_dir / "rmsf_report"
         result_path = work_dir / RMSF_REPORT_RESULT_FILENAME
         report_complete = False
         if result_path.exists():
@@ -404,7 +398,8 @@ class Calculation(SimulationRunner):
             RmsfReportSpec(
                 config=self.config,
                 prep_dir=str(prep_dir),
-                output_dir=str(prep_dir),
+                output_dir=str(replicate_dir),
+                replicate=replicate,
             ).dump(work_dir / RMSF_REPORT_SPEC_FILENAME)
             (job_state,) = Scheduler(
                 self.backend,
@@ -415,11 +410,11 @@ class Calculation(SimulationRunner):
                     JobSpec(
                         command=rmsf_report_launch_command(),
                         work_dir=str(work_dir),
-                        name="rmsf_report",
+                        name=f"rmsf_report_{replicate_dirname(replicate)}",
                     )
                 ],
                 on_submit=lambda _index, handle: self._record_auxiliary_handle(
-                    "rmsf_report", handle
+                    f"rmsf_report_{replicate_dirname(replicate)}", handle
                 ),
             )
             if job_state is not JobState.FINISHED or not result_path.exists():
@@ -428,17 +423,6 @@ class Calculation(SimulationRunner):
                     f"{work_dir}"
                 )
         return json.loads(result_path.read_text())
-
-    def _write_rmsf_report(self, prepared) -> dict[str, str]:
-        """Write per-protein CA RMSF (``resid  atom_index  rmsf``) + suggested stable
-        candidates to ``prep/rmsf_<protein>.dat`` for manual anchor inspection.
-
-        ``atom_index`` is each CA's 0-indexed complex atom index, retained for
-        diagnostics; ``BoreschSpec.anchors`` takes the corresponding 1-based residue
-        IDs from the input topology."""
-        from gluebind.simulation.restraint_resolution import write_rmsf_report
-
-        return write_rmsf_report(prepared, self.config, self.base_dir / "prep")
 
     def _load_prepared(self):
         """Return the on-disk :class:`PreparedSystem`, or ``None`` if not prepared."""
@@ -449,23 +433,36 @@ class Calculation(SimulationRunner):
         except FileNotFoundError:
             return None
 
-    def _restraint_context_path(self) -> pathlib.Path:
+    def _smd_frames_dir(self, replicate: int) -> pathlib.Path:
+        """``smd_frames/run_NN``: the starting frames one pull produced."""
+        return self.base_dir / "smd_frames" / replicate_dirname(replicate)
+
+    def _replicate_prep_dir(self, replicate: int) -> pathlib.Path:
+        """``prep/run_NN``: one replicate's equilibration and restraint artefacts."""
+        return self.base_dir / "prep" / replicate_dirname(replicate)
+
+    def _restraint_context_path(self, replicate: int = 1) -> pathlib.Path:
         from gluebind.restraint_context import RESTRAINT_CONTEXT_FILENAME
 
-        return self.base_dir / "prep" / RESTRAINT_CONTEXT_FILENAME
+        return self._replicate_prep_dir(replicate) / RESTRAINT_CONTEXT_FILENAME
 
-    def _load_resolved_restraint_context(self, prepared):
-        """Load a valid compute-node restraint-resolution result, if available."""
+    def _load_resolved_restraint_context(self, prepared, replicate: int = 1):
+        """Load a valid compute-node restraint-resolution result, if available.
+
+        Each replicate equilibrates independently, so each resolves its own
+        context against its own trajectory; the hashes tie one context to one
+        replicate's prepared system."""
         from gluebind.restraint_context import ResolvedRestraintContext, prepared_hash
 
-        path = self._restraint_context_path()
+        path = self._restraint_context_path(replicate)
         try:
             resolved = ResolvedRestraintContext.load(path)
         except FileNotFoundError:
             return None
+        expected = prepared_hash(prepared.for_replicate(replicate))
         if (
             resolved.config_hash != self.config.config_hash
-            or resolved.prepared_hash != prepared_hash(prepared)
+            or resolved.prepared_hash != expected
         ):
             return None
         return resolved
@@ -478,19 +475,6 @@ class Calculation(SimulationRunner):
         ``SlurmConfig`` (including ``gres=gpu:1``), avoiding assumptions about
         whether a site's GPU partition permits CPU-only jobs.
         """
-        if self._load_resolved_restraint_context(prepared) is not None:
-            report_paths = [
-                self.base_dir / "prep" / f"rmsf_{protein}.dat"
-                for protein in ("receptor", "target")
-            ]
-            if not all(path.exists() for path in report_paths):
-                self._submit_rmsf_report(prepared)
-            self._log.info(
-                "prepare %s: reusing resolved restraint context", self.base_dir.name
-            )
-            self._warn_boresch_diagnostics()
-            return
-
         from gluebind.backend.scheduler import Scheduler
         from gluebind.simulation.restraint_resolution import (
             RESTRAINT_RESOLUTION_RESULT_FILENAME,
@@ -500,20 +484,47 @@ class Calculation(SimulationRunner):
         )
 
         state = self._load_or_init_state()
-        work_dir = self.base_dir / "prep" / "restraint_resolution"
-        work_dir.mkdir(parents=True, exist_ok=True)
-        RestraintResolutionSpec(
-            config=self.config,
-            prep_dir=str(self.base_dir / "prep"),
-            output_path=str(self._restraint_context_path()),
-            config_hash=self.config.config_hash,
-            anchors_override=state.anchors,
-        ).dump(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
+        replicates = equilibration_replicates(self.config.sampling)
+        pending: list[tuple[int, pathlib.Path]] = []
+        for replicate in replicates:
+            replicate_dir = self._replicate_prep_dir(replicate)
+            if self._load_resolved_restraint_context(prepared, replicate) is not None:
+                if not all(
+                    (replicate_dir / f"rmsf_{protein}.dat").exists()
+                    for protein in ("receptor", "target")
+                ):
+                    self._submit_rmsf_report(prepared, replicate)
+                self._log.info(
+                    "prepare %s: reusing resolved restraint context for %s",
+                    self.base_dir.name,
+                    replicate_dirname(replicate),
+                )
+                self._warn_boresch_diagnostics(replicate)
+                continue
+            work_dir = replicate_dir / "restraint_resolution"
+            work_dir.mkdir(parents=True, exist_ok=True)
+            RestraintResolutionSpec(
+                config=self.config,
+                prep_dir=str(self.base_dir / "prep"),
+                replicate_dir=str(replicate_dir),
+                replicate=replicate,
+                config_hash=self.config.config_hash,
+                anchors_override=state.anchors.get(replicate),
+            ).dump(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
+            pending.append((replicate, work_dir))
+        if not pending:
+            return
+
         self._log.info(
-            "prepare %s: resolving restraint geometry on the backend",
+            "prepare %s: resolving restraint geometry on the backend for %s",
             self.base_dir.name,
+            ", ".join(replicate_dirname(replicate) for replicate, _ in pending),
         )
-        (job_state,) = Scheduler(
+        names = [
+            f"restraint_resolution_{replicate_dirname(replicate)}"
+            for replicate, _ in pending
+        ]
+        job_states = Scheduler(
             self.backend,
             poll_interval=self._effective_poll_interval,
             submission_guard=self._stop.submission_permit,
@@ -522,25 +533,27 @@ class Calculation(SimulationRunner):
                 JobSpec(
                     command=restraint_resolution_launch_command(),
                     work_dir=str(work_dir),
-                    name="restraint_resolution",
+                    name=name,
                 )
+                for name, (_replicate, work_dir) in zip(names, pending, strict=True)
             ],
-            on_submit=lambda _index, handle: self._record_auxiliary_handle(
-                "restraint_resolution", handle
+            on_submit=lambda index, handle: self._record_auxiliary_handle(
+                names[index], handle
             ),
         )
-        if (
-            job_state is not JobState.FINISHED
-            or not (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).exists()
-            or self._load_resolved_restraint_context(prepared) is None
-        ):
-            raise RuntimeError(
-                "restraint-resolution job did not produce a valid context; inspect "
-                f"{work_dir}"
-            )
-        self._warn_boresch_diagnostics()
+        for job_state, (replicate, work_dir) in zip(job_states, pending, strict=True):
+            if (
+                job_state is not JobState.FINISHED
+                or not (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).exists()
+                or self._load_resolved_restraint_context(prepared, replicate) is None
+            ):
+                raise RuntimeError(
+                    "restraint-resolution job did not produce a valid context; "
+                    f"inspect {work_dir}"
+                )
+            self._warn_boresch_diagnostics(replicate)
 
-    def _warn_boresch_diagnostics(self) -> None:
+    def _warn_boresch_diagnostics(self, replicate: int = 1) -> None:
         """Warn about Boresch DoFs whose equilibration distribution is multimodal or
         unusually wide (recorded by restraint resolution in the distributions'
         metadata): both can mean a weakly bound interface."""
@@ -550,8 +563,7 @@ class Calculation(SimulationRunner):
         )
 
         path = (
-            self.base_dir
-            / "prep"
+            self._replicate_prep_dir(replicate)
             / BORESCH_DISTRIBUTION_DIRNAME
             / BORESCH_DISTRIBUTION_METADATA
         )
@@ -565,34 +577,58 @@ class Calculation(SimulationRunner):
                 warnings.warn(message, stacklevel=2)
 
     def _wire(self, prepared) -> None:
-        """Build the restraint context, window centres, spec builder and steered-MD
-        hook from a prepared system, and construct the group tree. Resolution is
-        always loaded from the compute-node artifact, so trajectory analysis never
-        runs in the driver. Shared by :meth:`prepare` and the re-wiring
-        :meth:`analyse` does in a fresh process."""
+        """Build the restraint contexts, window centres, spec builders and
+        steered-MD hook from a prepared system, and construct the group tree.
+
+        One context per window replicate: with ensemble equilibration each comes
+        from that replicate's own trajectory, and otherwise every replicate reads
+        the single shared one — so the rest of the driver never branches on
+        ``ensemble_from``. Resolution is always loaded from the compute-node
+        artifact, so trajectory analysis never runs in the driver. Shared by
+        :meth:`prepare` and the re-wiring :meth:`analyse` does in a fresh
+        process."""
+        from gluebind.restraint_context import context_from_data
         from gluebind.spec_builder import SpecBuilder
 
-        resolved = self._load_resolved_restraint_context(prepared)
         state = self._load_or_init_state()
-        if resolved is None:
-            raise RuntimeError(
-                "cannot wire calculation: no valid resolved restraint context at "
-                f"{self._restraint_context_path()}; run prepare() or run() first"
-            )
-        from gluebind.restraint_context import context_from_data
-
-        context = context_from_data(resolved.context)
-        self.stage_centres = resolved.stage_centres
+        upstream = equilibration_replicates(self.config.sampling)
+        contexts = {}
+        for replicate in window_replicates(self.config.sampling):
+            source = source_replicate(replicate, upstream)
+            resolved = self._load_resolved_restraint_context(prepared, source)
+            if resolved is None:
+                raise RuntimeError(
+                    "cannot wire calculation: no valid resolved restraint context "
+                    f"at {self._restraint_context_path(source)}; run prepare() or "
+                    "run() first"
+                )
+            contexts[replicate] = (context_from_data(resolved.context), resolved)
+        self.stage_centres = {
+            replicate: resolved.stage_centres
+            for replicate, (_context, resolved) in contexts.items()
+        }
         # Record both configured and automatically selected anchors immediately,
         # before any downstream SMD or umbrella jobs are submitted.
-        state.anchors = dict(context.anchors)
+        state.anchors = {
+            replicate: dict(context.anchors)
+            for replicate, (context, _resolved) in contexts.items()
+        }
         state.save(self.base_dir)
-        smd_frames_dir = self.base_dir / "smd_frames"
-        self.spec_builder = SpecBuilder(
-            context, self.config, smd_frames_dir=smd_frames_dir
-        )
+        # Each window replicate starts its separation windows from the frames of
+        # the pull it belongs to — its own under ensemble SMD, the shared one
+        # otherwise.
+        pulls = smd_replicates(self.config.sampling)
+        self.spec_builders = {
+            replicate: SpecBuilder(
+                context,
+                self.config,
+                smd_frames_dir=self._smd_frames_dir(source_replicate(replicate, pulls)),
+            )
+            for replicate, (context, _resolved) in contexts.items()
+        }
         if self.config.sampling.run_separation_us:
             from gluebind.simulation.steered_md import (
+                SmdPlan,
                 make_steered_md_runner,
                 smd_snapshot_targets,
             )
@@ -602,33 +638,39 @@ class Calculation(SimulationRunner):
             # re-running SMD. With window_min "auto" the grid starts at the value
             # restraint resolution resolved it to (the smallest separation window).
             sep_schedule = self.config.sampling.for_cv("separation", "separation")
-            snapshot_centres = smd_snapshot_targets(
-                sep_schedule,
-                window_min=(
-                    min(self.stage_centres["separation"])
-                    if sep_schedule.window_min == "auto"
-                    else None
-                ),
-            )
+            plans = {}
+            for replicate in pulls:
+                context, _resolved = contexts[replicate]
+                centres = self.stage_centres[replicate].get(
+                    "separation"
+                ) or enumerate_centres(sep_schedule)
+                plans[replicate] = SmdPlan(
+                    work_dir=self.base_dir / "smd" / replicate_dirname(replicate),
+                    out_dir=self._smd_frames_dir(replicate),
+                    topology=context.complex_topology,
+                    coordinates=context.complex_coordinates,
+                    rec_group=context.rec_group,
+                    lig_group=context.lig_group,
+                    anchors=context.anchors,
+                    rmsd_atoms_bound=context.rmsd_atoms_bound,
+                    snapshot_centres=tuple(
+                        smd_snapshot_targets(
+                            sep_schedule,
+                            window_min=(
+                                min(centres)
+                                if sep_schedule.window_min == "auto"
+                                else None
+                            ),
+                        )
+                    ),
+                    window_centres=tuple(centres),
+                )
             self.steered_md_runner = make_steered_md_runner(
-                backend=self.backend,
                 scheduler_factory=self._default_scheduler,
-                work_dir=self.base_dir / "smd",
-                out_dir=smd_frames_dir,
-                topology=context.complex_topology,
-                coordinates=context.complex_coordinates,
-                rec_group=context.rec_group,
-                lig_group=context.lig_group,
-                anchors=context.anchors,
-                rmsd_atoms_bound=context.rmsd_atoms_bound,
-                snapshot_centres=snapshot_centres,
+                plans=plans,
                 sampling=self.config.sampling,
                 platform=self.platform,
                 handle_recorder=self._record_auxiliary_handle,
-                window_centres=self.stage_centres.get("separation")
-                or enumerate_centres(
-                    self.config.sampling.for_cv("separation", "separation")
-                ),
                 warn=self._log.warning,
             )
         else:
@@ -640,8 +682,7 @@ class Calculation(SimulationRunner):
     # ---- tree construction -------------------------------------------------
 
     def _build_groups(self) -> list[Group]:
-        spec_builder = self.spec_builder
-        if spec_builder is None:
+        if not self.spec_builders:
             raise RuntimeError("cannot build groups before wiring the calculation")
         groups: list[Group] = []
         for cv_type, stage_specs in self._stage_layout().items():
@@ -652,8 +693,7 @@ class Calculation(SimulationRunner):
                     name=name,
                     dof=dof,
                     centres=centres,
-                    ensemble_size=self.config.sampling.ensemble_size,
-                    spec_builder=spec_builder,
+                    spec_builders=self.spec_builders,
                     command_factory=self.command_factory,
                 )
                 for name, dof, centres in stage_specs
@@ -663,29 +703,63 @@ class Calculation(SimulationRunner):
             )
         return groups
 
-    def _stage_layout(self) -> dict[str, list[tuple[str, str | None, list[float]]]]:
-        """Return ``cv_type -> [(stage_name, dof, centres)]`` for every stage."""
-        layout: dict[str, list] = {"boresch": [], "rmsd": [], "separation": []}
-
-        # Boresch: five sequential DoFs; centres must be supplied (MD distribution).
-        for dof in BORESCH_DOFS:
-            if dof in self.stage_centres:
-                layout["boresch"].append((dof, dof, list(self.stage_centres[dof])))
-
-        # RMSD: one stage per (region, state); centres from the sampling schedule.
-        for name in self._rmsd_stage_names():
-            centres = self.stage_centres.get(name) or enumerate_centres(
-                self.config.sampling.for_cv("rmsd", name)
+    def _replicate_centres(self, name: str) -> dict[int, list[float]]:
+        """``replicate -> centres`` for a stage whose centres were resolved from a
+        trajectory, requiring every replicate to have them."""
+        missing = [
+            replicate
+            for replicate, centres in self.stage_centres.items()
+            if name not in centres
+        ]
+        if missing:
+            raise RuntimeError(
+                f"no resolved window centres for stage {name!r} in replicate(s) "
+                f"{', '.join(map(str, missing))}; re-run prepare() so every "
+                "replicate resolves its restraint context"
             )
+        return {
+            replicate: list(centres[name])
+            for replicate, centres in self.stage_centres.items()
+        }
+
+    def _separation_window_centres(self) -> list[float]:
+        """Every separation window centre across replicates, sorted — what steered
+        MD has to cover, since each replicate's windows start from a frame."""
+        return sorted(
+            {
+                centre
+                for centres in self.stage_centres.values()
+                for centre in centres.get("separation", [])
+            }
+        )
+
+    def _stage_layout(self) -> dict[str, list[tuple[str, str | None, dict]]]:
+        """Return ``cv_type -> [(stage_name, dof, {replicate: centres})]``."""
+        layout: dict[str, list] = {"boresch": [], "rmsd": [], "separation": []}
+        replicates = window_replicates(self.config.sampling)
+
+        # Boresch: five sequential DoFs; centres must be supplied (each
+        # replicate's own MD distribution).
+        for dof in BORESCH_DOFS:
+            if any(dof in centres for centres in self.stage_centres.values()):
+                layout["boresch"].append((dof, dof, self._replicate_centres(dof)))
+
+        # RMSD: one stage per (region, state); centres from the sampling schedule,
+        # so they are the same for every replicate.
+        for name in self._rmsd_stage_names():
+            if any(name in centres for centres in self.stage_centres.values()):
+                centres = self._replicate_centres(name)
+            else:
+                schedule = enumerate_centres(self.config.sampling.for_cv("rmsd", name))
+                centres = {r: list(schedule) for r in replicates}
             layout["rmsd"].append((name, None, centres))
 
         # Separation: single stage; centres from the SMD frames.
-        if (
-            self.config.sampling.run_separation_us
-            and "separation" in self.stage_centres
+        if self.config.sampling.run_separation_us and any(
+            "separation" in centres for centres in self.stage_centres.values()
         ):
             layout["separation"].append(
-                ("separation", None, list(self.stage_centres["separation"]))
+                ("separation", None, self._replicate_centres("separation"))
             )
 
         return {cv: stages for cv, stages in layout.items() if stages}
@@ -716,7 +790,7 @@ class Calculation(SimulationRunner):
 
     def _iter_windows(self) -> Iterator[Window]:
         for _group, stage in self._iter_stages():
-            yield from stage.windows
+            yield from stage.all_windows()
 
     # ---- run ---------------------------------------------------------------
 
@@ -753,7 +827,7 @@ class Calculation(SimulationRunner):
         separate driver process must be able to call :meth:`kill` meanwhile.
         """
         state = self._load_or_init_state()
-        handles = state.handles.setdefault("_auxiliary", {}).setdefault(label, [])
+        handles = state.auxiliary_handles.setdefault(label, [])
         if handle not in handles:
             handles.append(handle)
         state.save(self.base_dir)
@@ -761,12 +835,19 @@ class Calculation(SimulationRunner):
     @staticmethod
     def _recorded_handles(state: RunState) -> list[str]:
         """Every backend handle recorded in ``state``, de-duplicated, in order."""
+        window_handles = (
+            handle
+            for per_stage in state.handles.values()
+            for per_replicate in per_stage.values()
+            for handle in per_replicate.values()
+        )
+        auxiliary = (
+            handle for handles in state.auxiliary_handles.values() for handle in handles
+        )
         return list(
             dict.fromkeys(
                 handle
-                for per_stage in state.handles.values()
-                for per_window in per_stage.values()
-                for handle in per_window
+                for handle in (*window_handles, *auxiliary, *state.superseded_handles)
                 if handle
             )
         )
@@ -904,7 +985,7 @@ class Calculation(SimulationRunner):
         off that grid raises, since it has no starting structure — rerun SMD with
         bespoke spacing/range for that.
         """
-        if self.spec_builder is None:
+        if not self.spec_builders:
             raise RuntimeError("wire the calculation first (call prepare()/run())")
         group = self._group(cv_type)
         stage = (
@@ -919,18 +1000,20 @@ class Calculation(SimulationRunner):
             from gluebind.simulation.steered_md import smd_frame_path
 
             sep = self.config.sampling.for_cv("separation", "separation")
-            frames_dir = self.base_dir / "smd_frames"
-            for centre in centres:
-                frame = smd_frame_path(frames_dir, float(centre))
-                if not frame.exists():
-                    raise ValueError(
-                        f"no SMD snapshot for a separation window at {centre} nm "
-                        f"({frame.name}). Snapshots are saved on a "
-                        f"{sep.smd_snapshot_spacing} nm grid up to "
-                        f"{sep.smd_capture_max} nm; "
-                        "to sample a separation off that grid or beyond it, rerun SMD "
-                        "with bespoke spacing/range."
-                    )
+            # The window is added to every replicate, so every pull that seeds
+            # one must already have captured that centre.
+            for pull in smd_replicates(self.config.sampling):
+                for centre in centres:
+                    frame = smd_frame_path(self._smd_frames_dir(pull), float(centre))
+                    if not frame.exists():
+                        raise ValueError(
+                            f"no SMD snapshot for a separation window at {centre} nm "
+                            f"({replicate_dirname(pull)}/{frame.name}). Snapshots are "
+                            f"saved on a {sep.smd_snapshot_spacing} nm grid up to "
+                            f"{sep.smd_capture_max} nm; "
+                            "to sample a separation off that grid or beyond it, rerun "
+                            "SMD with bespoke spacing/range."
+                        )
 
         stage.add_windows(centres)
         return stage
@@ -1023,7 +1106,7 @@ class Calculation(SimulationRunner):
             self.base_dir.name,
             type(self.backend).__name__,
         )
-        if self.spec_builder is None:
+        if not self.spec_builders:
             # Auto-prepare: a from_config calculation runs end to end
             # from run() alone; prep is skipped if already complete on disk. The
             # private _prepare: run() already holds the driver session.
@@ -1040,11 +1123,14 @@ class Calculation(SimulationRunner):
                 self._stop.raise_if_requested()
                 self._run_stage(stage, {}, state, scheduler)
 
-        # 2. Boresch stages — sequential, feeding each PMF minimum forward.
+        # 2. Boresch stages — sequential, feeding each PMF minimum forward. The
+        # DoF loop stays outermost and the replicates fan out within it: every
+        # replicate's windows for one DoF go in as a single batch, then each
+        # replicate's own PMF minimum is fed forward independently.
         boresch_group = self._group("boresch")
         if boresch_group:
             unanalysed = [
-                s for s in boresch_group.stages if s.dof not in state.boresch_eq_values
+                s for s in boresch_group.stages if not self._dof_resolved(s, state)
             ]
             if unanalysed and pmf_provider is None:
                 # Self-default so a from_config calculation runs end to end from a
@@ -1056,103 +1142,141 @@ class Calculation(SimulationRunner):
                 pmf_provider = WhamPmfProvider(self.config)
             for stage in boresch_group.stages:
                 self._stop.raise_if_requested()
-                if stage.dof in state.boresch_eq_values:
+                if self._dof_resolved(stage, state):
                     continue  # already determined on a previous run (resume)
-                self._run_stage(stage, dict(state.boresch_eq_values), state, scheduler)
+                self._run_stage(stage, state.boresch_eq_values, state, scheduler)
                 if pmf_provider is None:
                     raise RuntimeError("a PMF provider is required for Boresch stages")
                 if stage.dof is None:
                     raise RuntimeError(
                         f"Boresch stage {stage.name!r} has no degree of freedom"
                     )
-                cv, pmf, *_ = pmf_provider(stage)  # ignore per-replicate PMFs here
-                state.boresch_eq_values[stage.dof] = pmf_minimum(cv, pmf)
+                cv, mean, *rest = pmf_provider(stage)
+                # A provider that returns per-replicate PMFs gives each replicate
+                # its own minimum; one that returns only the mean (a test hook)
+                # feeds the same value to all of them.
+                per_replicate = rest[0] if rest else None
+                for index, replicate in enumerate(stage.replicates):
+                    pmf = mean if per_replicate is None else per_replicate[index]
+                    state.boresch_eq_values.setdefault(replicate, {})[stage.dof] = (
+                        pmf_minimum(cv, pmf)
+                    )
                 state.save(self.base_dir)
 
         # 3. Steered MD then separation — both need every Boresch equilibrium value.
         separation_group = self._group("separation")
         if separation_group:
             self._stop.raise_if_requested()
-            if self.steered_md_runner is not None and not self._smd_frames_ready(
-                state, separation_group
-            ):
+            pending_pulls = [
+                replicate
+                for replicate in smd_replicates(self.config.sampling)
+                if not self._smd_frames_ready(state, separation_group, replicate)
+            ]
+            if self.steered_md_runner is not None and pending_pulls:
                 # Generate the separation-window starting frames with the resolved
-                # Boresch restraints in place. Recorded in state so a resumed run
-                # doesn't repeat the (expensive) steering.
-                self.steered_md_runner(dict(state.boresch_eq_values))
-                state.stage_status["steered_md"] = "done"
+                # Boresch restraints in place, one pull per replicate in a single
+                # batch. Recorded in state so a resumed run doesn't repeat the
+                # (expensive) steering.
+                self.steered_md_runner(state.boresch_eq_values, pending_pulls)
+                for replicate in pending_pulls:
+                    state.stage_status[self._smd_status_key(replicate)] = "done"
                 state.save(self.base_dir)
             for stage in separation_group.stages:
                 self._stop.raise_if_requested()
-                self._run_stage(stage, dict(state.boresch_eq_values), state, scheduler)
+                self._run_stage(stage, state.boresch_eq_values, state, scheduler)
 
         state.save(self.base_dir)
         self._log.info("run %s: all stages complete", self.base_dir.name)
         return state
 
-    def _smd_frames_ready(self, state: RunState, separation_group: Group) -> bool:
-        """Whether steered MD is done and every separation window has its frame.
+    @staticmethod
+    def _dof_resolved(stage: Stage, state: RunState) -> bool:
+        """Whether every replicate of a Boresch stage has its equilibrium value."""
+        return all(
+            stage.dof in state.boresch_eq_values.get(replicate, {})
+            for replicate in stage.replicates
+        )
 
-        A step recorded as done is not trusted on its own: if any window's
-        starting frame is missing (a crashed or truncated pull), steered MD is
-        run again rather than leaving every separation window to fail.
+    @staticmethod
+    def _smd_status_key(replicate: int) -> str:
+        return f"steered_md_{replicate_dirname(replicate)}"
+
+    def _smd_frames_ready(
+        self, state: RunState, separation_group: Group, replicate: int
+    ) -> bool:
+        """Whether this replicate's pull is done and every separation window it
+        seeds has its frame.
+
+        A pull recorded as done is not trusted on its own: if any window's
+        starting frame is missing (a crashed or truncated pull), it is run again
+        rather than leaving every separation window to fail.
         """
-        if state.stage_status.get("steered_md") != "done":
+        if state.stage_status.get(self._smd_status_key(replicate)) != "done":
             return False
         from gluebind.simulation.steered_md import missing_frames
 
         missing = missing_frames(
-            self.base_dir / "smd_frames",
-            [w.centre for stage in separation_group.stages for w in stage.windows],
+            self._smd_frames_dir(replicate),
+            [
+                window.centre
+                for stage in separation_group.stages
+                for seeded in self._replicates_seeded_by(replicate)
+                for window in stage.windows_for(seeded)
+            ],
         )
         if missing:
             self._log.warning(
-                "steered MD is recorded as done but the frames for separation "
-                "window(s) at %s nm are missing; running it again",
+                "steered MD for %s is recorded as done but the frames for "
+                "separation window(s) at %s nm are missing; running it again",
+                replicate_dirname(replicate),
                 ", ".join(f"{c:g}" for c in missing),
             )
             return False
         return True
 
+    def _replicates_seeded_by(self, pull: int) -> list[int]:
+        """The window replicates whose separation windows start from this pull."""
+        pulls = smd_replicates(self.config.sampling)
+        return [
+            replicate
+            for replicate in window_replicates(self.config.sampling)
+            if source_replicate(replicate, pulls) == pull
+        ]
+
     def _run_stage(
         self,
         stage: Stage,
-        boresch_eq_values: dict,
+        boresch_eq_values: Mapping[int, dict],
         state: RunState,
         scheduler: Scheduler,
     ) -> None:
-        """Write a stage's specs (with the given Boresch eq values), submit the
-        not-yet-complete replicates, and record handles/status in the state."""
+        """Write a stage's specs (each replicate with its own Boresch eq values),
+        submit the not-yet-complete windows, and record handles/status in the
+        state."""
         stage.write_specs(boresch_eq_values)
-        pending: list[tuple[Window, int]] = [
-            (window, replicate)
-            for window in stage.windows
-            for replicate in window.replicates()
-            if not window.is_replicate_complete(replicate)
-        ]
-        specs = [window.job_spec(replicate) for window, replicate in pending]
+        windows = list(stage.all_windows())
+        pending: list[Window] = [w for w in windows if not w.is_complete()]
+        specs = [window.job_spec() for window in pending]
         if pending:
             self._log.info(
-                "stage %s: submitting %d replicate(s) across %d window(s)",
+                "stage %s: submitting %d window(s) across %d replicate(s)",
                 stage.name,
                 len(pending),
-                len(stage.windows),
+                len(stage.replicates),
             )
         else:
             self._log.info("stage %s: already complete, skipping", stage.name)
 
         def on_submit(index: int, handle: str) -> None:
-            window, replicate = pending[index]
-            per_window = state.handles.setdefault(stage.name, {}).setdefault(
-                window.label, [""] * window.ensemble_size
+            window = pending[index]
+            per_replicate = state.handles.setdefault(stage.name, {}).setdefault(
+                window.replicate, {}
             )
-            previous = per_window[replicate - 1]
+            previous = per_replicate.get(window.label)
             if previous and previous != handle:
                 # Keep the earlier job's handle so kill() can still reach it.
-                state.handles.setdefault("_superseded", {}).setdefault(
-                    f"{stage.name}/{window.label}", []
-                ).append(previous)
-            per_window[replicate - 1] = handle
+                state.superseded_handles.append(previous)
+            per_replicate[window.label] = handle
             state.stage_status[stage.name] = "running"
             # A detached backend may outlive this driver; persist every handle
             # immediately so another process can inspect or cancel it.
@@ -1170,16 +1294,13 @@ class Calculation(SimulationRunner):
         # a failure whatever the scheduler reported (a crash, or a job that exited 0
         # without writing its result) — the scheduler state is carried for context.
         failures = [
-            f"{window.label}/run_{replicate:02d} (job {states[i].value})"
-            for i, (window, replicate) in enumerate(pending)
-            if not window.is_replicate_complete(replicate)
+            f"{replicate_dirname(window.replicate)}/{window.label} "
+            f"(job {states[i].value})"
+            for i, window in enumerate(pending)
+            if not window.is_complete()
         ]
 
-        if all(
-            window.is_replicate_complete(r)
-            for window in stage.windows
-            for r in window.replicates()
-        ):
+        if all(window.is_complete() for window in windows):
             state.stage_status[stage.name] = "done"
             self._log.info("stage %s: complete", stage.name)
         elif failures:
@@ -1193,7 +1314,7 @@ class Calculation(SimulationRunner):
             raise RuntimeError(
                 f"stage {stage.name!r}: {len(failures)} window replicate(s) "
                 f"produced no result: {', '.join(failures)}. Inspect the job logs "
-                "(<window>/run_NN/*.out, or the SLURM job output) under the stage "
+                "(run_NN/<window>/*.out, or the SLURM job output) under the stage "
                 "directory, then re-run to resume the remaining work."
             )
 
@@ -1209,19 +1330,25 @@ class Calculation(SimulationRunner):
     ) -> dict:
         """Aggregate per-stage PMFs into the standard-state binding free energy.
 
+        Each replicate is analysed as a complete calculation of its own — its own
+        legs, its own ``r*`` and its own analytical correction — because
+        replicates that equilibrated independently have different anchors and a
+        different ``window_min``. ``dg_bind`` is the mean over those, and
+        ``dg_bind_sem`` their SEM; ``dg_per_replicate`` carries each one.
+
         With no arguments, everything is resolved from the run: ``pmf_provider``
-        defaults to a local WHAM provider, the ``theta_*`` minima come from the
-        Boresch equilibrium values in the run state, and ``r_star_nm`` is the
-        outermost separation window centre minus :data:`R_STAR_BUFFER_NM`
-        (0.01 nm). Any of them may be passed explicitly to override.
+        defaults to a local WHAM provider, each replicate's ``theta_*`` minima
+        come from its Boresch equilibrium values in the run state, and its
+        ``r_star_nm`` is its outermost separation window centre minus
+        :data:`R_STAR_BUFFER_NM` (0.01 nm). Any of them may be passed explicitly,
+        which overrides it for every replicate.
 
         ``pmf_provider(stage)`` returns ``(cv, mean_pmf)`` or, to enable the
-        uncertainty estimate, ``(cv, mean_pmf, [pmf_per_repeat, ...])``. The
-        returned dict carries the point-estimate ΔG° (``dg_bind`` and its
-        components) plus, when per-repeat PMFs are available, ``dg_bind_sem`` (the
-        SEM over the independent repeats' total ΔG°) and ``stage_sems`` (per-CV
-        SEMs that flag the least-converged stage). ``dg_bind_sem`` is ``None`` and
-        ``stage_sems`` empty for a single repeat.
+        uncertainty estimate, ``(cv, mean_pmf, [pmf_per_replicate, ...])`` ordered
+        as ``stage.replicates``. Returning only the mean PMF describes a single
+        calculation, which is then treated as the one replicate: ``dg_bind_sem``
+        is ``None`` and ``stage_sems`` (per-CV SEMs that flag the least-converged
+        stage) are zero.
 
         In separation-PMF-only mode (``sampling.run_rmsd_us=False``) there are no
         RMSD stages, so ``dg_bind`` is ``ΔG_sep + ΔG_boresch + ΔG_corr`` — a ranking
@@ -1240,7 +1367,7 @@ class Calculation(SimulationRunner):
                 "the calculation first"
             )
 
-        if self.spec_builder is None:
+        if not self.spec_builders:
             prepared = self._load_prepared()
             if prepared is None:
                 raise RuntimeError(
@@ -1253,24 +1380,29 @@ class Calculation(SimulationRunner):
             from gluebind.analysis.provider import WhamPmfProvider
 
             pmf_provider = WhamPmfProvider(self.config)
-        if theta_a_min is None or theta_b_min is None or r_star_nm is None:
-            state = self._load_or_init_state()
-            if theta_a_min is None:
-                theta_a_min = state.boresch_eq_values.get("thetaA")
-            if theta_b_min is None:
-                theta_b_min = state.boresch_eq_values.get("thetaB")
-            if theta_a_min is None or theta_b_min is None:
+        state = self._load_or_init_state()
+
+        def theta_min(replicate: int, dof: str, override: float | None) -> float:
+            if override is not None:
+                return override
+            value = state.boresch_eq_values.get(replicate, {}).get(dof)
+            if value is None:
                 raise ValueError(
-                    "cannot derive theta minima: run the Boresch stages first, "
+                    f"cannot derive the {dof} minimum for "
+                    f"{replicate_dirname(replicate)}: run the Boresch stages first, "
                     "or pass theta_a_min/theta_b_min explicitly"
                 )
-            if r_star_nm is None:
-                sep = self.stage_centres.get("separation")
-                if not sep:  # e.g. constructed directly with empty stage_centres
-                    sep = enumerate_centres(
-                        self.config.sampling.for_cv("separation", "separation")
-                    )
-                r_star_nm = max(sep) - R_STAR_BUFFER_NM
+            return value
+
+        def r_star(replicate: int) -> float:
+            if r_star_nm is not None:
+                return r_star_nm
+            centres = self.stage_centres.get(replicate, {}).get("separation")
+            if not centres:  # e.g. constructed directly with empty stage_centres
+                centres = enumerate_centres(
+                    self.config.sampling.for_cv("separation", "separation")
+                )
+            return max(centres) - R_STAR_BUFFER_NM
 
         k_boresch = self.config.sampling.boresch.force_constant  # kcal/mol/rad^2
         k_rmsd = (
@@ -1279,7 +1411,6 @@ class Calculation(SimulationRunner):
         # The WHAM PMFs are produced at the sampling temperature, so the β in every
         # free-energy integral must use the same temperature (not the 300 K default).
         temp = self.config.sampling.temperature_K
-        totals = {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
 
         def _warn_unconverged(stage: Stage, converged: bool) -> None:
             if not converged:
@@ -1291,8 +1422,8 @@ class Calculation(SimulationRunner):
                     stacklevel=2,
                 )
 
-        def _stage_contribution(cv_type, stage, cv, fe, theta_0):
-            """One stage's contribution for a given PMF (mean or a single repeat)."""
+        def _stage_contribution(cv_type, stage, cv, fe, theta_0, replicate):
+            """One stage's contribution to one replicate's ΔG°."""
             if cv_type == "boresch":
                 return boresch_contribution(
                     cv, fe, theta_0, k_boresch, temperature=temp
@@ -1301,19 +1432,37 @@ class Calculation(SimulationRunner):
                 return rmsd_contribution(
                     cv, fe, k_rmsd, unbound=stage.is_bulk, temperature=temp
                 )
-            return separation_contribution(cv, fe, r_star_nm, temperature=temp)
+            return separation_contribution(
+                cv, fe, r_star(replicate), temperature=temp
+            )
 
-        # stage name -> (cv_type, [contribution for each independent repeat])
+        # Every leg is computed per replicate, because a replicate that
+        # equilibrated independently has its own anchors (so its own thetaA/thetaB
+        # minima) and its own window_min, hence its own r* and its own analytical
+        # correction. The point estimate is then the mean over the replicates'
+        # complete ΔG°, and the SEM is exactly the spread of those.
+        legs: dict[int, dict[str, float]] = {}
+        # stage name -> (cv_type, [contribution per replicate]) — convergence only
         per_repeat: dict[str, tuple[str, list[float]]] = {}
 
         for group, stage in self._iter_stages():
             cv, pmf, *rest = pmf_provider(stage)
             replicate_pmfs = rest[0] if rest else None
-            # theta_0 is a fixed protocol value (the mean-PMF minimum), reused for
-            # every repeat so the repeat spread reflects sampling noise alone.
-            theta_0 = pmf_minimum(cv, pmf) if group.cv_type == "boresch" else 0.0
+            # A provider that returns only a mean PMF describes one calculation,
+            # which is then the single replicate.
+            if not replicate_pmfs:
+                pairs = [(1, pmf)]
+            elif len(replicate_pmfs) != len(stage.replicates):
+                raise RuntimeError(
+                    f"the PMF provider returned {len(replicate_pmfs)} PMFs for "
+                    f"stage {stage.name!r}, which has {len(stage.replicates)} "
+                    "replicate(s); they must correspond one to one"
+                )
+            else:
+                pairs = list(zip(stage.replicates, replicate_pmfs, strict=True))
 
             if group.cv_type == "boresch":
+                # Convergence is judged once per stage, on the mean PMF.
                 _warn_unconverged(
                     stage,
                     contribution_converged(
@@ -1321,7 +1470,7 @@ class Calculation(SimulationRunner):
                         pmf,
                         cv_type="boresch",
                         force_constant=k_boresch,
-                        theta_0=theta_0,
+                        theta_0=pmf_minimum(cv, pmf),
                         temperature=temp,
                     ),
                 )
@@ -1349,33 +1498,68 @@ class Calculation(SimulationRunner):
                         pmf,
                         cv_type="separation",
                         force_constant=0.0,
-                        r_star=r_star_nm,
+                        r_star=r_star(pairs[0][0]),
                         temperature=temp,
                     ),
                 )
 
-            totals[group.cv_type] += _stage_contribution(
-                group.cv_type, stage, cv, pmf, theta_0
-            )
-            if replicate_pmfs:
-                per_repeat[stage.name] = (
-                    group.cv_type,
-                    [
-                        _stage_contribution(group.cv_type, stage, cv, fe, theta_0)
-                        for fe in replicate_pmfs
-                    ],
+            contributions = []
+            for replicate, fe in pairs:
+                # Each replicate's restraint was applied at its own PMF minimum,
+                # so that is the theta_0 its contribution is released against.
+                theta_0 = pmf_minimum(cv, fe) if group.cv_type == "boresch" else 0.0
+                value = _stage_contribution(
+                    group.cv_type, stage, cv, fe, theta_0, replicate
                 )
+                totals = legs.setdefault(
+                    replicate, {"boresch": 0.0, "rmsd": 0.0, "separation": 0.0}
+                )
+                totals[group.cv_type] += value
+                contributions.append(value)
+            per_repeat[stage.name] = (group.cv_type, contributions)
 
-        dg_corr = standard_state_correction(
-            r_star_nm, theta_a_min, theta_b_min, k_boresch, temperature=temp
-        )
-        dg_bind = binding_free_energy(
-            totals["rmsd"], totals["boresch"], totals["separation"], dg_corr
-        )
-        # Per-stage SEM flags the least-converged CV; the overall SEM is taken over
-        # the independent repeats' full ΔG° (not a quadrature of per-stage SEMs).
+        if not legs:
+            raise RuntimeError(
+                "cannot analyse: no stages produced a PMF; run() the calculation "
+                "first"
+            )
+        # Keyed by the on-disk run name, so analysis.json round-trips through JSON
+        # and reads the way the directories do.
+        per_replicate = {
+            replicate_dirname(replicate): {
+                **contributions,
+                "dg_corr": standard_state_correction(
+                    r_star(replicate),
+                    theta_min(replicate, "thetaA", theta_a_min),
+                    theta_min(replicate, "thetaB", theta_b_min),
+                    k_boresch,
+                    temperature=temp,
+                ),
+                "r_star_nm": r_star(replicate),
+            }
+            for replicate, contributions in sorted(legs.items())
+        }
+        for values in per_replicate.values():
+            values["dg_bind"] = binding_free_energy(
+                values["rmsd"],
+                values["boresch"],
+                values["separation"],
+                values["dg_corr"],
+            )
+
+        def _mean(key: str) -> float:
+            values = [v[key] for v in per_replicate.values()]
+            return sum(values) / len(values)
+
+        dg_bind = _mean("dg_bind")
+        # Per-stage SEM flags the least-converged CV; the overall SEM is the spread
+        # of the replicates' complete ΔG° (not a quadrature of per-stage SEMs).
         stage_sems = {name: _sem(vals) for name, (_cv, vals) in per_repeat.items()}
-        dg_bind_sem = _repeat_dg_sem(per_repeat, dg_corr)
+        dg_bind_sem = (
+            _sem([v["dg_bind"] for v in per_replicate.values()])
+            if len(per_replicate) > 1
+            else None
+        )
 
         self._log.info(
             "analyse %s: dG_bind%s = %.2f%s kcal/mol",
@@ -1387,10 +1571,15 @@ class Calculation(SimulationRunner):
         result = {
             "dg_bind": dg_bind,
             "dg_bind_sem": dg_bind_sem,  # over independent repeats; None if < 2
-            "dg_rmsd": totals["rmsd"],
-            "dg_boresch": totals["boresch"],
-            "dg_sep": totals["separation"],
-            "dg_corr": dg_corr,
+            "dg_rmsd": _mean("rmsd"),
+            "dg_boresch": _mean("boresch"),
+            "dg_sep": _mean("separation"),
+            "dg_corr": _mean("dg_corr"),
+            "r_star_nm": _mean("r_star_nm"),
+            # Each replicate's complete, self-consistent ΔG° and its legs: with
+            # ensemble equilibration they differ in r* and dg_corr too, not only
+            # in sampling noise.
+            "dg_per_replicate": per_replicate,
             "stage_sems": stage_sems,  # {stage: SEM} — flags the least-converged CV
             # False in separation-PMF-only mode: dg_bind then omits ΔG_c^bound/bulk
             # and is a ranking estimate, not a rigorous standard-state ΔG_bind°.
@@ -1408,7 +1597,8 @@ class Calculation(SimulationRunner):
         """MM/GBSA estimate from the production equilibration trajectory.
 
         An optional end-point analysis, separate from :meth:`run` and
-        :meth:`analyse`: frames of ``prep/equilibration/04_production`` are scored
+        :meth:`analyse`: frames of every ``prep/run_NN/equilibration/04_production``
+        trajectory the run has are scored
         with AmberTools' ``MMPBSA.py`` in a backend job. Only preparation needs to be
         complete. The production files are read from this run directory, so a run
         prepared on one machine can be analysed on another from a copy of it.
@@ -1471,6 +1661,7 @@ class Calculation(SimulationRunner):
             MMGBSA_RESULT_FILENAME,
             MMGBSA_SPEC_FILENAME,
             MmgbsaSpec,
+            aggregate_replicates,
             mmgbsa_launch_command,
         )
         from gluebind.simulation.production import (
@@ -1487,15 +1678,31 @@ class Calculation(SimulationRunner):
         # the absolute paths saved in prep/prepared.json, so a run prepared on one
         # machine can be analysed on another; the manifest supplies only the
         # molecule layout.
-        production_dir = (self.base_dir / "prep" / COMPLEX_PRODUCTION_DIR).resolve()
-        topology = production_dir / f"{PRODUCTION_OUTPUT_PREFIX}.prm7"
-        trajectory = production_dir / f"{PRODUCTION_OUTPUT_PREFIX}.dcd"
-        if prepared is None or not (topology.is_file() and trajectory.is_file()):
+        # Every production trajectory this run has is scored. With ensemble
+        # equilibration that is one per replicate
+        runs = []
+        if prepared is not None:
+            for replicate in sorted(prepared.replicates):
+                directory = (
+                    self.base_dir
+                    / "prep"
+                    / replicate_dirname(replicate)
+                    / COMPLEX_PRODUCTION_DIR
+                ).resolve()
+                topology = directory / f"{PRODUCTION_OUTPUT_PREFIX}.prm7"
+                trajectory = directory / f"{PRODUCTION_OUTPUT_PREFIX}.dcd"
+                if topology.is_file() and trajectory.is_file():
+                    runs.append((replicate, directory, topology, trajectory))
+        if not runs:
+            searched = (
+                self.base_dir / "prep" / replicate_dirname(1) / COMPLEX_PRODUCTION_DIR
+            )
             raise RuntimeError(
                 "cannot run MM/GBSA: the system is not prepared (needs "
-                f"prep/prepared.json and the production run in {production_dir}); "
+                f"prep/prepared.json and a production run, e.g. {searched}); "
                 "run prepare() first"
             )
+        layout = prepared.for_replicate(runs[0][0])
         saltcon = settings.saltcon_M
         if saltcon is None:  # use the system's ionic strength
             saltcon = self.config.prep.ion_concentration_M
@@ -1508,48 +1715,73 @@ class Calculation(SimulationRunner):
             warnings.warn(message, stacklevel=3)  # points at the caller's mmgbsa()
             self._log.warning("mmgbsa %s: %s", self.base_dir.name, message)
 
-        production = ProductionSpec.load(production_dir / PRODUCTION_SPEC_FILENAME)
-        MmgbsaSpec(
-            topology=str(topology),
-            trajectory=str(trajectory),
-            ps_per_frame=production.sample_interval_steps
-            * production.timestep_fs
-            / 1000.0,
-            receptor_molecules=prepared.receptor_molecules,
-            target_molecules=prepared.target_molecules,
-            glue_molecule=prepared.glue_molecule,
-            glue_assign_to=prepared.glue_assign_to,
-            saltcon_M=saltcon,
-            settings=settings,
-        ).dump(work_dir / MMGBSA_SPEC_FILENAME)
-        self._log.info("mmgbsa %s: submitting (%s)", self.base_dir.name, work_dir)
-        (job_state,) = Scheduler(
+        # One job per trajectory, submitted together: they are independent, so
+        # there is no reason to serialise them behind one another.
+        jobs, job_dirs = [], {}
+        for replicate, directory, topology, trajectory in runs:
+            job_dir = work_dir / replicate_dirname(replicate)
+            job_dirs[replicate] = job_dir
+            production = ProductionSpec.load(directory / PRODUCTION_SPEC_FILENAME)
+            MmgbsaSpec(
+                topology=str(topology),
+                trajectory=str(trajectory),
+                ps_per_frame=production.sample_interval_steps
+                * production.timestep_fs
+                / 1000.0,
+                receptor_molecules=layout.receptor_molecules,
+                target_molecules=layout.target_molecules,
+                glue_molecule=layout.glue_molecule,
+                glue_assign_to=layout.glue_assign_to,
+                saltcon_M=saltcon,
+                settings=settings,
+            ).dump(job_dir / MMGBSA_SPEC_FILENAME)
+            jobs.append(
+                JobSpec(
+                    command=mmgbsa_launch_command(),
+                    work_dir=str(job_dir),
+                    name=f"mmgbsa_{replicate_dirname(replicate)}",
+                )
+            )
+        self._log.info(
+            "mmgbsa %s: submitting %d trajector%s (%s)",
+            self.base_dir.name,
+            len(jobs),
+            "y" if len(jobs) == 1 else "ies",
+            work_dir,
+        )
+        states = Scheduler(
             self.backend,
             poll_interval=self._effective_poll_interval,
             submission_guard=self._stop.submission_permit,
         ).run(
-            [
-                JobSpec(
-                    command=mmgbsa_launch_command(),
-                    work_dir=str(work_dir),
-                    name="mmgbsa",
-                )
-            ],
-            on_submit=lambda _index, handle: self._record_auxiliary_handle(
-                "mmgbsa", handle
+            jobs,
+            on_submit=lambda index, handle: self._record_auxiliary_handle(
+                f"mmgbsa_{replicate_dirname(runs[index][0])}", handle
             ),
         )
-        if job_state is not JobState.FINISHED or not result_path.exists():
-            raise RuntimeError(
-                "MM/GBSA job did not produce its result; inspect the logs in "
-                f"{work_dir}"
-            )
-        result = json.loads(result_path.read_text())
+        per_replicate = {}
+        for (replicate, *_), job_state in zip(runs, states, strict=True):
+            path = job_dirs[replicate] / MMGBSA_RESULT_FILENAME
+            if job_state is not JobState.FINISHED or not path.exists():
+                raise RuntimeError(
+                    f"MM/GBSA job for {replicate_dirname(replicate)} did not produce "
+                    f"its result; inspect the logs in {job_dirs[replicate]}"
+                )
+            per_replicate[replicate] = json.loads(path.read_text())
+
+        result = aggregate_replicates(per_replicate)
+        tmp = result_path.with_name(f".{result_path.name}.tmp")
+        tmp.write_text(json.dumps(result, indent=2, allow_nan=False))
+        os.replace(tmp, result_path)
         self._log.info(
-            "mmgbsa %s: dG = %.2f +/- %.2f kcal/mol (%d frames)",
+            "mmgbsa %s: dG = %.2f +/- %.2f kcal/mol (%d frames over %d trajector%s, "
+            "SEM over %s)",
             self.base_dir.name,
             result["dg_mmgbsa"],
             result["dg_mmgbsa_sem"],
             result["n_frames"],
+            result["n_replicates"],
+            "y" if result["n_replicates"] == 1 else "ies",
+            result["sem_source"],
         )
         return result

@@ -23,31 +23,57 @@ from gluebind.simulation.restraint_resolution import (
     run_restraint_resolution,
 )
 from gluebind.spec_builder import AlwaysOn, BulkTarget, RestraintContext
-from gluebind.system.prep import PreparedSystem
+from gluebind.system.prep import PreparedReplicate, PreparedSystem
 from gluebind.runners import Calculation
 
 
 def _prepared(tmp_path: Path) -> PreparedSystem:
     prepared = PreparedSystem(
-        complex_prm7="complex.prm7",
-        complex_rst7="complex.rst7",
-        complex_trajectory="complex.dcd",
-        target_bulk_prm7="target.prm7",
-        target_bulk_rst7="target.rst7",
-        receptor_bulk_prm7="receptor.prm7",
-        receptor_bulk_rst7="receptor.rst7",
-        target_molecules=[0],
-        receptor_molecules=[1],
+        replicates={
+            1: PreparedReplicate(
+                complex_prm7="complex.prm7",
+                complex_rst7="complex.rst7",
+                complex_trajectory="complex.dcd",
+                target_bulk_prm7="target.prm7",
+                target_bulk_rst7="target.rst7",
+                receptor_bulk_prm7="receptor.prm7",
+                receptor_bulk_rst7="receptor.rst7",
+                target_molecules=[0],
+                receptor_molecules=[1],
+            )
+        }
     )
     prepared.dump(tmp_path / "prep")
     return prepared
 
 
-def _context() -> RestraintContext:
+def _prepared_replicates(tmp_path: Path, replicates=(1, 2)) -> PreparedSystem:
+    """A manifest whose replicates equilibrated into their own directories."""
+    prepared = PreparedSystem(
+        replicates={
+            replicate: PreparedReplicate(
+                complex_prm7="complex.prm7",
+                complex_rst7=f"run_{replicate:02d}/complex.rst7",
+                complex_trajectory=f"run_{replicate:02d}/complex.dcd",
+                target_bulk_prm7="target.prm7",
+                target_bulk_rst7=f"run_{replicate:02d}/target.rst7",
+                receptor_bulk_prm7="receptor.prm7",
+                receptor_bulk_rst7=f"run_{replicate:02d}/receptor.rst7",
+                target_molecules=[0],
+                receptor_molecules=[1],
+            )
+            for replicate in replicates
+        }
+    )
+    prepared.dump(tmp_path / "prep")
+    return prepared
+
+
+def _context(coordinates: str = "complex.rst7") -> RestraintContext:
     always = AlwaysOn("always", [7, 8], 100.0)
     return RestraintContext(
         complex_topology="complex.prm7",
-        complex_coordinates="complex.rst7",
+        complex_coordinates=coordinates,
         rec_group=[1, 2],
         lig_group=[3, 4],
         anchors={"b": 10, "c": 11, "B": 12, "C": 13},
@@ -101,12 +127,13 @@ def test_resolution_worker_persists_context_and_centres(tmp_path, monkeypatch):
         "write_rmsf_report",
         lambda *a, **k: report_calls.append((a, k)) or {},
     )
-    work_dir = tmp_path / "prep" / "restraint_resolution"
-    output = tmp_path / "prep" / RESTRAINT_CONTEXT_FILENAME
+    replicate_dir = tmp_path / "prep" / "run_01"
+    work_dir = replicate_dir / "restraint_resolution"
+    output = replicate_dir / RESTRAINT_CONTEXT_FILENAME
     RestraintResolutionSpec(
         config=config,
         prep_dir=str(tmp_path / "prep"),
-        output_path=str(output),
+        replicate_dir=str(replicate_dir),
         config_hash=config.config_hash,
     ).dump(work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME)
 
@@ -114,7 +141,7 @@ def test_resolution_worker_persists_context_and_centres(tmp_path, monkeypatch):
 
     result = ResolvedRestraintContext.load(output)
     assert result.config_hash == config.config_hash
-    assert result.prepared_hash == prepared_hash(prepared)
+    assert result.prepared_hash == prepared_hash(prepared.for_replicate(1))
     assert context_from_data(result.context) == context
     assert result.stage_centres == {"thetaA": [1.0], "separation": [1.5]}
     assert len(report_calls) == 1
@@ -136,10 +163,10 @@ def test_wire_reuses_context_artifact_without_mdanalysis(tmp_path, monkeypatch):
     )
     ResolvedRestraintContext(
         config_hash=config.config_hash,
-        prepared_hash=prepared_hash(prepared),
+        prepared_hash=prepared_hash(prepared.for_replicate(1)),
         context=context_to_data(context),
         stage_centres={"thetaA": [1.0], "separation": [1.5]},
-    ).dump(tmp_path / "prep" / RESTRAINT_CONTEXT_FILENAME)
+    ).dump(tmp_path / "prep" / "run_01" / RESTRAINT_CONTEXT_FILENAME)
 
     import gluebind.spec_builder as spec_builder
     import gluebind.simulation.steered_md as steered_md
@@ -151,16 +178,90 @@ def test_wire_reuses_context_artifact_without_mdanalysis(tmp_path, monkeypatch):
             AssertionError("must not resolve")
         ),
     )
-    monkeypatch.setattr(steered_md, "make_steered_md_runner", lambda **kwargs: object())
+    captured: dict = {}
+    monkeypatch.setattr(
+        steered_md,
+        "make_steered_md_runner",
+        lambda **kwargs: captured.update(kwargs) or object(),
+    )
 
     calc = Calculation.from_config(config, LocalBackend(), base_dir=tmp_path)
     calc._wire(prepared)
 
-    assert calc.spec_builder.ctx == context
-    assert calc.stage_centres == {"thetaA": [1.0], "separation": [1.5]}
+    # Equilibration is shared here, so every window replicate wires to the one
+    # resolved context rather than to a copy of its own.
+    replicates = tuple(range(1, config.sampling.ensemble_size + 1))
+    assert tuple(calc.spec_builders) == replicates
+    assert all(builder.ctx == context for builder in calc.spec_builders.values())
+    # One pull, and every replicate's windows start from its frames.
+    assert sorted(captured["plans"]) == [1]
+    assert all(
+        builder.smd_frames_dir == calc.base_dir / "smd_frames" / "run_01"
+        for builder in calc.spec_builders.values()
+    )
+    assert calc.stage_centres == {
+        r: {"thetaA": [1.0], "separation": [1.5]} for r in replicates
+    }
     from gluebind.state import RunState
 
-    assert RunState.load(tmp_path).anchors == context.anchors
+    assert RunState.load(tmp_path).anchors == dict.fromkeys(replicates, context.anchors)
+
+
+def test_wire_gives_each_replicate_its_own_pull_and_frames(tmp_path, monkeypatch):
+    # The wiring that nothing else checks: with ensemble equilibration each pull
+    # must start from its own replicate's structure and write its own frames, and
+    # each replicate's separation windows must be seeded from that pull. Pointing
+    # them all at one pull's frames would still run, and still produce plausible
+    # numbers, while quietly destroying the independence being measured.
+    import gluebind.simulation.steered_md as steered_md
+
+    prepared = _prepared_replicates(tmp_path)
+    config = CalculationConfig.model_validate(
+        {
+            "inputs": {
+                "target": {"prm7": "target.prm7", "rst7": "target.rst7"},
+                "receptor": {"prm7": "receptor.prm7", "rst7": "receptor.rst7"},
+            }
+        }
+    )
+    config.sampling.ensemble_size = 2
+    config.sampling.ensemble_from = "equilibration"
+
+    separation = {1: [1.5], 2: [1.9]}
+    for replicate in (1, 2):
+        run = f"run_{replicate:02d}"
+        ResolvedRestraintContext(
+            config_hash=config.config_hash,
+            prepared_hash=prepared_hash(prepared.for_replicate(replicate)),
+            context=context_to_data(_context(coordinates=f"{run}/complex.rst7")),
+            stage_centres={"thetaA": [1.0], "separation": separation[replicate]},
+        ).dump(tmp_path / "prep" / run / RESTRAINT_CONTEXT_FILENAME)
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        steered_md,
+        "make_steered_md_runner",
+        lambda **kwargs: captured.update(kwargs) or object(),
+    )
+
+    calc = Calculation.from_config(config, LocalBackend(), base_dir=tmp_path)
+    calc._wire(prepared)
+
+    plans = captured["plans"]
+    assert sorted(plans) == [1, 2]
+    for replicate in (1, 2):
+        run = f"run_{replicate:02d}"
+        plan = plans[replicate]
+        # pulled from that replicate's own equilibrated structure
+        assert plan.coordinates == f"{run}/complex.rst7"
+        assert plan.work_dir == calc.base_dir / "smd" / run
+        # into its own frame directory, towards its own window centres
+        assert plan.out_dir == calc.base_dir / "smd_frames" / run
+        assert plan.window_centres == tuple(separation[replicate])
+        # and its separation windows start from exactly those frames
+        builder = calc.spec_builders[replicate]
+        assert builder.smd_frames_dir == calc.base_dir / "smd_frames" / run
+        assert builder.ctx.complex_coordinates == f"{run}/complex.rst7"
 
 
 def test_wire_requires_valid_context_artifact(tmp_path):

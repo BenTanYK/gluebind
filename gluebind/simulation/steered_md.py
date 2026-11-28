@@ -16,14 +16,17 @@ tested; OpenMM/ParmEd are imported lazily inside the MD functions.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import math
 import pathlib
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 import pydantic
+
+from gluebind.replicate import replicate_dirname
 
 SMD_SPEC_FILENAME = "smd.json"
 SMD_RESULT_FILENAME = "result.json"
@@ -243,58 +246,76 @@ def smd_launch_command(python: str = "python") -> list[str]:
     return [python, "-c", code]
 
 
+@dataclasses.dataclass(frozen=True)
+class SmdPlan:
+    """One replicate's pull: everything about it that the others don't share.
+
+    With ensemble SMD each replicate pulls from its own equilibrated structure,
+    under its own restraint geometry, into its own frame directory — and, when
+    its separation windows were resolved from its own trajectory, towards its own
+    centres.
+    """
+
+    work_dir: pathlib.Path
+    out_dir: pathlib.Path
+    topology: str
+    coordinates: str
+    rec_group: list[int]
+    lig_group: list[int]
+    anchors: dict[str, int]
+    rmsd_atoms_bound: dict[str, list[int]]
+    snapshot_centres: tuple[float, ...]
+    """The dense snapshot grid to capture, finer than the window schedule."""
+    window_centres: tuple[float, ...] = ()
+    """The separation windows that must end up with a frame."""
+
+
 def make_steered_md_runner(
     *,
-    backend,
     scheduler_factory,
-    work_dir: str | pathlib.Path,
-    out_dir: str | pathlib.Path,
-    topology: str,
-    coordinates: str,
-    rec_group: list[int],
-    lig_group: list[int],
-    anchors: dict[str, int],
-    rmsd_atoms_bound: dict[str, list[int]],
-    snapshot_centres,
+    plans: Mapping[int, SmdPlan],
     sampling,
     platform: str = "CUDA",
     handle_recorder: Callable[[str, str], None] | None = None,
-    window_centres=(),
     warn: Callable[[str], None] | None = None,
 ):
-    """Return the ``callable(boresch_eq_values)`` the runner invokes between the
-    Boresch and separation stages.
+    """Return the ``callable(boresch_eq_values, replicates)`` the runner invokes
+    between the Boresch and separation stages.
 
-    ``snapshot_centres`` is the dense SMD snapshot grid (from
-    :func:`smd_snapshot_targets`) — saved independently of, and finer than, the US
-    window schedule. The callable writes an :class:`SmdSpec` into ``work_dir`` and
-    submits a single backend job (so the pull runs on a compute node, not the
-    driver); the job writes the per-centre frames into ``out_dir``, which the spec
-    builder then reads for the separation windows.
+    One pull per replicate in ``plans``, all submitted as a single batch (so N
+    pulls cost one pull of wall-clock, not N). Each writes an :class:`SmdSpec`
+    into its own work directory and runs as a backend job, never on the driver;
+    the job writes the per-centre frames into that replicate's ``out_dir``, which
+    the replicate's spec builder then reads for its separation windows.
+    ``snapshot_centres`` (from :func:`smd_snapshot_targets`) is saved
+    independently of, and finer than, the US window schedule, so windows can be
+    added later without re-pulling.
 
-    After the job, the callable raises if it produced no result or no frame for
-    any of ``window_centres`` (the current separation schedule), so a failed pull
-    is never taken as complete. ``warn`` (default: this module's logger) reports
-    spare snapshots that were not captured, and frames whose solute comes within
-    :data:`PERIODIC_IMAGE_WARNING_ANGSTROM` of its periodic image.
+    ``boresch_eq_values`` maps a replicate to its own equilibrium values;
+    ``replicates`` selects which plans to run (default: all of them), so a resume
+    repeats only the pulls that are missing. Afterwards the callable raises if a
+    job produced no result or no frame for any of its ``window_centres``, so a
+    failed pull is never taken as complete. ``warn`` (default: this module's
+    logger) reports spare snapshots that were not captured, and frames whose
+    solute comes within :data:`PERIODIC_IMAGE_WARNING_ANGSTROM` of its periodic
+    image.
     """
     from gluebind.backend.base import JobSpec, JobState
 
-    work_dir = pathlib.Path(work_dir)
-    out_dir = pathlib.Path(out_dir)
+    plans = dict(plans)
 
-    def _generate(boresch_eq_values: dict) -> dict[float, str]:
-        work_dir.mkdir(parents=True, exist_ok=True)
-        spec = SmdSpec(
-            topology=topology,
-            coordinates=coordinates,
-            out_dir=str(out_dir),
-            rec_group=rec_group,
-            lig_group=lig_group,
-            anchors=anchors,
-            rmsd_atoms_bound=rmsd_atoms_bound,
+    def _write_spec(plan: SmdPlan, boresch_eq_values: dict, name: str) -> JobSpec:
+        plan.work_dir.mkdir(parents=True, exist_ok=True)
+        SmdSpec(
+            topology=plan.topology,
+            coordinates=plan.coordinates,
+            out_dir=str(plan.out_dir),
+            rec_group=plan.rec_group,
+            lig_group=plan.lig_group,
+            anchors=plan.anchors,
+            rmsd_atoms_bound=plan.rmsd_atoms_bound,
             boresch_eq_values=dict(boresch_eq_values),
-            window_centres=separation_window_targets(snapshot_centres),
+            window_centres=separation_window_targets(plan.snapshot_centres),
             hmr_factor=sampling.hmr_factor,
             pme_cutoff_nm=sampling.pme_cutoff_nm,
             timestep_fs=sampling.timestep_fs,
@@ -307,42 +328,37 @@ def make_steered_md_runner(
                 else 0.1
             ),
             platform=platform,
-        )
-        spec.dump(work_dir / SMD_SPEC_FILENAME)
-        result_path = work_dir / SMD_RESULT_FILENAME
-        images_path = work_dir / SMD_PERIODIC_IMAGES_FILENAME
+        ).dump(plan.work_dir / SMD_SPEC_FILENAME)
         # A re-run must not be judged by an earlier run's outputs.
-        result_path.unlink(missing_ok=True)
-        images_path.unlink(missing_ok=True)
-        job = JobSpec(
-            command=smd_launch_command(), work_dir=str(work_dir), name="steered_md"
+        (plan.work_dir / SMD_RESULT_FILENAME).unlink(missing_ok=True)
+        (plan.work_dir / SMD_PERIODIC_IMAGES_FILENAME).unlink(missing_ok=True)
+        return JobSpec(
+            command=smd_launch_command(), work_dir=str(plan.work_dir), name=name
         )
-        (state,) = scheduler_factory().run(
-            [job],
-            on_submit=(
-                (lambda _index, handle: handle_recorder("steered_md", handle))
-                if handle_recorder is not None
-                else None
-            ),
-        )
+
+    def _collect(plan: SmdPlan, state) -> dict[float, str]:
         if state is not JobState.FINISHED:
             raise RuntimeError(f"steered MD did not finish (state={state})")
         # Slurm reports a crashed job as finished too: judge by the outputs.
+        result_path = plan.work_dir / SMD_RESULT_FILENAME
         if not result_path.exists():
             raise RuntimeError(
-                f"steered MD produced no result; inspect its job log in {work_dir}"
+                "steered MD produced no result; inspect its job log in "
+                f"{plan.work_dir}"
             )
-        missing = missing_frames(out_dir, window_centres)
+        missing = missing_frames(plan.out_dir, plan.window_centres)
         if missing:
             raise RuntimeError(
                 "steered MD produced no starting frame for the separation window(s) "
                 f"at {', '.join(f'{c:g}' for c in missing)} nm (the pull may not "
-                f"have reached them); inspect its job log in {work_dir}"
+                f"have reached them); inspect its job log in {plan.work_dir}"
             )
         log_warning = warn or logging.getLogger(__name__).warning
-        windows = set(separation_window_targets(window_centres))
+        windows = set(separation_window_targets(plan.window_centres))
         spare = [
-            c for c in missing_frames(out_dir, snapshot_centres) if c not in windows
+            c
+            for c in missing_frames(plan.out_dir, plan.snapshot_centres)
+            if c not in windows
         ]
         if spare:
             log_warning(
@@ -350,13 +366,36 @@ def make_steered_md_runner(
                 f"{', '.join(f'{c:g}' for c in spare)} nm; separation windows cannot "
                 "be added there without re-running steered MD."
             )
+        images_path = plan.work_dir / SMD_PERIODIC_IMAGES_FILENAME
         if images_path.exists():
             message = periodic_image_warning(
-                json.loads(images_path.read_text()), window_centres
+                json.loads(images_path.read_text()), plan.window_centres
             )
             if message is not None:
                 log_warning(message)
         return {float(k): v for k, v in json.loads(result_path.read_text()).items()}
+
+    def _generate(
+        boresch_eq_values: Mapping[int, dict], replicates=None
+    ) -> dict[int, dict[float, str]]:
+        selected = sorted(plans if replicates is None else replicates)
+        names = [f"steered_md_{replicate_dirname(r)}" for r in selected]
+        jobs = [
+            _write_spec(plans[r], boresch_eq_values.get(r, {}), name)
+            for r, name in zip(selected, names, strict=True)
+        ]
+        states = scheduler_factory().run(
+            jobs,
+            on_submit=(
+                (lambda index, handle: handle_recorder(names[index], handle))
+                if handle_recorder is not None
+                else None
+            ),
+        )
+        return {
+            r: _collect(plans[r], state)
+            for r, state in zip(selected, states, strict=True)
+        }
 
     return _generate
 

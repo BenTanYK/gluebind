@@ -366,6 +366,51 @@ def test_config_hash_ignores_sampling_scope_flags_but_catches_real_changes():
     assert base.config_hash != h_off
 
 
+def test_ensemble_from_defaults_to_windows_and_derives_the_stage_flags():
+    from gluebind.config import SamplingConfig
+
+    assert SamplingConfig().ensemble_from == "windows"
+    cases = {
+        "windows": (False, False),
+        "smd": (False, True),
+        "equilibration": (True, True),
+    }
+    for value, (equilibration, smd) in cases.items():
+        s = SamplingConfig(ensemble_from=value)
+        assert (s.ensemble_equilibration, s.ensemble_smd) == (equilibration, smd)
+
+
+def test_ensemble_from_rejects_unknown_stage():
+    from gluebind.config import SamplingConfig
+
+    with pytest.raises(ValueError, match="ensemble_from"):
+        SamplingConfig(ensemble_from="production")
+
+
+def test_ensemble_from_requires_more_than_one_replicate():
+    from gluebind.config import SamplingConfig
+
+    # a single replicate makes fanning a stage out a silent no-op
+    for value in ("smd", "equilibration"):
+        with pytest.raises(ValueError, match="requires ensemble_size > 1"):
+            SamplingConfig(ensemble_from=value, ensemble_size=1)
+    SamplingConfig(ensemble_from="windows", ensemble_size=1)  # fine
+
+
+def test_ensemble_from_is_part_of_the_config_hash():
+    # Unlike run_rmsd_us/run_separation_us, this one changes the physics: a run
+    # cannot be switched between ensemble modes and resumed in place.
+    base = CalculationConfig.model_validate({"inputs": MIN_INPUTS})
+    hashes = {
+        value: CalculationConfig.model_validate(
+            {"inputs": MIN_INPUTS, "sampling": {"ensemble_from": value}}
+        ).config_hash
+        for value in ("windows", "smd", "equilibration")
+    }
+    assert len(set(hashes.values())) == 3
+    assert hashes["windows"] == base.config_hash
+
+
 def test_restraint_atoms_modes_default_and_independent():
     from gluebind.config.restraints import RestraintsConfig
 

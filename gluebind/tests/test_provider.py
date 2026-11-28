@@ -62,19 +62,17 @@ def test_provider_local_run_with_fake_binary(tmp_path):
         cv_type="rmsd",
         name="receptor_bound",
         dof=None,
-        centres=[0.0, 0.2],
-        ensemble_size=2,
-        spec_builder=lambda **kwargs: None,  # not used; timeseries are written directly
+        centres={1: [0.0, 0.2], 2: [0.0, 0.2]},
+        # not used; timeseries are written directly
+        spec_builders={1: lambda **kwargs: None, 2: lambda **kwargs: None},
     )
-    # write per-window, per-replicate CV timeseries
-    for window in stage.windows:
-        for replicate in (1, 2):
-            run_dir = window.replicate_dir(replicate)
-            run_dir.mkdir(parents=True)
-            np.savetxt(
-                run_dir / "cv_timeseries.dat",
-                np.array([[0, 0.1], [1, 0.12], [2, 0.11]]),
-            )
+    # write each replicate's per-window CV timeseries
+    for window in stage.all_windows():
+        window.base_dir.mkdir(parents=True)
+        np.savetxt(
+            window.base_dir / "cv_timeseries.dat",
+            np.array([[0, 0.1], [1, 0.12], [2, 0.11]]),
+        )
 
     provider = WhamPmfProvider(
         cfg, wham_binary=str(_fake_wham(tmp_path)), location="local"
@@ -97,12 +95,11 @@ def test_resolve_timeseries_red_truncates_rmsd(tmp_path):
         cv_type="rmsd",
         name="receptor_bound",
         dof=None,
-        centres=[0.0],
-        ensemble_size=1,
-        spec_builder=lambda **kwargs: None,
+        centres={1: [0.0]},
+        spec_builders={1: lambda **kwargs: None},
     )
-    window = stage.windows[0]
-    run_dir = window.replicate_dir(1)
+    window = stage.windows_for(1)[0]
+    run_dir = window.base_dir
     run_dir.mkdir(parents=True)
     np.savetxt(
         run_dir / "cv_timeseries.dat",
@@ -112,7 +109,7 @@ def test_resolve_timeseries_red_truncates_rmsd(tmp_path):
     provider = WhamPmfProvider(
         cfg, wham_binary=str(_fake_wham(tmp_path)), apply_red=True
     )
-    path = provider._resolve_timeseries(stage, window, 1)
+    path = provider._resolve_timeseries(stage, window)
 
     assert path.endswith("RED/cv_timeseries.dat")
     assert (run_dir / "RED" / "cv_timeseries.dat").exists()
@@ -127,12 +124,11 @@ def test_resolve_timeseries_boresch_uses_raw(tmp_path):
         cv_type="boresch",
         name="thetaA",
         dof="thetaA",
-        centres=[1.0],
-        ensemble_size=1,
-        spec_builder=lambda **kwargs: None,
+        centres={1: [1.0]},
+        spec_builders={1: lambda **kwargs: None},
     )
-    window = stage.windows[0]
-    run_dir = window.replicate_dir(1)
+    window = stage.windows_for(1)[0]
+    run_dir = window.base_dir
     run_dir.mkdir(parents=True)
     ts = run_dir / "cv_timeseries.dat"
     np.savetxt(ts, np.column_stack([np.arange(10), np.linspace(1.0, 1.1, 10)]))
@@ -140,7 +136,7 @@ def test_resolve_timeseries_boresch_uses_raw(tmp_path):
     provider = WhamPmfProvider(
         cfg, wham_binary=str(_fake_wham(tmp_path)), apply_red=True
     )
-    path = provider._resolve_timeseries(stage, window, 1)
+    path = provider._resolve_timeseries(stage, window)
 
     assert path == str(ts)
     assert not (run_dir / "RED").exists()
@@ -154,11 +150,10 @@ def test_provider_metafile_has_converted_units(tmp_path):
         cv_type="rmsd",
         name="receptor_bound",
         dof=None,
-        centres=[2.0],  # Å
-        ensemble_size=1,
-        spec_builder=lambda **kwargs: None,
+        centres={1: [2.0]},  # Å
+        spec_builders={1: lambda **kwargs: None},
     )
-    run_dir = stage.windows[0].replicate_dir(1)
+    run_dir = stage.windows_for(1)[0].base_dir
     run_dir.mkdir(parents=True)
     np.savetxt(run_dir / "cv_timeseries.dat", np.array([[0, 0.2]]))
 

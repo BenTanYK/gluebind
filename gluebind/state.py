@@ -41,14 +41,24 @@ class RunState(pydantic.BaseModel):
     config_hash: str
     config_path: str
 
-    # Determined mid-run and reused by later stages.
-    anchors: dict[str, int] | None = None
-    boresch_eq_values: dict[str, float] = pydantic.Field(default_factory=dict)
+    # Determined mid-run and reused by later stages. Both are per replicate:
+    # with ensemble equilibration a replicate resolves its own anchors from its
+    # own trajectory, and therefore its own Boresch equilibrium values.
+    anchors: dict[int, dict[str, int]] = pydantic.Field(default_factory=dict)
+    boresch_eq_values: dict[int, dict[str, float]] = pydantic.Field(
+        default_factory=dict
+    )
     stage_status: dict[str, str] = pydantic.Field(default_factory=dict)
 
-    # Opaque backend job handles: stage name -> window label -> [id per repeat].
-    # ``_auxiliary`` stores non-window jobs as label -> [id].
-    handles: dict[str, dict[str, list[str]]] = pydantic.Field(default_factory=dict)
+    # Opaque backend job handles: stage name -> replicate -> window label -> id.
+    handles: dict[str, dict[int, dict[str, str]]] = pydantic.Field(
+        default_factory=dict
+    )
+    # Non-window jobs (prep, restraint resolution, steered MD, MM/GBSA), by label.
+    auxiliary_handles: dict[str, list[str]] = pydantic.Field(default_factory=dict)
+    # Handles replaced by a re-submission, kept only so kill() can still reach
+    # the earlier job.
+    superseded_handles: list[str] = pydantic.Field(default_factory=list)
 
     # Per-backend escape hatch: e.g. an AWS Batch backend can stash its batch ID
     # and S3 prefix here so a fresh process can reconstruct where outputs live.
@@ -58,19 +68,27 @@ class RunState(pydantic.BaseModel):
     @pydantic.field_validator("anchors", mode="before")
     @classmethod
     def _valid_anchors(cls, value: object) -> object:
-        """Reject malformed persisted Boresch-anchor mappings."""
+        """Reject malformed persisted Boresch-anchor mappings.
+
+        One mapping per replicate; each must name all four anchors, since a
+        partially resolved set would silently change the restraint geometry.
+        """
         if value is None:
-            return value
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("anchors must map a replicate to its anchor mapping")
         expected = {"b", "c", "B", "C"}
-        if not isinstance(value, dict) or set(value) != expected:
-            raise ValueError(
-                f"anchors must have exactly keys {sorted(expected)} or be null"
-            )
-        if any(
-            not isinstance(index, int) or isinstance(index, bool)
-            for index in value.values()
-        ):
-            raise ValueError("all persisted anchor indices must be integers")
+        for anchors in value.values():
+            if not isinstance(anchors, dict) or set(anchors) != expected:
+                raise ValueError(
+                    f"each replicate's anchors must have exactly keys "
+                    f"{sorted(expected)}"
+                )
+            if any(
+                not isinstance(index, int) or isinstance(index, bool)
+                for index in anchors.values()
+            ):
+                raise ValueError("all persisted anchor indices must be integers")
         return value
 
     def save(self, run_dir: str | pathlib.Path) -> pathlib.Path:

@@ -33,7 +33,7 @@ INPUTS = {
     "receptor": {"prm7": "r.prm7", "rst7": "r.rst7"},
     "glue": {"sdf": "g.sdf", "assign_to": "receptor"},
 }
-CENTRES = {"thetaA": [1.0], "separation": [1.5]}
+CENTRES = {1: {"thetaA": [1.0], "separation": [1.5]}}
 
 
 def _config():
@@ -207,9 +207,9 @@ def test_write_specs_threads_boresch_eq(tmp_path):
     calc = _calc(tmp_path)
     theta_a = calc._group("boresch").stages[0]
     assert theta_a.dof == "thetaA"
-    theta_a.write_specs({"thetaX": 0.5})
+    theta_a.write_specs({1: {"thetaX": 0.5}})
     spec = WindowSpec.load(
-        tmp_path / "boresch" / "thetaA" / "1rad" / "run_01" / "window.json"
+        tmp_path / "boresch" / "thetaA" / "run_01" / "1rad" / "window.json"
     )
     assert spec.cv_type == "boresch" and spec.dof == "thetaA"
     assert spec.restraints["boresch_eq_values"] == {"thetaX": 0.5}
@@ -224,7 +224,7 @@ def test_run_completes_and_records_state(tmp_path):
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
     )
     for window in calc._iter_windows():
-        assert window.is_replicate_complete(1)
+        assert window.is_complete()
     assert (tmp_path / ".gluebind-state.json").exists()
     assert state.handles  # handles recorded via on_submit
     assert state.stage_status.get("thetaA") == "done"
@@ -241,10 +241,8 @@ def test_kill_cancels_each_persisted_handle_once(tmp_path):
         submitted_at=now_utc_iso(),
         config_hash=calc.config.config_hash,
         config_path=str(tmp_path),
-        handles={
-            "thetaA": {"1rad": ["100", "101"]},
-            "_auxiliary": {"system_build": ["101"], "steered_md": ["102"]},
-        },
+        handles={"thetaA": {1: {"1rad": "100"}, 2: {"1rad": "101"}}},
+        auxiliary_handles={"system_build": ["101"], "steered_md": ["102"]},
     )
     state.save(tmp_path)
 
@@ -336,7 +334,7 @@ def test_kill_without_state_is_a_noop(tmp_path):
 # ---- one driver per calculation, no duplicate jobs -------------------------
 
 
-def _save_state_with_handles(calc, handles):
+def _save_state_with_handles(calc, handles=None, auxiliary_handles=None):
     from gluebind import RunState
     from gluebind.state import now_utc_iso
 
@@ -345,7 +343,8 @@ def _save_state_with_handles(calc, handles):
         submitted_at=now_utc_iso(),
         config_hash=calc.config.config_hash,
         config_path=str(calc.base_dir),
-        handles=handles,
+        handles=handles or {},
+        auxiliary_handles=auxiliary_handles or {},
     ).save(calc.base_dir)
 
 
@@ -375,7 +374,7 @@ def test_run_refuses_to_resubmit_while_recorded_jobs_are_live(tmp_path):
     # the same directory.
     backend = _CancellableBackend()  # reports every handle PENDING; submit fails
     calc = Calculation(tmp_path, _config(), backend, _spec_builder)
-    _save_state_with_handles(calc, {"thetaA": {"1rad": ["100", ""]}})
+    _save_state_with_handles(calc, {"thetaA": {1: {"1rad": "100"}}})
 
     with pytest.raises(RuntimeError, match=r"1 job\(s\) .* still queued or running"):
         calc.run(
@@ -385,7 +384,7 @@ def test_run_refuses_to_resubmit_while_recorded_jobs_are_live(tmp_path):
 
 def test_finished_recorded_jobs_do_not_block_a_resume(tmp_path):
     calc = _calc(tmp_path)  # LocalBackend reports unknown (earlier) handles finished
-    _save_state_with_handles(calc, {"_auxiliary": {"system_build": ["old-job"]}})
+    _save_state_with_handles(calc, auxiliary_handles={"system_build": ["old-job"]})
 
     state = calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
@@ -402,8 +401,8 @@ def test_resubmission_keeps_the_superseded_handle_for_kill(tmp_path):
     )
     stage = "receptor_bound"  # RMSD stages are resubmitted; determined DoFs are not
     window = next(w for w in first._iter_windows() if w.stage_name == stage)
-    old = RunState.load(tmp_path).handles[stage][window.label][0]
-    (window.replicate_dir(1) / "result.json").unlink()  # force a resubmission
+    old = RunState.load(tmp_path).handles[stage][window.replicate][window.label]
+    (window.base_dir / "result.json").unlink()  # force a resubmission
 
     second = _calc(tmp_path)
     # LocalBackend numbers jobs from 1 in every process; give the resumed driver
@@ -412,9 +411,9 @@ def test_resubmission_keeps_the_superseded_handle_for_kill(tmp_path):
     second.run(
         scheduler=Scheduler(second.backend, poll_interval=0.01), pmf_provider=_fake_pmf
     )
-    handles = RunState.load(tmp_path).handles
-    assert handles[stage][window.label][0] != old
-    assert handles["_superseded"][f"{stage}/{window.label}"] == [old]
+    state = RunState.load(tmp_path)
+    assert state.handles[stage][window.replicate][window.label] != old
+    assert state.superseded_handles == [old]
     assert old in second.kill()
 
 
@@ -442,12 +441,45 @@ def test_run_is_idempotent(tmp_path):
     )
     calc2 = _calc(tmp_path)
     pending = [
-        (w.stage_name, w.label, r)
+        (w.stage_name, w.replicate, w.label)
         for w in calc2._iter_windows()
-        for r in w.replicates()
-        if not w.is_replicate_complete(r)
+        if not w.is_complete()
     ]
     assert pending == []
+
+
+def test_resume_submits_only_the_incomplete_replicate_windows(tmp_path):
+    # Resume is per (replicate, window): deleting one replicate's result must
+    # resubmit that window alone, not its centre in every replicate.
+    centres = {r: {"thetaA": [1.0], "separation": [1.5]} for r in (1, 2)}
+    _ensemble_calc(tmp_path, centres).run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01),
+        pmf_provider=_fake_pmf,
+    )
+
+    calc = _ensemble_calc(tmp_path, centres)
+    stage = next(s for _g, s in calc._iter_stages() if s.name == "receptor_bound")
+    reset = stage.windows_for(2)[0]
+    (reset.base_dir / "result.json").unlink()
+
+    submitted = []
+    calc.command_factory = _trivial_command
+    original = calc._run_stage
+
+    def record(stage, eq_values, state, scheduler):
+        submitted.extend(
+            (w.stage_name, w.replicate, w.label)
+            for w in stage.all_windows()
+            if not w.is_complete()
+        )
+        original(stage, eq_values, state, scheduler)
+
+    calc._run_stage = record
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+
+    assert submitted == [("receptor_bound", 2, reset.label)]
 
 
 def test_resume_config_hash_mismatch_aborts(tmp_path):
@@ -464,6 +496,86 @@ def test_resume_config_hash_mismatch_aborts(tmp_path):
         )
 
 
+def _ensemble_calc(tmp_path, centres, **kwargs):
+    """A calculation whose replicates have their own window centres."""
+    config = _config()
+    config.sampling.ensemble_size = len(centres)
+    config.sampling.ensemble_from = "equilibration"
+    return Calculation(
+        tmp_path,
+        config,
+        LocalBackend(),
+        _spec_builder,
+        command_factory=_trivial_command,
+        stage_centres=centres,
+        **kwargs,
+    )
+
+
+def test_each_replicate_owns_a_complete_window_set(tmp_path):
+    # Replicates that equilibrated independently have different Boresch centres,
+    # so the replicate sits above the centre on disk and each replicate's set is
+    # contiguous rather than a column of a grid with holes.
+    calc = _ensemble_calc(
+        tmp_path,
+        {
+            1: {"thetaA": [1.0, 1.1], "separation": [1.5]},
+            2: {"thetaA": [1.2, 1.3], "separation": [1.6]},
+        },
+    )
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+
+    stage = calc._group("boresch").stages[0]
+    assert [w.centre for w in stage.windows_for(1)] == [1.0, 1.1]
+    assert [w.centre for w in stage.windows_for(2)] == [1.2, 1.3]
+    thetaA = tmp_path / "boresch" / "thetaA"
+    assert (thetaA / "run_02" / "1.3rad" / "result.json").exists()
+    assert not (thetaA / "run_01" / "1.3rad").exists()
+    assert all(window.is_complete() for window in calc._iter_windows())
+
+
+def test_each_replicate_feeds_forward_its_own_boresch_minimum(tmp_path):
+    # The DoF loop stays outermost and the replicates fan out within it: every
+    # replicate's windows go in as one batch, then each replicate's own PMF
+    # minimum is fed forward into the next DoF independently.
+    calc = _ensemble_calc(
+        tmp_path,
+        {
+            1: {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]},
+            2: {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]},
+        },
+    )
+    minima = {1: 0.8, 2: 1.4}
+
+    def per_replicate_pmf(stage):
+        cv = np.linspace(0.0, 2.0, 21)
+        pmfs = [(cv - minima[r]) ** 2 for r in stage.replicates]
+        return cv, (pmfs[0] + pmfs[1]) / 2, pmfs
+
+    state = calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01),
+        pmf_provider=per_replicate_pmf,
+    )
+
+    for replicate, minimum in minima.items():
+        assert state.boresch_eq_values[replicate]["thetaA"] == pytest.approx(
+            minimum, abs=0.1
+        )
+        spec = WindowSpec.load(
+            tmp_path
+            / "boresch"
+            / "thetaB"
+            / f"run_{replicate:02d}"
+            / "1rad"
+            / "window.json"
+        )
+        assert spec.restraints["boresch_eq_values"]["thetaA"] == pytest.approx(
+            minimum, abs=0.1
+        )
+
+
 def test_boresch_sequential_feedback(tmp_path):
     # Two Boresch DoFs: thetaA runs first, its PMF minimum (=1.0) is fed forward
     # as a fixed restraint into thetaB's windows and into separation.
@@ -473,23 +585,23 @@ def test_boresch_sequential_feedback(tmp_path):
         LocalBackend(),
         _spec_builder,
         command_factory=_trivial_command,
-        stage_centres={"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]},
+        stage_centres={1: {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]}},
     )
     state = calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
     )
 
-    assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
-    assert state.boresch_eq_values["thetaB"] == pytest.approx(1.0)
+    assert state.boresch_eq_values[1]["thetaA"] == pytest.approx(1.0)
+    assert state.boresch_eq_values[1]["thetaB"] == pytest.approx(1.0)
 
     theta_b_spec = WindowSpec.load(
-        tmp_path / "boresch" / "thetaB" / "1rad" / "run_01" / "window.json"
+        tmp_path / "boresch" / "thetaB" / "run_01" / "1rad" / "window.json"
     )
     assert theta_b_spec.restraints["boresch_eq_values"]["thetaA"] == pytest.approx(1.0)
 
     # group dir and stage name are both "separation" (uniform tree depth).
     sep_spec = WindowSpec.load(
-        tmp_path / "separation" / "separation" / "1.5nm" / "run_01" / "window.json"
+        tmp_path / "separation" / "separation" / "run_01" / "1.5nm" / "window.json"
     )
     assert set(sep_spec.restraints["boresch_eq_values"]) == {"thetaA", "thetaB"}
 
@@ -505,15 +617,17 @@ def test_run_invokes_steered_md_before_separation(tmp_path):
         LocalBackend(),
         _spec_builder,
         command_factory=_trivial_command,
-        stage_centres={"thetaA": [1.0], "separation": [1.5]},
-        steered_md_runner=lambda eq: calls.append(dict(eq)),
+        stage_centres={1: {"thetaA": [1.0], "separation": [1.5]}},
+        steered_md_runner=lambda eq, replicates: calls.append((dict(eq), replicates)),
     )
     state = calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
     )
     assert len(calls) == 1
-    assert "thetaA" in calls[0]  # invoked with the resolved Boresch eq values
-    assert state.stage_status.get("steered_md") == "done"
+    eq_values, replicates = calls[0]
+    assert "thetaA" in eq_values[1]  # invoked with the resolved Boresch eq values
+    assert replicates == [1]
+    assert state.stage_status.get("steered_md_run_01") == "done"
 
 
 def test_run_without_separation_skips_steered_md(tmp_path):
@@ -524,8 +638,8 @@ def test_run_without_separation_skips_steered_md(tmp_path):
         LocalBackend(),
         _spec_builder,
         command_factory=_trivial_command,
-        stage_centres={"thetaA": [1.0]},  # no separation group
-        steered_md_runner=lambda eq: calls.append(eq),
+        stage_centres={1: {"thetaA": [1.0]}},  # no separation group
+        steered_md_runner=lambda eq, replicates: calls.append(eq),
     )
     calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
@@ -534,14 +648,18 @@ def test_run_without_separation_skips_steered_md(tmp_path):
 
 
 def _counting_smd(tmp_path, counter):
-    """A steered-MD stand-in that writes the 1.5 nm separation frame and counts runs."""
+    """A steered-MD stand-in that writes each pull's 1.5 nm separation frame and
+    counts the pulls it ran."""
     from gluebind.simulation.steered_md import smd_frame_path
 
-    def run(eq):
-        counter["n"] += 1
-        frame = smd_frame_path(tmp_path / "smd_frames", 1.5)
-        frame.parent.mkdir(parents=True, exist_ok=True)
-        frame.write_text("frame")
+    def run(eq, replicates):
+        for replicate in replicates:
+            counter["n"] += 1
+            frame = smd_frame_path(
+                tmp_path / "smd_frames" / f"run_{replicate:02d}", 1.5
+            )
+            frame.parent.mkdir(parents=True, exist_ok=True)
+            frame.write_text("frame")
 
     return run
 
@@ -553,9 +671,44 @@ def _smd_calc(tmp_path, counter):
         LocalBackend(),
         _spec_builder,
         command_factory=_trivial_command,
-        stage_centres={"thetaA": [1.0], "separation": [1.5]},
+        stage_centres={1: {"thetaA": [1.0], "separation": [1.5]}},
         steered_md_runner=_counting_smd(tmp_path, counter),
     )
+
+
+def test_each_replicate_pulls_its_own_separation_frames(tmp_path):
+    # Ensemble SMD: one pull per replicate, each into its own frame directory,
+    # and a resume repeats only the pull whose frames went missing.
+    from gluebind import RunState
+    from gluebind.simulation.steered_md import smd_frame_path
+
+    counter = {"n": 0}
+    centres = {
+        1: {"thetaA": [1.0], "separation": [1.5]},
+        2: {"thetaA": [1.0], "separation": [1.5]},
+    }
+    _ensemble_calc(
+        tmp_path, centres, steered_md_runner=_counting_smd(tmp_path, counter)
+    ).run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+
+    assert counter["n"] == 2  # both replicates pulled
+    state = RunState.load(tmp_path)
+    assert state.stage_status["steered_md_run_01"] == "done"
+    assert state.stage_status["steered_md_run_02"] == "done"
+
+    smd_frame_path(tmp_path / "smd_frames" / "run_02", 1.5).unlink()
+    calc = _ensemble_calc(
+        tmp_path, centres, steered_md_runner=_counting_smd(tmp_path, counter)
+    )
+    for window in calc._iter_windows():
+        if window.stage_name == "separation" and window.replicate == 2:
+            (window.base_dir / "result.json").unlink()
+    calc.run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+    assert counter["n"] == 3  # only replicate 2 was pulled again
 
 
 def test_steered_md_runs_once_across_resume(tmp_path):
@@ -579,17 +732,18 @@ def test_steered_md_reruns_when_a_window_frame_is_missing(tmp_path):
     _smd_calc(tmp_path, counter).run(
         scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
     )
-    smd_frame_path(tmp_path / "smd_frames", 1.5).unlink()
+    frame = smd_frame_path(tmp_path / "smd_frames" / "run_01", 1.5)
+    frame.unlink()
     for window in _smd_calc(tmp_path, counter)._iter_windows():
         if window.stage_name == "separation":
-            (window.replicate_dir(1) / "result.json").unlink()
+            (window.base_dir / "result.json").unlink()
 
     _smd_calc(tmp_path, counter).run(
         scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
     )
     assert counter["n"] == 2  # steered MD ran again
-    assert smd_frame_path(tmp_path / "smd_frames", 1.5).exists()
-    assert RunState.load(tmp_path).stage_status["steered_md"] == "done"
+    assert frame.exists()
+    assert RunState.load(tmp_path).stage_status["steered_md_run_01"] == "done"
 
 
 # ---- analysis --------------------------------------------------------------
@@ -610,6 +764,8 @@ def test_analyse_aggregates(tmp_path):
         "dg_boresch",
         "dg_sep",
         "dg_corr",
+        "r_star_nm",
+        "dg_per_replicate",
         "stage_sems",
         "rmsd_included",
     }
@@ -652,8 +808,11 @@ def test_analyse_does_not_write_analysis_json_on_provider_failure(tmp_path):
 
 def test_analyse_reports_sem_over_repeats(tmp_path):
     # A provider that exposes per-replicate PMFs yields an overall SEM (over the
-    # repeats' total ΔG) plus per-stage SEM diagnostics.
-    calc = _calc(tmp_path)
+    # repeats' complete ΔG°) plus per-stage SEM diagnostics.
+    calc = _ensemble_calc(
+        tmp_path,
+        {r: {"thetaA": [1.0], "separation": [1.5]} for r in (1, 2)},
+    )
 
     def provider_with_repeats(stage):
         x = np.linspace(0.0, 2.0, 21)
@@ -668,14 +827,74 @@ def test_analyse_reports_sem_over_repeats(tmp_path):
     assert result["dg_bind_sem"] is not None and result["dg_bind_sem"] > 0
     assert result["stage_sems"]  # per-CV diagnostics present
     assert all(v >= 0 for v in result["stage_sems"].values())
+    # the point estimate is the mean of the replicates' complete ΔG°
+    per_replicate = result["dg_per_replicate"]
+    assert set(per_replicate) == {"run_01", "run_02"}
+    assert result["dg_bind"] == pytest.approx(
+        sum(v["dg_bind"] for v in per_replicate.values()) / 2
+    )
+
+
+def test_analyse_gives_each_replicate_its_own_r_star_and_correction(tmp_path):
+    # Replicates that equilibrated independently resolve their own window_min and
+    # their own anchors, so r* and the analytical correction differ between them;
+    # each replicate's ΔG° must be built from its own.
+    calc = _ensemble_calc(
+        tmp_path,
+        {
+            1: {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]},
+            2: {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.9]},
+        },
+    )
+    minima = {1: 0.8, 2: 1.4}
+
+    def per_replicate_pmf(stage):
+        cv = np.linspace(0.0, 2.0, 21)
+        pmfs = [(cv - minima[r]) ** 2 for r in stage.replicates]
+        return cv, (pmfs[0] + pmfs[1]) / 2, pmfs
+
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01),
+        pmf_provider=per_replicate_pmf,
+    )
+    result = calc.analyse(per_replicate_pmf)  # no overrides: resolved per replicate
+
+    from gluebind.runners import calculation as calc_mod
+
+    first, second = result["dg_per_replicate"].values()
+    assert first["r_star_nm"] == pytest.approx(1.5 - calc_mod.R_STAR_BUFFER_NM)
+    assert second["r_star_nm"] == pytest.approx(1.9 - calc_mod.R_STAR_BUFFER_NM)
+    assert first["dg_corr"] != pytest.approx(second["dg_corr"])
+    assert result["dg_corr"] == pytest.approx(
+        (first["dg_corr"] + second["dg_corr"]) / 2
+    )
+    for values in (first, second):
+        assert values["dg_bind"] == pytest.approx(
+            values["rmsd"] + values["boresch"] + values["separation"]
+            + values["dg_corr"]
+        )
 
 
 def test_analyse_sem_none_without_repeats(tmp_path):
-    # A 2-tuple provider (no per-replicate PMFs) cannot report an uncertainty.
+    # A 2-tuple provider describes one calculation: no spread to report.
     calc = _calc(tmp_path)
     result = calc.analyse(_fake_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0)
     assert result["dg_bind_sem"] is None
-    assert result["stage_sems"] == {}
+    assert set(result["dg_per_replicate"]) == {"run_01"}
+    assert set(result["stage_sems"].values()) == {0.0}
+
+
+def test_analyse_rejects_a_provider_that_disagrees_on_replicates(tmp_path):
+    # Fail loudly rather than quietly scoring a subset of the replicates.
+    calc = _calc(tmp_path)  # one replicate
+
+    def two_pmfs(stage):
+        x = np.linspace(0.0, 2.0, 21)
+        mean = (x - 1.0) ** 2
+        return x, mean, [0.8 * mean, 1.2 * mean]
+
+    with pytest.raises(RuntimeError, match="correspond one to one"):
+        calc.analyse(two_pmfs, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0)
 
 
 def test_analyse_threads_sampling_temperature(tmp_path):
@@ -698,7 +917,7 @@ def test_analyse_threads_sampling_temperature(tmp_path):
 def test_from_config_defers_wiring(tmp_path):
     # Built from a config object: cheap, no tree yet (wiring happens in prepare()).
     calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
-    assert calc.spec_builder is None
+    assert calc.spec_builders == {}
     assert calc.groups == []
 
 
@@ -711,9 +930,9 @@ def test_run_auto_prepares_when_not_wired(tmp_path):
 
     def fake_prepare(**_):
         calls["prepare"] += 1
-        calc.spec_builder = _spec_builder
+        calc.spec_builders = {1: _spec_builder}
         calc.command_factory = _trivial_command
-        calc.stage_centres = {"thetaA": [1.0], "separation": [1.5]}
+        calc.stage_centres = {1: {"thetaA": [1.0], "separation": [1.5]}}
         calc.groups = calc._build_groups()
         calc.sub_runners = list(calc.groups)
 
@@ -736,7 +955,7 @@ def test_analyse_derives_theta_and_r_star_from_state(tmp_path):
         LocalBackend(),
         _spec_builder,
         command_factory=_trivial_command,
-        stage_centres={"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]},
+        stage_centres={1: {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]}},
     )
     calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
@@ -766,6 +985,8 @@ def test_analyse_derives_theta_and_r_star_from_state(tmp_path):
         "dg_boresch",
         "dg_sep",
         "dg_corr",
+        "r_star_nm",
+        "dg_per_replicate",
         "stage_sems",
         "rmsd_included",
     }
@@ -795,29 +1016,116 @@ def test_run_self_defaults_pmf_provider_for_boresch(tmp_path, monkeypatch):
         LocalBackend(),
         _spec_builder,
         command_factory=_trivial_command,
-        stage_centres={"thetaA": [1.0], "separation": [1.5]},
+        stage_centres={1: {"thetaA": [1.0], "separation": [1.5]}},
     )
     state = calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01)
     )  # no pmf_provider
-    assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
+    assert state.boresch_eq_values[1]["thetaA"] == pytest.approx(1.0)
 
 
-def _dump_prepared(base_dir):
-    from gluebind.system.prep import PreparedSystem
+def _dump_prepared(base_dir, replicates=(1,)):
+    from gluebind.system.prep import PreparedReplicate, PreparedSystem
 
     PreparedSystem(
-        complex_prm7="c.prm7",
-        complex_rst7="c.rst7",
-        complex_trajectory="c.dcd",
-        target_bulk_prm7="tb.prm7",
-        target_bulk_rst7="tb.rst7",
-        receptor_bulk_prm7="rb.prm7",
-        receptor_bulk_rst7="rb.rst7",
-        target_molecules=[0],
-        receptor_molecules=[1],
-        glue_molecule=2,
+        replicates={
+            replicate: PreparedReplicate(
+                complex_prm7="c.prm7",
+                complex_rst7="c.rst7",
+                complex_trajectory="c.dcd",
+                target_bulk_prm7="tb.prm7",
+                target_bulk_rst7="tb.rst7",
+                receptor_bulk_prm7="rb.prm7",
+                receptor_bulk_rst7="rb.rst7",
+                target_molecules=[0],
+                receptor_molecules=[1],
+                glue_molecule=2,
+            )
+            for replicate in replicates
+        }
     ).dump(base_dir / "prep")
+
+
+def _restraint_context():
+    from gluebind.spec_builder import RestraintContext
+
+    return RestraintContext(
+        complex_topology="c.prm7",
+        complex_coordinates="c.rst7",
+        rec_group=[1, 2],
+        lig_group=[3, 4],
+        anchors={"b": 10, "c": 11, "B": 12, "C": 13},
+        rmsd_order=[],
+        rmsd_atoms_bound={},
+        rmsd_bulk={},
+        always_on=[],
+    )
+
+
+def test_each_equilibration_replicate_resolves_its_own_restraints(
+    tmp_path, monkeypatch
+):
+    # Replicates equilibrate independently, so anchors and equilibrium values are
+    # resolved per replicate, from that replicate's own trajectory.
+    from gluebind.backend import scheduler as scheduler_mod
+    from gluebind.restraint_context import RESTRAINT_CONTEXT_FILENAME
+    from gluebind.simulation.restraint_resolution import (
+        RESTRAINT_RESOLUTION_RESULT_FILENAME,
+        RESTRAINT_RESOLUTION_SPEC_FILENAME,
+        RestraintResolutionSpec,
+    )
+
+    config = _config()
+    config.sampling.ensemble_size = 3
+    config.sampling.ensemble_from = "equilibration"
+    _dump_prepared(tmp_path, replicates=(1, 2, 3))
+    calc = Calculation.from_config(config, LocalBackend(), base_dir=tmp_path)
+    prepared = calc._load_prepared()
+
+    submitted = []
+
+    class _FakeScheduler:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def run(self, specs, on_submit=None):
+            for spec in specs:
+                work_dir = pathlib.Path(spec.work_dir)
+                submitted.append(spec.name)
+                # stand in for the worker: a context the driver can validate
+                _write_context(calc, prepared, work_dir)
+                (work_dir / RESTRAINT_RESOLUTION_RESULT_FILENAME).write_text("{}")
+            return [JobState.FINISHED] * len(specs)
+
+    def _write_context(calc, prepared, work_dir):
+        from gluebind.restraint_context import (
+            ResolvedRestraintContext,
+            context_to_data,
+            prepared_hash,
+        )
+
+        spec = RestraintResolutionSpec.load(
+            work_dir / RESTRAINT_RESOLUTION_SPEC_FILENAME
+        )
+        ResolvedRestraintContext(
+            config_hash=spec.config_hash,
+            prepared_hash=prepared_hash(prepared.for_replicate(spec.replicate)),
+            context=context_to_data(_restraint_context()),
+            stage_centres={"thetaA": [1.0], "separation": [1.5]},
+        ).dump(pathlib.Path(spec.replicate_dir) / RESTRAINT_CONTEXT_FILENAME)
+
+    monkeypatch.setattr(scheduler_mod, "Scheduler", _FakeScheduler)
+
+    calc._resolve_restraint_context(prepared)
+
+    assert submitted == [f"restraint_resolution_run_{n:02d}" for n in (1, 2, 3)]
+    for replicate in (1, 2, 3):
+        assert calc._load_resolved_restraint_context(prepared, replicate) is not None
+    # resolved contexts are reused, so a second call submits nothing
+    submitted.clear()
+    calc._submit_rmsf_report = lambda prepared, replicate=1: {}
+    calc._resolve_restraint_context(prepared)
+    assert submitted == []
 
 
 def test_prepare_without_restraints_reuses_prep_and_does_not_wire(tmp_path):
@@ -828,14 +1136,15 @@ def test_prepare_without_restraints_reuses_prep_and_does_not_wire(tmp_path):
     _dump_prepared(tmp_path)
     calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
     written = {}
-    calc._submit_rmsf_report = lambda prepared: written.setdefault(
+    calc._submit_rmsf_report = lambda prepared, replicate=1: written.setdefault(
         "paths", {"receptor": "rmsf_receptor.dat", "target": "rmsf_target.dat"}
     )
 
     prepared = calc.prepare(resolve_restraints=False)
 
-    assert prepared.complex_prm7 == "c.prm7"  # loaded the existing prep (no re-run)
-    assert calc.spec_builder is None  # NOT wired — anchors not resolved
+    # loaded the existing prep (no re-run)
+    assert prepared.for_replicate(1).complex_prm7 == "c.prm7"
+    assert calc.spec_builders == {}  # NOT wired — anchors not resolved
     assert calc.groups == []
     assert written["paths"]  # RMSF report requested for inspection
 
@@ -848,18 +1157,18 @@ def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
     calc = Calculation.from_config(_config(), LocalBackend(), base_dir=tmp_path)
 
     def fake_wire(prepared):
-        calc.spec_builder = _spec_builder
+        calc.spec_builders = {1: _spec_builder}
         calc.command_factory = _trivial_command
-        calc.stage_centres = {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]}
+        calc.stage_centres = {
+            1: {"thetaA": [1.0], "thetaB": [1.0], "separation": [1.5]}
+        }
         calc.groups = calc._build_groups()
         calc.sub_runners = list(calc.groups)
 
     calc._wire = fake_wire
     result = calc.analyse(_fake_pmf, theta_a_min=1.0, theta_b_min=1.0)
 
-    assert (
-        calc.spec_builder is not None and len(calc.groups) > 0
-    )  # re-wired, tree rebuilt
+    assert calc.spec_builders and len(calc.groups) > 0  # re-wired, tree rebuilt
     assert set(result) == {
         "dg_bind",
         "dg_bind_sem",
@@ -867,6 +1176,8 @@ def test_analyse_auto_wires_from_prepared_in_fresh_process(tmp_path):
         "dg_boresch",
         "dg_sep",
         "dg_corr",
+        "r_star_nm",
+        "dg_per_replicate",
         "stage_sems",
         "rmsd_included",
     }
@@ -900,7 +1211,7 @@ def test_analyse_r_star_falls_back_to_config(tmp_path):
         LocalBackend(),
         _spec_builder,
         command_factory=_trivial_command,
-        stage_centres={"thetaA": [1.0], "separation": [1.5]},
+        stage_centres={1: {"thetaA": [1.0], "separation": [1.5]}},
     )
     calc.stage_centres = {}  # groups already built at construction; centres now gone
     result = calc.analyse(_fake_pmf, theta_a_min=1.0, theta_b_min=1.0)
@@ -943,7 +1254,7 @@ def test_boresch_only_mode_skips_rmsd_smd_and_separation(tmp_path):
     state = calc.run(
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
     )
-    assert state.boresch_eq_values["thetaA"] == pytest.approx(1.0)
+    assert state.boresch_eq_values[1]["thetaA"] == pytest.approx(1.0)
     assert state.stage_status.get("steered_md") is None
     assert not (tmp_path / "smd").exists()
 
@@ -976,7 +1287,7 @@ def test_upgrade_separation_only_to_full_rmsd(tmp_path):
         scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
     )
     for window in calc._iter_windows():
-        assert window.is_replicate_complete(1)  # RMSD windows completed on the upgrade
+        assert window.is_complete()  # RMSD windows completed on the upgrade
     result = calc.analyse(_fake_pmf, r_star_nm=1.5, theta_a_min=1.0, theta_b_min=1.0)
     assert result["rmsd_included"] is True
 
@@ -1009,7 +1320,7 @@ def test_rmsd_stage_names_bound_and_bulk_per_cv(tmp_path):
         LocalBackend(),
         _spec_builder,
         command_factory=_trivial_command,
-        stage_centres={"thetaA": [1.0], "separation": [1.5]},
+        stage_centres={1: {"thetaA": [1.0], "separation": [1.5]}},
     )
     names = calc._rmsd_stage_names()
     assert names == [
@@ -1028,14 +1339,16 @@ def test_stage_add_windows_dedup_and_sort(tmp_path):
         cv_type="rmsd",
         name="s",
         dof=None,
-        centres=[0.2, 0.0],
-        ensemble_size=1,
-        spec_builder=_spec_builder,
+        centres={1: [0.2, 0.0], 2: [0.2, 0.0]},
+        spec_builders={1: _spec_builder, 2: _spec_builder},
         command_factory=_trivial_command,
     )
     added = stage.add_windows([0.1, 0.2])  # 0.2 is a duplicate, 0.1 is new
-    assert len(added) == 1
-    assert [w.centre for w in stage.windows] == [0.0, 0.1, 0.2]  # kept sorted
+    assert len(added) == 2  # the new centre, in each replicate
+    for replicate in (1, 2):
+        windows = stage.windows_for(replicate)
+        assert [w.centre for w in windows] == [0.0, 0.1, 0.2]  # kept sorted
+        assert all(w.base_dir.parent.name == f"run_{replicate:02d}" for w in windows)
 
 
 def _wired_calc(tmp_path, **stage_centres):
@@ -1045,19 +1358,19 @@ def _wired_calc(tmp_path, **stage_centres):
         LocalBackend(),
         _spec_builder,
         command_factory=_trivial_command,
-        stage_centres={"thetaA": [1.0], "separation": [1.5], **stage_centres},
+        stage_centres={1: {"thetaA": [1.0], "separation": [1.5], **stage_centres}},
     )
 
 
 def test_add_windows_extends_rmsd_stage(tmp_path):
     calc = _wired_calc(tmp_path)
     stage = calc._group("rmsd").stages[0]
-    before = len(stage.windows)
+    before = len(stage.windows_for(1))
     calc.add_windows(
-        "rmsd", stage.name, [stage.windows[0].centre, 99.0]
+        "rmsd", stage.name, [stage.windows_for(1)[0].centre, 99.0]
     )  # one dup, one new
-    assert len(stage.windows) == before + 1
-    assert any(w.centre == 99.0 for w in stage.windows)
+    assert len(stage.windows_for(1)) == before + 1
+    assert any(w.centre == 99.0 for w in stage.windows_for(1))
 
 
 def test_add_windows_separation_requires_snapshot(tmp_path):
@@ -1068,18 +1381,18 @@ def test_add_windows_separation_requires_snapshot(tmp_path):
 
 def test_add_windows_separation_with_snapshot(tmp_path):
     calc = _wired_calc(tmp_path)
-    frames = tmp_path / "smd_frames"
+    frames = tmp_path / "smd_frames" / "run_01"
     frames.mkdir(parents=True)
     (frames / "2nm.rst7").write_text("frame")  # {2.0:.4g}nm.rst7
     stage = calc.add_windows("separation", "separation", [2.0])
-    assert any(w.centre == 2.0 for w in stage.windows)
+    assert any(w.centre == 2.0 for w in stage.all_windows())
 
 
 # ---- Boresch distribution warnings -------------------------------------------
 
 
 def _write_boresch_metadata(base_dir, diagnostics):
-    path = base_dir / "prep" / "boresch_distributions" / "metadata.json"
+    path = base_dir / "prep" / "run_01" / "boresch_distributions" / "metadata.json"
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps({"frame_count": 10, "diagnostics": diagnostics}))
 

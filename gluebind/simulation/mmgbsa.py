@@ -15,10 +15,13 @@ environment.
 from __future__ import annotations
 
 import json
+import math
 import os
 import pathlib
 import shutil
+import statistics
 import subprocess
+from collections.abc import Mapping
 
 import pydantic
 
@@ -26,6 +29,61 @@ from gluebind.analysis.mmgbsa import MmgbsaSettings
 
 MMGBSA_SPEC_FILENAME = "mmgbsa.json"
 MMGBSA_RESULT_FILENAME = "result.json"
+
+
+def aggregate_replicates(results: Mapping[int, dict]) -> dict:
+    """Combine one MM/GBSA result per production trajectory into one estimate.
+
+    The uncertainty reported depends on what is available, and ``sem_source``
+    always says which was used:
+
+    * **one** trajectory — the worker's own result, whose ``dg_mmgbsa_sem`` is a
+      block average over frames of a single correlated trajectory;
+    * **several** — each replicate contributes one dG and the SEM is taken over
+      those independent repeats, the same convention ``analyse()`` uses for
+      ``dg_bind_sem``. This is the better estimate: block averaging can only see
+      within-trajectory noise, not the spread between independent equilibrations.
+    """
+    if not results:
+        raise ValueError("no MM/GBSA replicate results to aggregate")
+    order = sorted(results)
+    ordered = [results[k] for k in order]
+    shared = ordered[0]
+    per_replicate = {
+        k: {
+            "dg_mmgbsa": results[k]["dg_mmgbsa"],
+            "dg_mmgbsa_sem": results[k]["dg_mmgbsa_sem"],
+            "n_frames": results[k]["n_frames"],
+        }
+        for k in order
+    }
+    if len(ordered) == 1:
+        return {**shared, "n_replicates": 1, "sem_source": "blocks",
+                "per_replicate": per_replicate}
+
+    def mean_and_sem(values: list[float]) -> tuple[float, float]:
+        return statistics.fmean(values), statistics.stdev(values) / math.sqrt(
+            len(values)
+        )
+
+    dg, dg_sem = mean_and_sem([r["dg_mmgbsa"] for r in ordered])
+    terms = {}
+    for name in shared["terms"]:
+        term_mean, term_sem = mean_and_sem([r["terms"][name]["mean"] for r in ordered])
+        terms[name] = {"mean": term_mean, "sem": term_sem}
+    return {
+        "dg_mmgbsa": dg,
+        "dg_mmgbsa_sem": dg_sem,
+        "sem_source": "replicates",
+        "n_replicates": len(ordered),
+        "per_replicate": per_replicate,
+        "terms": terms,
+        "n_frames": sum(r["n_frames"] for r in ordered),
+        "receptor_mask": shared["receptor_mask"],
+        "target_mask": shared["target_mask"],
+        "saltcon_M": shared["saltcon_M"],
+        "settings": shared["settings"],
+    }
 EXECUTABLES = ("ante-MMPBSA.py", "cpptraj", "MMPBSA.py")
 CONTACT_CUTOFF_A = 5.0
 """A scored frame must have a receptor-target heavy-atom pair within this distance."""
