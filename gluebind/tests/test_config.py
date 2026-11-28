@@ -366,6 +366,20 @@ def test_config_hash_ignores_sampling_scope_flags_but_catches_real_changes():
     assert base.config_hash != h_off
 
 
+def test_config_hash_ignores_the_trajectory_output_settings():
+    # They change what a run writes, never what it samples. Hashing them would
+    # mean that turning trajectories off to save a filling disk abandons the run.
+    base = CalculationConfig.model_validate({"inputs": MIN_INPUTS})
+    before = base.config_hash
+    base.sampling.save_trajectories = not base.sampling.save_trajectories
+    base.sampling.trajectory_interval_steps *= 2
+    base.sampling.production_trajectory_interval_steps *= 2
+    assert base.config_hash == before
+    # the CV sampling interval is not an output setting, and still counts
+    base.sampling.sample_interval_steps *= 2
+    assert base.config_hash != before
+
+
 def test_ensemble_from_defaults_to_windows_and_derives_the_stage_flags():
     from gluebind.config import SamplingConfig
 

@@ -205,16 +205,34 @@ class CalculationConfig(pydantic.BaseModel):
         edited in place is detected. A missing input file contributes no digest, so
         a run whose inputs cannot be read no longer matches.
 
-        The scope flags ``sampling.run_rmsd_us`` and ``sampling.run_separation_us``
-        are deliberately excluded: they only control which stages are built, not
-        the physics of any window. Excluding them lets a run be *upgraded* (e.g. a
-        separation-PMF-only run to the full cycle) by flipping a flag and
-        re-running, which resumes and adds the missing stages rather than aborting
-        as config drift.
+        Two groups of settings are deliberately excluded, both because they
+        change what a run *writes*, never what it samples:
+
+        * the scope flags ``sampling.run_rmsd_us`` and
+          ``sampling.run_separation_us``, which only control which stages are
+          built. Excluding them lets a run be *upgraded* (e.g. a
+          separation-PMF-only run to the full cycle) by flipping a flag and
+          re-running, which resumes and adds the missing stages rather than
+          aborting as config drift;
+        * the trajectory-output settings ``sampling.save_trajectories``,
+          ``sampling.trajectory_interval_steps`` and
+          ``sampling.production_trajectory_interval_steps``. Hashing these would
+          mean that noticing a disk is filling up, and turning trajectories off,
+          abandons the run — which is precisely when the setting is wanted.
+
+        Everything a window actually samples stays in the hash.
         """
         data = self.model_dump(
             mode="json",
-            exclude={"sampling": {"run_rmsd_us", "run_separation_us"}},
+            exclude={
+                "sampling": {
+                    "run_rmsd_us",
+                    "run_separation_us",
+                    "save_trajectories",
+                    "trajectory_interval_steps",
+                    "production_trajectory_interval_steps",
+                }
+            },
         )
         for entry in data["inputs"].values():  # target, receptor, glue, waters
             for key in ("prm7", "rst7", "sdf", "mol2"):
