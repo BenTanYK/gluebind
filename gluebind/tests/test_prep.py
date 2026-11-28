@@ -27,6 +27,7 @@ from gluebind.simulation.prep_stage import (
     prep_stage_launch_command,
 )
 from gluebind.system import compute_layout
+from gluebind.system import prep as prep_module
 from gluebind.system.prep import (
     PreparedReplicate,
     PreparedSystem,
@@ -454,6 +455,143 @@ def test_bulk_build_resume_reuses_manifest_without_backend_submission(
 
     assert result == ("final.prm7", "final.rst7")
     assert calls == [(str(prm7), str(rst7), "target_bulk_")]
+
+
+# ---- prepare(): what is shared and what fans out ---------------------------
+
+
+class _NoSubmitBackend(Backend):
+    """Every job prepare() would submit is mocked out, so submitting is a bug."""
+
+    def submit(self, spec):
+        raise AssertionError(f"unexpected job submission: {spec.name}")
+
+    def poll(self, handles):
+        return {}
+
+    def cancel(self, handle):
+        pass
+
+
+def _prepare_with_mocked_jobs(tmp_path, monkeypatch, config):
+    """Run ``prepare()`` with every MD job replaced, recording where each ran.
+
+    The system build is pre-written so it is reused rather than submitted; the
+    shared equilibration stages, the production stage and the bulk builds are
+    stubbed. What is left under test is the loop itself: which of them run once
+    and which run per replicate, and the directories and handle labels they get.
+    """
+    import gluebind.system.prep as prep
+    from gluebind.simulation.system_build import SYSTEM_BUILD_RESULT_FILENAME
+    from gluebind.system.prep import SolvatedSystem
+
+    work_dir = tmp_path / "prep"
+    SolvatedSystem(
+        solvated_prm7="solvated.prm7",
+        solvated_rst7="solvated.rst7",
+        glue_assign_to="receptor",
+        target_molecules=[0],
+        receptor_molecules=[1],
+        glue_molecule=2,
+    ).dump(work_dir / "build" / SYSTEM_BUILD_RESULT_FILENAME)
+
+    calls: dict[str, list] = {"shared": [], "production": [], "bulk": []}
+
+    def fake_equil(prm, rst, plan, work, backend, **kwargs):
+        calls["shared"].append((pathlib.Path(work), [s["stage"] for s in plan]))
+        return "npt.prm7", "npt.rst7", None
+
+    def fake_production(config, prm, rst, stage, out_dir, backend, **kwargs):
+        out_dir = pathlib.Path(out_dir)
+        calls["production"].append((out_dir, kwargs["handle_label"]))
+        return (
+            str(out_dir / "output.prm7"),
+            str(out_dir / "output.rst7"),
+            str(out_dir / "output.dcd"),
+        )
+
+    def fake_bulk(*, component, out_dir, label_prefix, **kwargs):
+        out_dir = pathlib.Path(out_dir)
+        calls["bulk"].append((component, out_dir, label_prefix))
+        return str(out_dir / "solvated.prm7"), str(out_dir / "solvated.rst7")
+
+    monkeypatch.setattr(prep, "run_equilibration_stages", fake_equil)
+    monkeypatch.setattr(prep, "_run_production_stage", fake_production)
+    monkeypatch.setattr(prep, "_build_and_equilibrate_bulk", fake_bulk)
+
+    prepared = prep.prepare(
+        config, work_dir, _NoSubmitBackend(), platform="CUDA", poll_interval=0.0
+    )
+    return prepared, calls, work_dir
+
+
+def _prep_config(**sampling):
+    from gluebind.config.calculation import CalculationConfig
+
+    cfg = CalculationConfig.model_validate(
+        {
+            "inputs": {
+                "target": {"prm7": "t.prm7", "rst7": "t.rst7"},
+                "receptor": {"prm7": "r.prm7", "rst7": "r.rst7"},
+                "glue": {"sdf": "g.sdf", "assign_to": "receptor"},
+            }
+        }
+    )
+    for field, value in sampling.items():
+        setattr(cfg.sampling, field, value)
+    return cfg
+
+
+def test_prepare_fans_out_production_and_bulk_per_replicate(tmp_path, monkeypatch):
+    # ensemble_from="equilibration": minimisation, heating and NPT stay shared —
+    # the replicates diverge at production, each with its own bulk pair.
+    config = _prep_config(ensemble_size=2, ensemble_from="equilibration")
+    prepared, calls, work_dir = _prepare_with_mocked_jobs(tmp_path, monkeypatch, config)
+
+    # the three BioSimSpace stages ran once, from the single built system
+    assert calls["shared"] == [
+        (work_dir / "equilibration", ["minimisation", "nvt_heat", "npt"])
+    ]
+    # production ran once per replicate, from that shared NPT state
+    assert calls["production"] == [
+        (
+            work_dir / "run_01" / prep_module.COMPLEX_PRODUCTION_DIR,
+            "run_01_complex_production",
+        ),
+        (
+            work_dir / "run_02" / prep_module.COMPLEX_PRODUCTION_DIR,
+            "run_02_complex_production",
+        ),
+    ]
+    # as did both bulk extractions, from that replicate's own complex
+    assert calls["bulk"] == [
+        ("target", work_dir / "run_01" / "target_bulk", "run_01_"),
+        ("receptor", work_dir / "run_01" / "receptor_bulk", "run_01_"),
+        ("target", work_dir / "run_02" / "target_bulk", "run_02_"),
+        ("receptor", work_dir / "run_02" / "receptor_bulk", "run_02_"),
+    ]
+
+    # the manifest lists both, each pointing into its own directory
+    assert sorted(prepared.replicates) == [1, 2]
+    second = prepared.for_replicate(2)
+    assert "run_02" in second.complex_rst7 and "run_02" in second.target_bulk_prm7
+    assert second.glue_assign_to == "receptor"  # shared layout carried through
+    assert PreparedSystem.load(work_dir) == prepared
+
+
+def test_prepare_shares_one_equilibration_outside_ensemble_mode(tmp_path, monkeypatch):
+    # The default mode fans out only the windows, so prep stays single whatever
+    # ensemble_size says — one directory layout serves both modes.
+    config = _prep_config(ensemble_size=3)
+    prepared, calls, work_dir = _prepare_with_mocked_jobs(tmp_path, monkeypatch, config)
+
+    assert len(calls["production"]) == 1
+    assert calls["production"][0][1] == "run_01_complex_production"
+    assert [component for component, _dir, _label in calls["bulk"]] == [
+        "target",
+        "receptor",
+    ]
+    assert sorted(prepared.replicates) == [1]
 
 
 # ---- equilibration staging (per-stage jobs) --------------------------------

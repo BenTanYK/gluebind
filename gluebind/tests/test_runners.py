@@ -448,6 +448,40 @@ def test_run_is_idempotent(tmp_path):
     assert pending == []
 
 
+def test_resume_submits_only_the_incomplete_replicate_windows(tmp_path):
+    # Resume is per (replicate, window): deleting one replicate's result must
+    # resubmit that window alone, not its centre in every replicate.
+    centres = {r: {"thetaA": [1.0], "separation": [1.5]} for r in (1, 2)}
+    _ensemble_calc(tmp_path, centres).run(
+        scheduler=Scheduler(LocalBackend(), poll_interval=0.01),
+        pmf_provider=_fake_pmf,
+    )
+
+    calc = _ensemble_calc(tmp_path, centres)
+    stage = next(s for _g, s in calc._iter_stages() if s.name == "receptor_bound")
+    reset = stage.windows_for(2)[0]
+    (reset.base_dir / "result.json").unlink()
+
+    submitted = []
+    calc.command_factory = _trivial_command
+    original = calc._run_stage
+
+    def record(stage, eq_values, state, scheduler):
+        submitted.extend(
+            (w.stage_name, w.replicate, w.label)
+            for w in stage.all_windows()
+            if not w.is_complete()
+        )
+        original(stage, eq_values, state, scheduler)
+
+    calc._run_stage = record
+    calc.run(
+        scheduler=Scheduler(calc.backend, poll_interval=0.01), pmf_provider=_fake_pmf
+    )
+
+    assert submitted == [("receptor_bound", 2, reset.label)]
+
+
 def test_resume_config_hash_mismatch_aborts(tmp_path):
     _calc(tmp_path).run(
         scheduler=Scheduler(LocalBackend(), poll_interval=0.01), pmf_provider=_fake_pmf
