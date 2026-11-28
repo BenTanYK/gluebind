@@ -17,6 +17,13 @@ import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.slurm]
 
+# analyse() defaults r* to just inside the outermost separation window, which this
+# schedule cannot support: at 0.01 ns a window writes ~20 CV samples, so the
+# outermost one never reaches that far and WHAM leaves those bins unsampled.
+# Integrating to a separation the windows actually visited keeps the machinery
+# check deterministic without paying for converged sampling.
+R_STAR_NM = 2.8
+
 
 def _e2e_config(fap_inputs):
     from gluebind.config.calculation import CalculationConfig
@@ -78,7 +85,7 @@ def test_full_pipeline_and_resume(bss, wham_binary, fap_inputs, slurm_config):
     # feedback. All computational work is submitted through Slurm.
     calc = _calc(cfg, run_dir, slurm_config)
     calc.run()
-    result = calc.analyse()
+    result = calc.analyse(r_star_nm=R_STAR_NM)
     assert result["rmsd_included"] is True
     assert "dg_bind" in result
 
@@ -88,6 +95,6 @@ def test_full_pipeline_and_resume(bss, wham_binary, fap_inputs, slurm_config):
     assert scripts_before_resume
     resumed = _calc(cfg, run_dir, slurm_config)
     resumed.run()
-    result2 = resumed.analyse()
+    result2 = resumed.analyse(r_star_nm=R_STAR_NM)
     assert result2["rmsd_included"] is True
     assert sorted(run_dir.rglob("*.sh")) == scripts_before_resume
