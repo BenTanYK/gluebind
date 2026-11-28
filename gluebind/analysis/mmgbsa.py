@@ -1,7 +1,8 @@
 """MM/GBSA end-point estimate from the production equilibration trajectory.
 
 An optional analysis, separate from the umbrella-sampling free energy: it scores
-frames of ``prep/equilibration/04_production`` with AmberTools' ``MMPBSA.py``. This
+frames of ``prep/run_NN/equilibration/04_production`` with AmberTools'
+``MMPBSA.py``, one scoring job per replicate that has a trajectory. This
 module holds the pure parts — settings, the frame window, the receptor/target
 partition and the input files, plus parsing and summarising the per-frame
 energies — so they are testable without AmberTools; the job that runs the

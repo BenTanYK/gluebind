@@ -296,8 +296,10 @@ class Calculation(SimulationRunner):
         distributions, and wires the calculation tree.
 
         With ``resolve_restraints=False`` it stops after equilibration and only
-        writes the per-protein CA RMSF reports (``prep/rmsf_receptor.dat`` and
-        ``prep/rmsf_target.dat``). This is the manual-anchor workflow: inspect the
+        writes the per-protein CA RMSF reports (``prep/run_NN/rmsf_receptor.dat``
+        and ``rmsf_target.dat``, one pair per equilibration replicate, since
+        hand-picked anchors have to be stable in all of them). This is the
+        manual-anchor workflow: inspect the
         reports, set the anchors in the configuration, then call :meth:`run`. No
         anchors are selected or persisted, so configuring them afterwards is safe.
 
@@ -1595,7 +1597,8 @@ class Calculation(SimulationRunner):
         """MM/GBSA estimate from the production equilibration trajectory.
 
         An optional end-point analysis, separate from :meth:`run` and
-        :meth:`analyse`: frames of ``prep/equilibration/04_production`` are scored
+        :meth:`analyse`: frames of every ``prep/run_NN/equilibration/04_production``
+        trajectory the run has are scored
         with AmberTools' ``MMPBSA.py`` in a backend job. Only preparation needs to be
         complete. The production files are read from this run directory, so a run
         prepared on one machine can be analysed on another from a copy of it.
