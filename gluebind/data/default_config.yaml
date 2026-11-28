@@ -40,7 +40,15 @@ sampling:
   state_data_interval_steps: 10000  # integration steps between state reports
   trajectory_interval_steps: 2500  # integration steps between DCD frames
   save_trajectories: false       # write per-window DCD trajectories
-  ensemble_size: 3              # independent replicas per window
+  ensemble_size: 3              # independent replicates
+  # Where the replicate axis begins: everything from this stage onward runs once
+  # per replicate, everything before it is shared.
+  #   windows       — one equilibration, one set of anchors, one steered-MD pull;
+  #                   the replicates differ only by their window seeds
+  #   smd           — each replicate gets its own pull and its own frames
+  #   equilibration — each replicate also equilibrates independently, with its own
+  #                   bulk pair, anchors and window centres (implies smd)
+  ensemble_from: windows
   run_rmsd_us: true
   run_separation_us: true       # false + run_rmsd_us=false: equilibration + Boresch US only
   boresch:
