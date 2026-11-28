@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import warnings
 from collections.abc import Callable, Sequence
 
 import pydantic
@@ -422,6 +423,44 @@ def _resolve_always_on_for_production(
     ]
 
 
+PRODUCTION_FRAME_WARNING_MIN = 100
+"""Warn below this many production-trajectory frames.
+
+Anchor selection, the RMSF reports, the Boresch DoF distributions and the
+``window_min: auto`` equilibrium separation are all resolved from that one
+trajectory; the Boresch peak finding in particular runs a kernel density
+estimate, which is noise on a few dozen frames. A warning rather than an error,
+because a deliberately short run (the integration fixture) is legitimate."""
+
+
+def production_frame_count(
+    runtime_ns: float, timestep_fs: float, interval_steps: int
+) -> int:
+    """Frames the production trajectory will hold at this write interval."""
+    steps = int(round(runtime_ns / (timestep_fs * 1e-6)))
+    return steps // interval_steps
+
+
+def _warn_if_sparse_production_trajectory(
+    config: CalculationConfig, runtime_ns: float
+) -> None:
+    interval = config.sampling.production_trajectory_interval_steps
+    frames = production_frame_count(runtime_ns, config.sampling.timestep_fs, interval)
+    if frames >= PRODUCTION_FRAME_WARNING_MIN:
+        return
+    ps_per_frame = interval * config.sampling.timestep_fs / 1000.0
+    warnings.warn(
+        f"the production equilibration trajectory will hold only {frames} "
+        f"frame(s): {runtime_ns:g} ns at one frame per {ps_per_frame:g} ps. "
+        "Restraint resolution reads this trajectory for the Boresch anchors, "
+        "the RMSF reports, the DoF distributions and the equilibrium "
+        "separation, which are unreliable on so few frames. Lower "
+        "sampling.production_trajectory_interval_steps or raise "
+        "prep.equilibration_ns.",
+        stacklevel=2,
+    )
+
+
 def _run_production_stage(
     config: CalculationConfig,
     input_prm7,
@@ -455,6 +494,7 @@ def _run_production_stage(
 
     if not (pathlib.Path(out_prm7).exists() and pathlib.Path(out_rst7).exists()):
         out_dir.mkdir(parents=True, exist_ok=True)
+        _warn_if_sparse_production_trajectory(config, stage["runtime_ns"])
         spec = ProductionSpec(
             topology=input_prm7,
             coordinates=input_rst7,
@@ -463,6 +503,9 @@ def _run_production_stage(
             timestep_fs=config.sampling.timestep_fs,
             hmr_factor=config.sampling.hmr_factor,
             pme_cutoff_nm=config.sampling.pme_cutoff_nm,
+            sample_interval_steps=(
+                config.sampling.production_trajectory_interval_steps
+            ),
             state_data_interval_steps=config.sampling.state_data_interval_steps,
             temperature_K=stage["temperature_end_K"],
             platform=platform,

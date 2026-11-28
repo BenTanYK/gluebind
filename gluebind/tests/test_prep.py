@@ -457,6 +457,83 @@ def test_bulk_build_resume_reuses_manifest_without_backend_submission(
     assert calls == [(str(prm7), str(rst7), "target_bulk_")]
 
 
+# ---- the production trajectory --------------------------------------------
+
+
+def test_production_frame_count_divides_the_run_by_the_write_interval():
+    from gluebind.system.prep import production_frame_count
+
+    # 5 ns at 4 fs is 1,250,000 steps; one frame per 25,000 steps is 100 ps
+    assert production_frame_count(5.0, 4.0, 25000) == 50
+    assert production_frame_count(5.0, 4.0, 2500) == 500
+    assert production_frame_count(0.1, 4.0, 25000) == 1  # the integration fixture
+
+
+class _RunsProductionBackend(Backend):
+    """Stands in for the production worker: writes the outputs it would leave."""
+
+    def __init__(self):
+        self.submitted = []
+
+    def submit(self, spec):
+        self.submitted.append(spec)
+        out = pathlib.Path(spec.work_dir) / "output"
+        out.with_suffix(".prm7").touch()
+        out.with_suffix(".rst7").touch()
+        return "job-1"
+
+    def poll(self, handles):
+        return dict.fromkeys(handles, JobState.FINISHED)
+
+    def cancel(self, handle):
+        pass
+
+
+def _run_production(tmp_path, config, monkeypatch, runtime_ns=5.0):
+    import gluebind.system.prep as prep
+
+    # resolving always-on restraints would read the real topologies (MDAnalysis)
+    monkeypatch.setattr(prep, "_resolve_always_on_for_production", lambda *a: [])
+    backend = _RunsProductionBackend()
+    out_dir = tmp_path / "production"
+    prep._run_production_stage(
+        config,
+        "in.prm7",
+        "in.rst7",
+        {"runtime_ns": runtime_ns, "temperature_end_K": 300.0},
+        out_dir,
+        backend,
+        platform="CUDA",
+        poll_interval=0.0,
+    )
+    return json.loads((out_dir / "production.json").read_text())
+
+
+def test_production_trajectory_interval_is_configurable(tmp_path, monkeypatch):
+    # The production trajectory is always written; this controls how finely.
+    config = _prep_config(production_trajectory_interval_steps=12500)
+    spec = _run_production(tmp_path, config, monkeypatch)
+    assert spec["sample_interval_steps"] == 12500
+
+
+def test_production_trajectory_warns_when_too_few_frames(tmp_path, monkeypatch):
+    # Restraint resolution reads this trajectory for the anchors, the RMSF
+    # reports and the Boresch distributions, so a coarse interval is a science
+    # problem, not just a smaller file.
+    config = _prep_config(production_trajectory_interval_steps=25000)
+    with pytest.warns(UserWarning, match="only 20 frame"):
+        _run_production(tmp_path / "sparse", config, monkeypatch, runtime_ns=2.0)
+
+
+def test_production_trajectory_is_quiet_with_enough_frames(
+    tmp_path, monkeypatch, recwarn
+):
+    config = _prep_config(production_trajectory_interval_steps=25000)
+    # 10 ns at one frame per 100 ps is exactly the 100-frame threshold
+    _run_production(tmp_path / "dense", config, monkeypatch, runtime_ns=10.0)
+    assert not [w for w in recwarn if "production equilibration" in str(w.message)]
+
+
 # ---- prepare(): what is shared and what fans out ---------------------------
 
 

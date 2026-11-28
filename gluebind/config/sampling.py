@@ -217,6 +217,11 @@ class SamplingConfig(pydantic.BaseModel):
     """Integration steps between DCD trajectory frames."""
     save_trajectories: bool = False
     """Write a DCD trajectory for each US window."""
+    production_trajectory_interval_steps: int = 25000
+    """Integration steps between frames of the production equilibration
+    trajectory, which is always written (25000 steps is 100 ps at the default
+    4 fs timestep).
+    """
     ensemble_size: int = 3
     """Number of independent replicate simulations per window."""
     ensemble_from: Literal["windows", "smd", "equilibration"] = "windows"
@@ -289,6 +294,7 @@ class SamplingConfig(pydantic.BaseModel):
         "sample_interval_steps",
         "state_data_interval_steps",
         "trajectory_interval_steps",
+        "production_trajectory_interval_steps",
         "ensemble_size",
     )
     @classmethod

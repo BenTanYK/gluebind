@@ -40,6 +40,11 @@ sampling:
   state_data_interval_steps: 10000  # integration steps between state reports
   trajectory_interval_steps: 2500  # integration steps between DCD frames
   save_trajectories: false       # write per-window DCD trajectories
+  # The production equilibration trajectory is always written; this is how
+  # finely. 25000 steps is 100 ps at a 4 fs timestep. Raise it to save disk, but
+  # not far: the Boresch anchors, the RMSF reports, the DoF distributions and
+  # the "auto" separation window_min are all resolved from this trajectory.
+  production_trajectory_interval_steps: 25000
   ensemble_size: 3              # independent replicates
   # Where the replicate axis begins: everything from this stage onward runs once
   # per replicate, everything before it is shared.
