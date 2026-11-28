@@ -503,7 +503,7 @@ def _run_production_stage(
             timestep_fs=config.sampling.timestep_fs,
             hmr_factor=config.sampling.hmr_factor,
             pme_cutoff_nm=config.sampling.pme_cutoff_nm,
-            sample_interval_steps=(
+            trajectory_interval_steps=(
                 config.sampling.production_trajectory_interval_steps
             ),
             state_data_interval_steps=config.sampling.state_data_interval_steps,

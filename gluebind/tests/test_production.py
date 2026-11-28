@@ -33,7 +33,7 @@ def test_production_spec_roundtrip(tmp_path):
 def test_production_spec_defaults():
     spec = ProductionSpec(topology="t.prm7", coordinates="t.rst7", runtime_ns=10.0)
     assert spec.restraints == []  # no constant restraints by default
-    assert spec.sample_interval_steps == 2500  # coarse trajectory interval
+    assert spec.trajectory_interval_steps == 2500  # coarse trajectory interval
     assert spec.state_data_interval_steps == 10000
 
 

@@ -1725,7 +1725,7 @@ class Calculation(SimulationRunner):
             MmgbsaSpec(
                 topology=str(topology),
                 trajectory=str(trajectory),
-                ps_per_frame=production.sample_interval_steps
+                ps_per_frame=production.trajectory_interval_steps
                 * production.timestep_fs
                 / 1000.0,
                 receptor_molecules=layout.receptor_molecules,

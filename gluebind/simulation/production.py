@@ -43,7 +43,7 @@ class ProductionSpec(pydantic.BaseModel):
     hmr_factor: float = 1.5
     pme_cutoff_nm: float = 1.0
     temperature_K: float = 300.0
-    sample_interval_steps: int = 2500
+    trajectory_interval_steps: int = 2500
     """Trajectory (DCD) write interval, in MD steps."""
     state_data_interval_steps: int = 10000
     """Live progress-report interval, in MD steps."""
@@ -124,7 +124,7 @@ def run_production(work_dir: str | pathlib.Path) -> None:
     # Write continuous (unwrapped) coordinates to avoid splitting the complex
     simulation.reporters.append(
         app.DCDReporter(
-            f"{prefix}.dcd", spec.sample_interval_steps, enforcePeriodicBox=False
+            f"{prefix}.dcd", spec.trajectory_interval_steps, enforcePeriodicBox=False
         )
     )
     simulation.reporters.append(

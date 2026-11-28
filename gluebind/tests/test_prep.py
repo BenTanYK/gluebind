@@ -513,7 +513,7 @@ def test_production_trajectory_interval_is_configurable(tmp_path, monkeypatch):
     # The production trajectory is always written; this controls how finely.
     config = _prep_config(production_trajectory_interval_steps=12500)
     spec = _run_production(tmp_path, config, monkeypatch)
-    assert spec["sample_interval_steps"] == 12500
+    assert spec["trajectory_interval_steps"] == 12500
 
 
 def test_production_trajectory_warns_when_too_few_frames(tmp_path, monkeypatch):

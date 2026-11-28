@@ -37,7 +37,7 @@ def _prepare(base_dir, *, glue=False, production_files=True):
         coordinates="output.rst7",
         runtime_ns=50.0,
         timestep_fs=4.0,
-        sample_interval_steps=2500,
+        trajectory_interval_steps=2500,
     ).dump(production / "production.json")
     if production_files:
         for name in ("output.prm7", "output.dcd"):
