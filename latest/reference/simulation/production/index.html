@@ -2486,10 +2486,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#gluebind.simulation.production.ProductionSpec.sample_interval_steps" class="md-nav__link">
+  <a href="#gluebind.simulation.production.ProductionSpec.trajectory_interval_steps" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;sample_interval_steps
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;trajectory_interval_steps
       
     </span>
   </a>
@@ -3062,10 +3062,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#gluebind.simulation.production.ProductionSpec.sample_interval_steps" class="md-nav__link">
+  <a href="#gluebind.simulation.production.ProductionSpec.trajectory_interval_steps" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;sample_interval_steps
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;trajectory_interval_steps
       
     </span>
   </a>
@@ -3261,13 +3261,13 @@ are imported lazily inside the run function.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;sample_interval_steps&lt;/span&gt;
+          <b><code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;trajectory_interval_steps&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-class-attribute&quot;&gt;&lt;code&gt;class-attribute&lt;/code&gt;&lt;/small&gt;
       &lt;small class=&quot;doc doc-label doc-label-instance-attribute&quot;&gt;&lt;code&gt;instance-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;gluebind.simulation.production.ProductionSpec.sample_interval_steps&lt;/code&gt;)" href="#gluebind.simulation.production.ProductionSpec.sample_interval_steps">sample_interval_steps</a></code></b>
+  &lt;/span&gt; (&lt;code&gt;gluebind.simulation.production.ProductionSpec.trajectory_interval_steps&lt;/code&gt;)" href="#gluebind.simulation.production.ProductionSpec.trajectory_interval_steps">trajectory_interval_steps</a></code></b>
               (<code><span title="int">int</span></code>)
           –
           <div class="doc-md-description">
@@ -3333,8 +3333,8 @@ are imported lazily inside the run function.</p>
 
 
 
-<h3 id="gluebind.simulation.production.ProductionSpec.sample_interval_steps" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">sample_interval_steps</span>
+<h3 id="gluebind.simulation.production.ProductionSpec.trajectory_interval_steps" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">trajectory_interval_steps</span>
 
 
   <span class="doc doc-labels">
@@ -3342,8 +3342,8 @@ are imported lazily inside the run function.</p>
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
   </span>
 
-<a href="#gluebind.simulation.production.ProductionSpec.sample_interval_steps" class="headerlink" title="Permanent link">#</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">sample_interval_steps</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">2500</span>
+<a href="#gluebind.simulation.production.ProductionSpec.trajectory_interval_steps" class="headerlink" title="Permanent link">#</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">trajectory_interval_steps</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">2500</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3598,7 +3598,7 @@ are imported lazily inside the run function.</p>
 </span><span id="gluebind.simulation.production.run_production--source--__span-0-124"><a id="gluebind.simulation.production.run_production--source--__codelineno-0-124" name="gluebind.simulation.production.run_production--source--__codelineno-0-124"></a>    <span class="c1"># Write continuous (unwrapped) coordinates to avoid splitting the complex</span>
 </span><span id="gluebind.simulation.production.run_production--source--__span-0-125"><a id="gluebind.simulation.production.run_production--source--__codelineno-0-125" name="gluebind.simulation.production.run_production--source--__codelineno-0-125"></a>    <span class="n">simulation</span><span class="o">.</span><span class="n">reporters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
 </span><span id="gluebind.simulation.production.run_production--source--__span-0-126"><a id="gluebind.simulation.production.run_production--source--__codelineno-0-126" name="gluebind.simulation.production.run_production--source--__codelineno-0-126"></a>        <span class="n">app</span><span class="o">.</span><span class="n">DCDReporter</span><span class="p">(</span>
-</span><span id="gluebind.simulation.production.run_production--source--__span-0-127"><a id="gluebind.simulation.production.run_production--source--__codelineno-0-127" name="gluebind.simulation.production.run_production--source--__codelineno-0-127"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.dcd"</span><span class="p">,</span> <span class="n">spec</span><span class="o">.</span><span class="n">sample_interval_steps</span><span class="p">,</span> <span class="n">enforcePeriodicBox</span><span class="o">=</span><span class="kc">False</span>
+</span><span id="gluebind.simulation.production.run_production--source--__span-0-127"><a id="gluebind.simulation.production.run_production--source--__codelineno-0-127" name="gluebind.simulation.production.run_production--source--__codelineno-0-127"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.dcd"</span><span class="p">,</span> <span class="n">spec</span><span class="o">.</span><span class="n">trajectory_interval_steps</span><span class="p">,</span> <span class="n">enforcePeriodicBox</span><span class="o">=</span><span class="kc">False</span>
 </span><span id="gluebind.simulation.production.run_production--source--__span-0-128"><a id="gluebind.simulation.production.run_production--source--__codelineno-0-128" name="gluebind.simulation.production.run_production--source--__codelineno-0-128"></a>        <span class="p">)</span>
 </span><span id="gluebind.simulation.production.run_production--source--__span-0-129"><a id="gluebind.simulation.production.run_production--source--__codelineno-0-129" name="gluebind.simulation.production.run_production--source--__codelineno-0-129"></a>    <span class="p">)</span>
 </span><span id="gluebind.simulation.production.run_production--source--__span-0-130"><a id="gluebind.simulation.production.run_production--source--__codelineno-0-130" name="gluebind.simulation.production.run_production--source--__codelineno-0-130"></a>    <span class="n">simulation</span><span class="o">.</span><span class="n">reporters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
